@@ -1,4 +1,4 @@
-package com.botoni.demo.ui.components.button
+package com.botoni.demo.ui.presenter.components.button
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.shape.RoundedCornerShape

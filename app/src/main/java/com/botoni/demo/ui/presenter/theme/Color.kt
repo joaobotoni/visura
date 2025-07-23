@@ -1,4 +1,4 @@
-package com.botoni.demo.ui.theme
+package com.botoni.demo.ui.presenter.theme
 
 import androidx.compose.ui.graphics.Color
 

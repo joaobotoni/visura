@@ -41,7 +41,6 @@ android {
 }
 
 dependencies {
-    val lifecycle_version = "2.9.2"
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
@@ -53,8 +52,6 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
-
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     // Default
     implementation(libs.androidx.core.ktx)

@@ -1,4 +1,4 @@
-package com.botoni.demo.ui.views.gateway
+package com.botoni.demo.ui.presenter.views.gateway
 
 import android.content.Context
 import android.widget.Toast
@@ -13,34 +13,28 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.botoni.demo.R
-import com.botoni.demo.ui.components.button.StandardButton
-import com.botoni.demo.ui.components.button.StandardOutlinedButton
-import com.botoni.demo.ui.components.button.StandardTextButton
-import com.botoni.demo.ui.components.textField.StandardTextField
-import com.botoni.demo.ui.theme.DemoTheme
-import com.botoni.demo.ui.viewmodels.AuthenticationViewModel
-
+import com.botoni.demo.ui.presenter.components.button.StandardButton
+import com.botoni.demo.ui.presenter.components.button.StandardOutlinedButton
+import com.botoni.demo.ui.presenter.components.button.StandardTextButton
+import com.botoni.demo.ui.presenter.components.textField.StandardTextField
+import com.botoni.demo.ui.presenter.theme.DemoTheme
 @Composable
-fun Login(modifier: Modifier = Modifier, context: Context) {
-    val authenticationViewModel = AuthenticationViewModel(context)
-
+fun Login(modifier: Modifier = Modifier) {
     DemoTheme {
         Surface(modifier = modifier.fillMaxSize()) {
-            LoginForm(viewModel = authenticationViewModel)
+            LoginForm()
         }
     }
 }
-
 @Composable
-fun LoginForm(modifier: Modifier = Modifier, viewModel: AuthenticationViewModel) {
+fun LoginForm(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val email by viewModel.email.collectAsState()
-    val password by viewModel.password.collectAsState()
-    val passwordVisibility by viewModel.passwordVisibility.collectAsState()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisibility by remember { mutableStateOf(false) }
 
     val icon = if (passwordVisibility)
         painterResource(id = R.drawable.visible)
@@ -60,7 +54,7 @@ fun LoginForm(modifier: Modifier = Modifier, viewModel: AuthenticationViewModel)
             value = email,
             placeholder = "Email",
             label = "Enter your email",
-            onValueChange = { viewModel.onEmailChange(it) },
+            onValueChange = { email = it },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             visualTransformation = VisualTransformation.None
         )
@@ -69,11 +63,11 @@ fun LoginForm(modifier: Modifier = Modifier, viewModel: AuthenticationViewModel)
             value = password,
             placeholder = "Password",
             label = "Enter your password",
-            onValueChange = { viewModel.onPasswordChange(it) },
+            onValueChange = { password = it },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             trailingIcon = {
                 IconButton(onClick = {
-                    viewModel.togglePasswordVisibility()
+                    passwordVisibility = !passwordVisibility
                 }) {
                     Icon(
                         painter = icon,
@@ -100,8 +94,9 @@ fun LoginForm(modifier: Modifier = Modifier, viewModel: AuthenticationViewModel)
         StandardButton(
             text = "Continue",
             onClick = {
-                viewModel.loginWithEmailPassword()
+                eventOnClick(context, "Continue login clicked")
             },
+
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
@@ -112,7 +107,7 @@ fun LoginForm(modifier: Modifier = Modifier, viewModel: AuthenticationViewModel)
         StandardOutlinedButton(
             text = "Login with Google",
             onClick = {
-                viewModel.loginWithGoogle()
+                eventOnClick(context, "Google login clicked")
             },
             icon = R.drawable.google_icon,
             modifier = Modifier
