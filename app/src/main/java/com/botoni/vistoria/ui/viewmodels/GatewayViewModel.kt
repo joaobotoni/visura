@@ -44,7 +44,7 @@ class GatewayViewModel @Inject constructor(
         val email = _uiState.value.email
         val password = _uiState.value.password
         viewModelScope.launch {
-            fireBaseClientRepository.signInWithEmailAndPassword(email, password)
+            fireBaseClientRepository.createUserWithEmailAndPassword(email, password)
         }
     }
 

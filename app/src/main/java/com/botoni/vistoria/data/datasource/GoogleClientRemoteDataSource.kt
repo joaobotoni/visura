@@ -10,6 +10,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import com.google.firebase.auth.GoogleAuthProvider
 import androidx.credentials.ClearCredentialStateRequest
+import com.botoni.vistoria.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
@@ -21,7 +22,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
 ) {
     private val credential: CredentialManager = CredentialManager.create(context)
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val webClient: String = "1050517506185-nl50bgt7rlbg5el9vujcqj8s8otl36qs.apps.googleusercontent.com"
+    private val webClient: String = context.getString(R.string.web_client)
     suspend fun signInWithGoogle(context: Context) {
         try {
             val response = buildCredentialRequest(context)
