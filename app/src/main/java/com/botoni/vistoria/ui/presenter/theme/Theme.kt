@@ -1,4 +1,4 @@
-package com.botoni.demo.ui.presenter.theme
+package com.botoni.vistoria.ui.presenter.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

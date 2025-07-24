@@ -1,4 +1,4 @@
-package com.botoni.demo
+package com.botoni.vistoria
 
 import org.junit.Test
 

@@ -1,16 +1,22 @@
+// app/build.gradle.kts
+
 plugins {
+
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+
+    id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
     id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.botoni.demo"
+    namespace = "com.botoni.vistoria"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.botoni.demo"
+        applicationId = "com.botoni.vistoria"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -41,19 +47,23 @@ android {
 }
 
 dependencies {
-    // Firebase
+
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
-
-    // Firebase Authentication
     implementation(libs.firebase.auth)
 
-    // Google Authentication
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
-    // Default
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    implementation(libs.androidx.navigation.compose)
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -62,6 +72,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
+    // Test dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -69,4 +81,12 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+
+    implementation(libs.androidx.animation)
+
+    implementation(libs.androidx.constraintlayout.compose)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.gson)
+    implementation(libs.kotlinx.coroutines.play.services)
 }

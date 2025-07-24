@@ -1,14 +1,12 @@
-package com.botoni.demo.ui.presenter.components.button
+package com.botoni.vistoria.ui.presenter.elements.button
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 
 @Composable
 fun StandardOutlinedButton(

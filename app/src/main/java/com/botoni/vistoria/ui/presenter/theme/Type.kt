@@ -1,4 +1,4 @@
-package com.botoni.demo.ui.presenter.theme
+package com.botoni.vistoria.ui.presenter.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

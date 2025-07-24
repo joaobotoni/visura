@@ -1,4 +1,4 @@
-package com.botoni.demo
+package com.botoni.vistoria
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

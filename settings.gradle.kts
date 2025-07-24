@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "demo"
+rootProject.name = "vistoria"
 include(":app")

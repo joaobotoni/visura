@@ -1,4 +1,4 @@
-package com.botoni.demo.ui.presenter.components.button
+package com.botoni.vistoria.ui.presenter.elements.button
 
 import androidx.annotation.DrawableRes
 import androidx.compose.material3.ButtonDefaults

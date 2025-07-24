@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1050517506185",
+    "project_id": "homologacao-404f0",
+    "storage_bucket": "homologacao-404f0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1050517506185:android:c7ec2ed53b9c9fd0749e58",
+        "android_client_info": {
+          "package_name": "com.botoni.demo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZYrVxa76RG7BCzbfo-XYzXMeW8g17uo8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1050517506185:android:6813c594f9ba9089749e58",
+        "android_client_info": {
+          "package_name": "com.botoni.vistoria"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZYrVxa76RG7BCzbfo-XYzXMeW8g17uo8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
