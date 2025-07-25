@@ -6,11 +6,15 @@ import com.botoni.vistoria.data.datasource.GoogleClientRemoteDataSource
 import javax.inject.Inject
 
 class GoogleClientRepository @Inject constructor(private val googleClientRemoteDataSource: GoogleClientRemoteDataSource) {
-    suspend fun signInWithGoogle(context: Context) {
+    suspend fun signInWithGoogle() {
         try {
-            googleClientRemoteDataSource.signInWithGoogle(context)
+            googleClientRemoteDataSource.signInWithGoogle()
         } catch (e: Exception) {
             Log.d("GoogleClientRepository", "Error in signIn with google $e")
         }
+    }
+
+    suspend fun signOut(){
+        googleClientRemoteDataSource.signOut();
     }
 }

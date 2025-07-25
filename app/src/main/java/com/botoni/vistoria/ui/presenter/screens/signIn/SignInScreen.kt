@@ -1,6 +1,5 @@
-package com.botoni.vistoria.ui.presenter.screens.gateway
+package com.botoni.vistoria.ui.presenter.screens.signIn
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,26 +34,26 @@ import com.botoni.vistoria.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.vistoria.ui.presenter.elements.button.StandardTextButton
 import com.botoni.vistoria.ui.presenter.elements.textField.StandardTextField
 import com.botoni.vistoria.ui.presenter.theme.DemoTheme
-import com.botoni.vistoria.ui.viewmodels.GatewayViewModel
+import com.botoni.vistoria.ui.viewmodels.SignInViewModel
 
 @Composable
-fun GatewayScreen(modifier: Modifier = Modifier) {
+fun SignInScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val gatewayViewModel: GatewayViewModel = hiltViewModel()
+    val signInViewModel: SignInViewModel = hiltViewModel()
 
-    val uiState by gatewayViewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by signInViewModel.uiState.collectAsStateWithLifecycle()
 
     DemoTheme {
         Surface(modifier = modifier.fillMaxSize()) {
             Form(
                 email = uiState.email,
-                onEmailChange = gatewayViewModel::updateEmail,
+                onEmailChange = signInViewModel::updateEmail,
                 password = uiState.password,
-                onPasswordChange = gatewayViewModel::updatePassword,
+                onPasswordChange = signInViewModel::updatePassword,
                 passwordVisibility = uiState.passwordVisibility,
-                onTogglePasswordVisibility = gatewayViewModel::togglePasswordVisibility,
-                onSignInWithEmailAndPassword = gatewayViewModel::signInWithEmailAndPassword,
-                onGoogleSignInClicked = { gatewayViewModel.signInWithGoogle(context) }
+                onTogglePasswordVisibility = signInViewModel::togglePasswordVisibility,
+                onSignInWithEmailAndPassword = signInViewModel::signIn,
+                onGoogleSignInClicked = { signInViewModel.signInWithGoogle(context) }
             )
         }
     }

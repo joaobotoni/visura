@@ -23,17 +23,16 @@ class GoogleClientRemoteDataSource @Inject constructor(
     private val credential: CredentialManager = CredentialManager.create(context)
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val webClient: String = context.getString(R.string.web_client)
-    suspend fun signInWithGoogle(context: Context) {
+    suspend fun signInWithGoogle() {
         try {
-            val response = buildCredentialRequest(context)
+            val response = buildCredentialRequest()
             handleSignIn(response.credential)
         } catch (e: Exception) {
             e.printStackTrace()
-            Log.d("GoogleSignIn", "Error in login white googl")
+            Log.d("GoogleSignIn", "Error in login with Google")
         }
     }
-
-    private suspend fun buildCredentialRequest(context: Context): GetCredentialResponse {
+    private suspend fun buildCredentialRequest(): GetCredentialResponse {
         val googleIdOption = GetGoogleIdOption.Builder()
             .setServerClientId(webClient)
             .setFilterByAuthorizedAccounts(false)

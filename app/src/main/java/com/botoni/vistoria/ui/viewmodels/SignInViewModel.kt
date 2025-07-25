@@ -3,8 +3,7 @@ package com.botoni.vistoria.ui.viewmodels
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.botoni.vistoria.data.repository.FireBaseClientRepository
-import com.botoni.vistoria.data.repository.GoogleClientRepository
+import com.botoni.vistoria.domain.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,20 +12,19 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class GatewayUiState(
+data class SignInUiState(
     val email: String = "",
     val password: String = "",
     val passwordVisibility: Boolean = false,
 )
 
 @HiltViewModel
-class GatewayViewModel @Inject constructor(
-   private val googleClientRepository: GoogleClientRepository,
-   private val fireBaseClientRepository: FireBaseClientRepository
+    class SignInViewModel @Inject constructor(
+   private val authenticationUseCase:  AuthenticationUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(GatewayUiState())
-    val uiState: StateFlow<GatewayUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(SignInUiState())
+    val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
 
     fun updateEmail(email: String) {
         _uiState.update { it.copy(email = email) }
@@ -40,17 +38,16 @@ class GatewayViewModel @Inject constructor(
         _uiState.update { it.copy(passwordVisibility = !it.passwordVisibility) }
     }
 
-    fun signInWithEmailAndPassword(){
+    fun signIn(){
         val email = _uiState.value.email
         val password = _uiState.value.password
         viewModelScope.launch {
-            fireBaseClientRepository.createUserWithEmailAndPassword(email, password)
+            authenticationUseCase.signIn(email, password)
         }
     }
-
     fun signInWithGoogle(context: Context) {
         viewModelScope.launch {
-            googleClientRepository.signInWithGoogle(context)
+            authenticationUseCase.signInWithGoogle()
         }
     }
 }
