@@ -1,29 +1,46 @@
 package com.botoni.vistoria.ui.presenter.screens.signIn
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -71,74 +88,197 @@ fun Form(
     onSignInWithEmailAndPassword: () -> Unit,
     onGoogleSignInClicked: () -> Unit
 ) {
-    val icon: Painter = when (passwordVisibility) {
-        true -> painterResource(id = R.drawable.visible)
-        false -> painterResource(id = R.drawable.not_visible)
+    val icon = when (passwordVisibility) {
+        true -> Icons.Default.Visibility
+        false -> Icons.Default.VisibilityOff
     }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
+                        MaterialTheme.colorScheme.background
+                    )
+                )
+            )
     ) {
-        Text(text = "Welcome", fontSize = 24.sp)
-
-        StandardTextField(
-            value = email,
-            placeholder = "Email",
-            label = "Enter your email",
-            onValueChange = onEmailChange,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            visualTransformation = VisualTransformation.None
-        )
-
-        StandardTextField(
-            value = password,
-            placeholder = "Password",
-            label = "Enter your password",
-            onValueChange = onPasswordChange,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            trailingIcon = {
-                IconButton(onClick = onTogglePasswordVisibility) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(bottom = 32.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(
-                        painter = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+                        imageVector = Icons.Default.Security,
+                        contentDescription = "App Logo",
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
                     )
                 }
-            },
-            visualTransformation = if (passwordVisibility) VisualTransformation.None else PasswordVisualTransformation()
-        )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            StandardTextButton(
-                text = "Forgot password?",
-                onClick = {}
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Welcome Back!",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Text(
+                    text = "Sign in to continue to your account",
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StandardTextField(
+                            value = email,
+                            placeholder = "Email",
+                            label = "Enter your email",
+                            onValueChange = onEmailChange,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            trailingIcon = {
+                                IconButton(onClick = onTogglePasswordVisibility) {
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = "Email icon",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            },
+                            visualTransformation = VisualTransformation.None
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StandardTextField(
+                            value = password,
+                            placeholder = "Password",
+                            label = "Enter your password",
+                            onValueChange = onPasswordChange,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            trailingIcon = {
+                                IconButton(onClick = onTogglePasswordVisibility) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = if (passwordVisibility) "Hide password" else "Show password",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            },
+                            visualTransformation = if (passwordVisibility) VisualTransformation.None else PasswordVisualTransformation()
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        StandardTextButton(
+                            text = "Forgot password?",
+                            onClick = {}
+                        )
+                    }
+
+                    StandardButton(
+                        text = "Continue",
+                        onClick = onSignInWithEmailAndPassword,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "OR",
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f))
+            }
+
+            StandardOutlinedButton(
+                text = "Login with Google",
+                onClick = onGoogleSignInClicked,
+                icon = R.drawable.google_icon,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             )
         }
+    }
+}
 
-        StandardButton(
-            text = "Continue",
-            onClick = onSignInWithEmailAndPassword,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        )
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
-
-        StandardOutlinedButton(
-            text = "Login with Google",
-            onClick = onGoogleSignInClicked,
-            icon = R.drawable.google_icon,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
+@Preview(showBackground = true)
+@Composable
+fun SignInScreenPreview() {
+    DemoTheme {
+        Form(
+            email = "",
+            onEmailChange = {},
+            password = "",
+            onPasswordChange = {},
+            passwordVisibility = false,
+            onTogglePasswordVisibility = {},
+            onSignInWithEmailAndPassword = {},
+            onGoogleSignInClicked = {}
         )
     }
 }
+
+
