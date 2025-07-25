@@ -234,7 +234,6 @@ fun Form(
                     )
                 }
             }
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -280,5 +279,3 @@ fun SignInScreenPreview() {
         )
     }
 }
-
-

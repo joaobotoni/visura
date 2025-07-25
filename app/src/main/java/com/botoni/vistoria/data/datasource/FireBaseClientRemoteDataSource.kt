@@ -20,6 +20,7 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
                         is FirebaseAuthUserCollisionException -> {
                             signInWithEmailAndPassword(email, password)
                         }
+
                         else -> {
                             Log.e(
                                 "FireBaseClientRemoteDataSource",

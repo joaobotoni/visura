@@ -2,10 +2,13 @@ package com.botoni.vistoria.ui.presenter.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// Light Theme Blues
+val BluePrimaryLight = Color(0xFF007BFF)
+val BlueSecondaryLight = Color(0xFF6C757D)
+val BlueTertiaryLight = Color(0xFFCED4DA)
+
+// Dark Theme Blues
+val BluePrimaryDark = Color(0xFF42A5F5)
+val BlueSecondaryDark = Color(0xFF90CAF9)
+val BlueTertiaryDark = Color(0xFFBBDEFB)
