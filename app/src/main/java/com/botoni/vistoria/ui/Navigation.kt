@@ -19,7 +19,7 @@ fun Navigation(
         val email = it.email
     }
 
-    NavHost(navController = navController, startDestination = "main/{email}") {
+    NavHost(navController = navController, startDestination = "signIn") {
         composable("signIn") {
             SignInScreen()
         }
