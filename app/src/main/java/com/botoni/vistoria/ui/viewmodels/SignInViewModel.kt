@@ -1,6 +1,5 @@
 package com.botoni.vistoria.ui.viewmodels
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.vistoria.domain.AuthenticationUseCase
@@ -18,6 +17,7 @@ data class SignInUiState(
     val password: String = "",
     val isLogged: Boolean = false,
     val passwordVisibility: Boolean = false,
+    val messageError: String? = null
 )
 
 @HiltViewModel
@@ -31,6 +31,7 @@ class SignInViewModel @Inject constructor(
     init {
         checkUserLoggedIn()
     }
+
     fun checkUserLoggedIn() {
         _uiState.update { it.copy(isLogged = auth.currentUser != null) }
     }
@@ -51,15 +52,28 @@ class SignInViewModel @Inject constructor(
         val email = _uiState.value.email
         val password = _uiState.value.password
         viewModelScope.launch {
-            authenticationUseCase.signIn(email, password)
-            _uiState.update { it.copy(isLogged = true) }
+            try {
+                authenticationUseCase.signIn(email, password)
+                _uiState.update { it.copy(isLogged = true) }
+            }catch (e: Exception){
+                _uiState.update { it.copy(isLogged = false, messageError = "Error trying to authenticate: $e") }
+            }
         }
     }
 
     fun signInWithGoogle() {
         viewModelScope.launch {
-            authenticationUseCase.signInWithGoogle()
-            _uiState.update { it.copy(isLogged = true) }
+            try {
+                authenticationUseCase.signInWithGoogle()
+                _uiState.update { it.copy(isLogged = true) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLogged = false,
+                        messageError = "Error trying to authenticate with Google: $e"
+                    )
+                }
+            }
         }
     }
 }

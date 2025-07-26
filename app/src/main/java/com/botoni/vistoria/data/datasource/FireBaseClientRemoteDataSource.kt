@@ -3,7 +3,6 @@ package com.botoni.vistoria.data.datasource
 import android.util.Log
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -15,31 +14,21 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
         private const val TAG = "FireBaseAuth"
     }
 
-    suspend fun signIn(email: String, password: String) {
-        try {
-            createUser(email, password)
-        } catch (_: FirebaseAuthUserCollisionException) {
-            signInUser(email, password)
-        } catch (e: Exception) {
-            logError("Authentication failed", e)
-        }
-    }
-
-    private suspend fun createUser(email: String, password: String) {
+    suspend fun createUser(email: String, password: String) {
         try {
             auth.createUserWithEmailAndPassword(email, password).await()
-            logSuccess("User created successfully")
+            logSuccess("Success registering the user")
         } catch (e: Exception) {
-            throw e
+            logError("Error registering user", e)
         }
     }
 
-    private suspend fun signInUser(email: String, password: String) {
+    suspend fun signInUser(email: String, password: String) {
         try {
             auth.signInWithEmailAndPassword(email, password).await()
-            logSuccess("User signed in successfully")
+            logSuccess("Success in authenticating the user")
         } catch (e: Exception) {
-            logError("Sign in failed", e)
+            logError("Error registering user", e)
         }
     }
 
@@ -53,6 +42,6 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
     }
 
     private fun logError(message: String, exception: Exception) {
-        Log.e(TAG, "$message: ${exception.message}")
+        Log.e(TAG, "$message: ${exception.message}", exception)
     }
 }

@@ -7,13 +7,10 @@ import javax.inject.Inject
 
 class GoogleClientRepository @Inject constructor(private val googleClientRemoteDataSource: GoogleClientRemoteDataSource) {
     suspend fun signInWithGoogle() {
-        try {
-            googleClientRemoteDataSource.signInWithGoogle()
-        } catch (e: Exception) {
-            Log.d("GoogleClientRepository", "Error in signIn with google $e")
-        }
+        googleClientRemoteDataSource.signInWithGoogle()
     }
-    suspend fun signOut(){
+
+    suspend fun signOut() {
         googleClientRemoteDataSource.signOut();
     }
 }
