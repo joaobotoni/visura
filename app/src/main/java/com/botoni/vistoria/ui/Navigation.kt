@@ -5,8 +5,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.botoni.vistoria.ui.presenter.screens.main.MainScreen
-import com.botoni.vistoria.ui.presenter.screens.signIn.SignInScreen
+import com.botoni.vistoria.ui.presenter.screens.MainScreen
+import com.botoni.vistoria.ui.presenter.screens.SignInScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 

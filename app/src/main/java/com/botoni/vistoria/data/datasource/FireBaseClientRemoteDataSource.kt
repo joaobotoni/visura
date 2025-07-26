@@ -5,50 +5,54 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.auth
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class FireBaseClientRemoteDataSource @Inject constructor() {
     private val auth: FirebaseAuth = Firebase.auth
 
-    fun createUserWithEmailAndPassword(email: String, password: String) {
-        auth.createUserWithEmailAndPassword(email, password)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Log.d("FireBaseClientRemoteDataSource", "User created successfully.")
-                } else {
-                    when (val exception = task.exception) {
-                        is FirebaseAuthUserCollisionException -> {
-                            signInWithEmailAndPassword(email, password)
-                        }
-
-                        else -> {
-                            Log.e(
-                                "FireBaseClientRemoteDataSource",
-                                "Error creating user: ${exception?.message}"
-                            )
-                        }
-                    }
-                }
-            }
+    companion object {
+        private const val TAG = "FireBaseAuth"
     }
 
+    suspend fun signIn(email: String, password: String) {
+        try {
+            createUser(email, password)
+        } catch (_: FirebaseAuthUserCollisionException) {
+            signInUser(email, password)
+        } catch (e: Exception) {
+            logError("Authentication failed", e)
+        }
+    }
 
-    private fun signInWithEmailAndPassword(email: String, password: String) {
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Log.d("FireBaseClientRemoteDataSource", "Successful login!")
-                } else {
-                    Log.e(
-                        "FireBaseClientRemoteDataSource",
-                        "Error during login: ${task.exception?.message}"
-                    )
-                }
-            }
+    private suspend fun createUser(email: String, password: String) {
+        try {
+            auth.createUserWithEmailAndPassword(email, password).await()
+            logSuccess("User created successfully")
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    private suspend fun signInUser(email: String, password: String) {
+        try {
+            auth.signInWithEmailAndPassword(email, password).await()
+            logSuccess("User signed in successfully")
+        } catch (e: Exception) {
+            logError("Sign in failed", e)
+        }
     }
 
     fun signOut() {
         auth.signOut()
-        Log.d("FireBaseClientRemoteDataSource", "User signed out.")
+        logSuccess("User signed out")
+    }
+
+    private fun logSuccess(message: String) {
+        Log.d(TAG, message)
+    }
+
+    private fun logError(message: String, exception: Exception) {
+        Log.e(TAG, "$message: ${exception.message}")
     }
 }

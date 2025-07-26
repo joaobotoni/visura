@@ -1,4 +1,4 @@
-package com.botoni.vistoria.ui.presenter.screens.signIn
+package com.botoni.vistoria.ui.presenter.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -12,12 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
@@ -32,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -117,28 +114,6 @@ fun Form(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(bottom = 32.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Security,
-                        contentDescription = "App Logo",
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
@@ -262,6 +237,7 @@ fun Form(
         }
     }
 }
+
 
 @Preview(showBackground = true)
 @Composable

@@ -13,7 +13,6 @@ class GoogleClientRepository @Inject constructor(private val googleClientRemoteD
             Log.d("GoogleClientRepository", "Error in signIn with google $e")
         }
     }
-
     suspend fun signOut(){
         googleClientRemoteDataSource.signOut();
     }
