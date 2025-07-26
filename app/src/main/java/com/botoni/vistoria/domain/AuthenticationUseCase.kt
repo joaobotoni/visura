@@ -8,12 +8,13 @@ class AuthenticationUseCase @Inject constructor(
     val fireBaseClientRepository: FireBaseClientRepository,
     val googleClientRepository: GoogleClientRepository
 ) {
-    suspend fun signIn(email: String, password: String) {
+    suspend fun signIn(email: String, password: String) =
         fireBaseClientRepository.signIn(email, password)
-    }
-    suspend fun signInWithGoogle() {
+
+    suspend fun signUp(email: String, password: String) =
+        fireBaseClientRepository.signUp(email,password)
+    suspend fun signInWithGoogle() =
         googleClientRepository.signInWithGoogle()
-    }
 
     suspend fun signOut(){
         fireBaseClientRepository.signOut()

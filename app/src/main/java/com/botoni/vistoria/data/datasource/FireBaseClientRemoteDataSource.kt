@@ -14,22 +14,15 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
         private const val TAG = "FireBaseAuth"
     }
 
-    suspend fun createUser(email: String, password: String) {
-        try {
-            auth.createUserWithEmailAndPassword(email, password).await()
-            logSuccess("Success registering the user")
-        } catch (e: Exception) {
-            logError("Error registering user", e)
-        }
+    suspend fun signUp(email: String, password: String) {
+        auth.createUserWithEmailAndPassword(email, password).await()
+        logSuccess("Success registering the user")
     }
 
-    suspend fun signInUser(email: String, password: String) {
-        try {
-            auth.signInWithEmailAndPassword(email, password).await()
-            logSuccess("Success in authenticating the user")
-        } catch (e: Exception) {
-            logError("Error registering user", e)
-        }
+    suspend fun signIn(email: String, password: String) {
+        auth.signInWithEmailAndPassword(email, password).await()
+        logSuccess("Success in authenticating the user")
+
     }
 
     fun signOut() {
@@ -41,7 +34,4 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
         Log.d(TAG, message)
     }
 
-    private fun logError(message: String, exception: Exception) {
-        Log.e(TAG, "$message: ${exception.message}", exception)
-    }
 }

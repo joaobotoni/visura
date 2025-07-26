@@ -21,20 +21,17 @@ import javax.inject.Inject
 class GoogleClientRemoteDataSource @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private val credentialManager: CredentialManager = CredentialManager.create(context)
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val credentialManager: CredentialManager = CredentialManager.create(context)
     private val webClientId: String = context.getString(R.string.web_client)
 
     companion object {
         private const val TAG = "GoogleAuth"
     }
+
     suspend fun signInWithGoogle() {
-        try {
-            val response = buildCredentialRequest()
-            authenticateWithFirebase(response.credential)
-        } catch (e: Exception) {
-            logError("Google sign in failed", e)
-        }
+        val response = buildCredentialRequest()
+        authenticateWithFirebase(response.credential)
     }
 
     private suspend fun buildCredentialRequest(): GetCredentialResponse {
@@ -64,7 +61,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
                 signInWithFirebaseCredential(googleToken)
             }
             else -> {
-                logError("Invalid credential type received", null)
+                throw IllegalArgumentException("Invalid credential type received for Google sign-in.")
             }
         }
     }
@@ -79,23 +76,15 @@ class GoogleClientRemoteDataSource @Inject constructor(
     }
 
     private suspend fun signInWithFirebaseCredential(idToken: String) {
-        try {
-            val authCredential = GoogleAuthProvider.getCredential(idToken, null)
-            firebaseAuth.signInWithCredential(authCredential).await()
-            logSuccess("Successfully signed in with Google")
-        } catch (e: Exception) {
-            logError("Firebase authentication failed", e)
-        }
+        val authCredential = GoogleAuthProvider.getCredential(idToken, null)
+        firebaseAuth.signInWithCredential(authCredential).await()
+        logSuccess("Successfully signed in with Google")
     }
 
     suspend fun signOut() {
-        try {
-            clearCredentialState()
-            firebaseAuth.signOut()
-            logSuccess("User signed out successfully")
-        } catch (e: Exception) {
-            logError("Sign out failed", e)
-        }
+        clearCredentialState()
+        firebaseAuth.signOut()
+        logSuccess("User signed out successfully")
     }
 
     private suspend fun clearCredentialState() {
@@ -104,9 +93,5 @@ class GoogleClientRemoteDataSource @Inject constructor(
 
     private fun logSuccess(message: String) {
         Log.d(TAG, message)
-    }
-
-    private fun logError(message: String, exception: Exception?) {
-        Log.e(TAG, "$message: ${exception?.message}")
     }
 }
