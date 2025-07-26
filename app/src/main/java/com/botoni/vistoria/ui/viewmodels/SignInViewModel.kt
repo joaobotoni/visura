@@ -52,40 +52,53 @@ class SignInViewModel @Inject constructor(
     }
 
     fun signIn() {
-        val email = _uiState.value.email
-        val password = _uiState.value.password
+        val (email, password) = _uiState.value.let { it.email to it.password }
+
+        isCheckEmailAndPassword(email, password)
+
         viewModelScope.launch {
-            try {
+            runCatching {
                 authenticationUseCase.signUp(email, password)
                 _uiState.update { it.copy(isLogged = true, Success = "Success creating user") }
-            } catch (e: Exception) {
-                if (e is FirebaseAuthUserCollisionException) {
-                    try {
+            }.recoverCatching { exception ->
+                when (exception) {
+                    is FirebaseAuthUserCollisionException -> {
                         authenticationUseCase.signIn(email, password)
-                        _uiState.update {
-                            it.copy(
-                                isLogged = true,
-                                Success = "Authentication success"
-                            )
-                        }
-                    } catch (e: Exception) {
-                        if (e is FirebaseAuthInvalidCredentialsException) {
-                            _uiState.update {
-                                it.copy(
-                                    isLogged = false,
-                                    Error = "Error email or password invalid"
-                                )
-                            }
-                        } else {
-                            _uiState.update {
-                                it.copy(
-                                    isLogged = false,
-                                    Error = "Error trying to authenticate"
-                                )
-                            }
-                        }
+                        _uiState.update { it.copy(isLogged = true, Success = "Authentication success") }
                     }
+                    else -> throw exception
                 }
+            }.onFailure { exception ->
+                val errorMessage = when (exception) {
+                    is FirebaseAuthInvalidCredentialsException -> "Error email or password invalid"
+                    else -> "Error trying to authenticate"
+                }
+                _uiState.update { it.copy(isLogged = false, Error = errorMessage) }
+            }
+        }
+    }
+
+    fun isCheckEmailAndPassword(email: String, password: String) {
+        when {
+            email.isBlank() -> _uiState.update {
+                it.copy(
+                    isLogged = false,
+                    Error = "Email cannot be empty"
+                )
+            }
+
+            password.isBlank() -> _uiState.update {
+                it.copy(
+                    isLogged = false,
+                    Error = "Password cannot be empty"
+                )
+            }
+
+            password.length <= 6 -> _uiState.update {
+                it.copy(
+                    isLogged = false,
+                    Error = "Your password cannot be less than 6 characters long"
+                )
             }
         }
     }
@@ -104,5 +117,13 @@ class SignInViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(Error = null) }
+    }
+
+    fun clearSuccess() {
+        _uiState.update { it.copy(Success = null) }
     }
 }

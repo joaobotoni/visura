@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
 import com.botoni.vistoria.R
 import com.botoni.vistoria.ui.presenter.elements.button.StandardButton
 import com.botoni.vistoria.ui.presenter.elements.button.StandardOutlinedButton
@@ -53,7 +52,7 @@ import com.botoni.vistoria.ui.presenter.theme.DemoTheme
 import com.botoni.vistoria.ui.viewmodels.SignInViewModel
 
 @Composable
-fun SignInScreen(modifier: Modifier = Modifier, navController: NavController) {
+fun SignInScreen(modifier: Modifier = Modifier, onSignInSuccess: () -> Unit) {
 
     val context = LocalContext.current
     val signInViewModel: SignInViewModel = hiltViewModel()
@@ -76,17 +75,17 @@ fun SignInScreen(modifier: Modifier = Modifier, navController: NavController) {
 
     uiState.Success?.let { successMessage ->
         Toast.makeText(context, successMessage, Toast.LENGTH_SHORT).show()
+        signInViewModel.clearSuccess()
     }
 
     uiState.Error?.let { errorMessage ->
-        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+        signInViewModel.clearError()
     }
 
     LaunchedEffect(uiState.isLogged) {
         if (uiState.isLogged) {
-            navController.navigate("main") {
-                popUpTo("signIn") { inclusive = true }
-            }
+            onSignInSuccess()
         }
     }
 }
