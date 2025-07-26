@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.vistoria.domain.AuthenticationUseCase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +19,8 @@ data class SignInUiState(
     val password: String = "",
     val isLogged: Boolean = false,
     val passwordVisibility: Boolean = false,
-    val messageError: String? = null
+    val Error: String? = null,
+    val Success: String? = null
 )
 
 @HiltViewModel
@@ -53,10 +56,36 @@ class SignInViewModel @Inject constructor(
         val password = _uiState.value.password
         viewModelScope.launch {
             try {
-                authenticationUseCase.signIn(email, password)
-                _uiState.update { it.copy(isLogged = true) }
-            }catch (e: Exception){
-                _uiState.update { it.copy(isLogged = false, messageError = "Error trying to authenticate: $e") }
+                authenticationUseCase.signUp(email, password)
+                _uiState.update { it.copy(isLogged = true, Success = "Success creating user") }
+            } catch (e: Exception) {
+                if (e is FirebaseAuthUserCollisionException) {
+                    try {
+                        authenticationUseCase.signIn(email, password)
+                        _uiState.update {
+                            it.copy(
+                                isLogged = true,
+                                Success = "Authentication success"
+                            )
+                        }
+                    } catch (e: Exception) {
+                        if (e is FirebaseAuthInvalidCredentialsException) {
+                            _uiState.update {
+                                it.copy(
+                                    isLogged = false,
+                                    Error = "Error email or password invalid"
+                                )
+                            }
+                        } else {
+                            _uiState.update {
+                                it.copy(
+                                    isLogged = false,
+                                    Error = "Error trying to authenticate"
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -70,7 +99,7 @@ class SignInViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLogged = false,
-                        messageError = "Error trying to authenticate with Google: $e"
+                        Error = "Error trying to authenticate with Google: $e"
                     )
                 }
             }

@@ -9,7 +9,6 @@ import javax.inject.Inject
 
 class FireBaseClientRemoteDataSource @Inject constructor() {
     private val auth: FirebaseAuth = Firebase.auth
-
     companion object {
         private const val TAG = "FireBaseAuth"
     }
@@ -33,5 +32,4 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
     private fun logSuccess(message: String) {
         Log.d(TAG, message)
     }
-
 }

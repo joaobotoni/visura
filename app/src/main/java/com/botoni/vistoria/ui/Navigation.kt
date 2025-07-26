@@ -18,7 +18,7 @@ fun Navigation(
             SignInScreen(navController = navController)
         }
         composable("main") {
-            MainScreen("João")
+            MainScreen()
         }
     }
 }

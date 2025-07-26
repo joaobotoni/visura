@@ -1,5 +1,6 @@
 package com.botoni.vistoria.ui.presenter.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -53,8 +55,8 @@ import com.botoni.vistoria.ui.viewmodels.SignInViewModel
 @Composable
 fun SignInScreen(modifier: Modifier = Modifier, navController: NavController) {
 
+    val context = LocalContext.current
     val signInViewModel: SignInViewModel = hiltViewModel()
-
     val uiState by signInViewModel.uiState.collectAsStateWithLifecycle()
 
     DemoTheme {
@@ -67,9 +69,17 @@ fun SignInScreen(modifier: Modifier = Modifier, navController: NavController) {
                 passwordVisibility = uiState.passwordVisibility,
                 onTogglePasswordVisibility = signInViewModel::togglePasswordVisibility,
                 onSignInWithEmailAndPassword = signInViewModel::signIn,
-                onGoogleSignInClicked =  signInViewModel::signInWithGoogle
+                onGoogleSignInClicked = signInViewModel::signInWithGoogle
             )
         }
+    }
+
+    uiState.Success?.let { successMessage ->
+        Toast.makeText(context, successMessage, Toast.LENGTH_SHORT).show()
+    }
+
+    uiState.Error?.let { errorMessage ->
+        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
     }
 
     LaunchedEffect(uiState.isLogged) {

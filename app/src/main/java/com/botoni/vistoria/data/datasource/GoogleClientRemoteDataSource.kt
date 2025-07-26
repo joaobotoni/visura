@@ -43,8 +43,8 @@ class GoogleClientRemoteDataSource @Inject constructor(
     private fun createGoogleIdOption(): GetGoogleIdOption {
         return GetGoogleIdOption.Builder()
             .setServerClientId(webClientId)
-            .setFilterByAuthorizedAccounts(false)
-            .setAutoSelectEnabled(false)
+            .setFilterByAuthorizedAccounts(true)
+            .setAutoSelectEnabled(true)
             .build()
     }
 

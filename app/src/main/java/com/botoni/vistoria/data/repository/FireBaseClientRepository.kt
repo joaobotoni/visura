@@ -5,7 +5,6 @@
     import javax.inject.Inject
 
     class FireBaseClientRepository @Inject constructor(private val fireBaseClientRemoteDataSource: FireBaseClientRemoteDataSource) {
-
         suspend fun signUp(email: String, password: String) =
             fireBaseClientRemoteDataSource.signUp(email, password)
 
