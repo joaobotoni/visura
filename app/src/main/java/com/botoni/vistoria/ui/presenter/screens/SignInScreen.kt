@@ -27,11 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import com.botoni.vistoria.R
 import com.botoni.vistoria.ui.presenter.elements.button.StandardButton
 import com.botoni.vistoria.ui.presenter.elements.button.StandardOutlinedButton
@@ -51,8 +51,8 @@ import com.botoni.vistoria.ui.presenter.theme.DemoTheme
 import com.botoni.vistoria.ui.viewmodels.SignInViewModel
 
 @Composable
-fun SignInScreen(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
+fun SignInScreen(modifier: Modifier = Modifier, navController: NavController) {
+
     val signInViewModel: SignInViewModel = hiltViewModel()
 
     val uiState by signInViewModel.uiState.collectAsStateWithLifecycle()
@@ -67,8 +67,16 @@ fun SignInScreen(modifier: Modifier = Modifier) {
                 passwordVisibility = uiState.passwordVisibility,
                 onTogglePasswordVisibility = signInViewModel::togglePasswordVisibility,
                 onSignInWithEmailAndPassword = signInViewModel::signIn,
-                onGoogleSignInClicked = { signInViewModel.signInWithGoogle(context) }
+                onGoogleSignInClicked =  signInViewModel::signInWithGoogle
             )
+        }
+    }
+
+    LaunchedEffect(uiState.isLogged) {
+        if (uiState.isLogged) {
+            navController.navigate("main") {
+                popUpTo("signIn") { inclusive = true }
+            }
         }
     }
 }
@@ -93,14 +101,7 @@ fun Form(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -155,13 +156,11 @@ fun Form(
                             onValueChange = onEmailChange,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             trailingIcon = {
-                                IconButton(onClick = onTogglePasswordVisibility) {
-                                    Icon(
-                                        imageVector = Icons.Default.Email,
-                                        contentDescription = "Email icon",
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Email,
+                                    contentDescription = "Email icon",
+                                    modifier = Modifier.size(24.dp)
+                                )
                             },
                             visualTransformation = VisualTransformation.None
                         )
