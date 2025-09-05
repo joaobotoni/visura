@@ -1,4 +1,4 @@
-package com.botoni.vistoria.ui.presenter.elements.textField
+package com.botoni.vistoria.ui.presenter.elements.input
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +22,7 @@ fun StandardTextField(
     trailingIcon: @Composable (() -> Unit)? = null,
     visualTransformation: VisualTransformation? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    isError: Boolean = false,
 ) {
     if (visualTransformation != null) {
         OutlinedTextField(
@@ -35,7 +36,8 @@ fun StandardTextField(
             visualTransformation = visualTransformation,
             textStyle = TextStyle(color = Color.Gray),
             shape = RoundedCornerShape(12.dp),
-            singleLine = true
+            singleLine = true,
+            isError = isError
         )
     }
 }

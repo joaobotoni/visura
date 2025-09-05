@@ -47,7 +47,8 @@ import com.botoni.vistoria.R
 import com.botoni.vistoria.ui.presenter.elements.button.StandardButton
 import com.botoni.vistoria.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.vistoria.ui.presenter.elements.button.StandardTextButton
-import com.botoni.vistoria.ui.presenter.elements.textField.StandardTextField
+import com.botoni.vistoria.ui.presenter.elements.dialog.StandardAlertDialog
+import com.botoni.vistoria.ui.presenter.elements.input.StandardTextField
 import com.botoni.vistoria.ui.presenter.theme.DemoTheme
 import com.botoni.vistoria.ui.viewmodels.SignInViewModel
 
@@ -68,20 +69,21 @@ fun SignInScreen(modifier: Modifier = Modifier, onSignInSuccess: () -> Unit) {
                 passwordVisibility = uiState.passwordVisibility,
                 onTogglePasswordVisibility = signInViewModel::togglePasswordVisibility,
                 onSignInWithEmailAndPassword = signInViewModel::signIn,
-                onGoogleSignInClicked = signInViewModel::signInWithGoogle
+                onGoogleSignInClicked = signInViewModel::signInWithGoogle,
+                isCredentialInvalid = uiState.isCredentialInvalid ?: false
             )
         }
     }
 
-    uiState.Success?.let { successMessage ->
+    uiState.success?.let { successMessage ->
         Toast.makeText(context, successMessage, Toast.LENGTH_SHORT).show()
         signInViewModel.clearSuccess()
     }
 
-    uiState.Error?.let { errorMessage ->
-        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
-        signInViewModel.clearError()
+    uiState.error?.let { errorMessage ->
+        StandardAlertDialog(onDismissRequest = signInViewModel::clearError,  dialogTitle = "Error", dialogText = errorMessage, )
     }
+
 
     LaunchedEffect(uiState.isLogged) {
         if (uiState.isLogged) {
@@ -100,7 +102,8 @@ fun Form(
     passwordVisibility: Boolean,
     onTogglePasswordVisibility: () -> Unit,
     onSignInWithEmailAndPassword: () -> Unit,
-    onGoogleSignInClicked: () -> Unit
+    onGoogleSignInClicked: () -> Unit,
+    isCredentialInvalid: Boolean
 ) {
     val icon = when (passwordVisibility) {
         true -> Icons.Default.Visibility
@@ -171,7 +174,8 @@ fun Form(
                                     modifier = Modifier.size(24.dp)
                                 )
                             },
-                            visualTransformation = VisualTransformation.None
+                            visualTransformation = VisualTransformation.None,
+                            isError = isCredentialInvalid
                         )
                     }
 
@@ -194,7 +198,8 @@ fun Form(
                                     )
                                 }
                             },
-                            visualTransformation = if (passwordVisibility) VisualTransformation.None else PasswordVisualTransformation()
+                            visualTransformation = if (passwordVisibility) VisualTransformation.None else PasswordVisualTransformation(),
+                            isError = isCredentialInvalid
                         )
                     }
 
@@ -259,7 +264,8 @@ fun SignInScreenPreview() {
             passwordVisibility = false,
             onTogglePasswordVisibility = {},
             onSignInWithEmailAndPassword = {},
-            onGoogleSignInClicked = {}
+            onGoogleSignInClicked = {},
+            isCredentialInvalid = false
         )
     }
 }

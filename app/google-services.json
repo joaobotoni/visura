@@ -1,45 +1,44 @@
 {
   "project_info": {
-    "project_number": "1050517506185",
-    "project_id": "homologacao-404f0",
-    "storage_bucket": "homologacao-404f0.firebasestorage.app"
+    "project_number": "22526282670",
+    "project_id": "vistoria-hml",
+    "storage_bucket": "vistoria-hml.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1050517506185:android:c7ec2ed53b9c9fd0749e58",
-        "android_client_info": {
-          "package_name": "com.botoni.demo"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCZYrVxa76RG7BCzbfo-XYzXMeW8g17uo8"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1050517506185:android:6813c594f9ba9089749e58",
+        "mobilesdk_app_id": "1:22526282670:android:a245db72cde9b3efa8563f",
         "android_client_info": {
           "package_name": "com.botoni.vistoria"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "22526282670-9pr3umcejpui1bdgitfuvmsvppnjh1g4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.botoni.vistoria",
+            "certificate_hash": "b9582782db063fbc25a8b09448f1f5992923cbac"
+          }
+        },
+        {
+          "client_id": "22526282670-31a7r6fr4lq533d81ffpvlfkb2caqj7u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyCZYrVxa76RG7BCzbfo-XYzXMeW8g17uo8"
+          "current_key": "AIzaSyDJV_hT6UUkuLepsM1JsCka8_AohCsT0yk"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "22526282670-31a7r6fr4lq533d81ffpvlfkb2caqj7u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

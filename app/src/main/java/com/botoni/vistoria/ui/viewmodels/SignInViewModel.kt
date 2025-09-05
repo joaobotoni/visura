@@ -1,5 +1,6 @@
 package com.botoni.vistoria.ui.viewmodels
 
+import androidx.credentials.Credential
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.vistoria.domain.AuthenticationUseCase
@@ -19,8 +20,9 @@ data class SignInUiState(
     val password: String = "",
     val isLogged: Boolean = false,
     val passwordVisibility: Boolean = false,
-    val Error: String? = null,
-    val Success: String? = null
+    val error: String? = null,
+    val success: String? = null,
+    val isCredentialInvalid : Boolean? = null
 )
 
 @HiltViewModel
@@ -53,27 +55,25 @@ class SignInViewModel @Inject constructor(
 
     fun signIn() {
         val (email, password) = _uiState.value.let { it.email to it.password }
-
         isCheckEmailAndPassword(email, password)
-
         viewModelScope.launch {
             runCatching {
                 authenticationUseCase.signUp(email, password)
-                _uiState.update { it.copy(isLogged = true, Success = "Success creating user") }
+                _uiState.update { it.copy(isLogged = true, success = "success creating user") }
             }.recoverCatching { exception ->
                 when (exception) {
                     is FirebaseAuthUserCollisionException -> {
                         authenticationUseCase.signIn(email, password)
-                        _uiState.update { it.copy(isLogged = true, Success = "Authentication success") }
+                        _uiState.update { it.copy(isLogged = true, success = "Authentication success") }
                     }
                     else -> throw exception
                 }
             }.onFailure { exception ->
                 val errorMessage = when (exception) {
-                    is FirebaseAuthInvalidCredentialsException -> "Error email or password invalid"
-                    else -> "Error trying to authenticate"
+                    is FirebaseAuthInvalidCredentialsException -> "error email or password invalid"
+                    else -> "error trying to authenticate"
                 }
-                _uiState.update { it.copy(isLogged = false, Error = errorMessage) }
+                _uiState.update { it.copy(isLogged = false, error = errorMessage) }
             }
         }
     }
@@ -83,21 +83,24 @@ class SignInViewModel @Inject constructor(
             email.isBlank() -> _uiState.update {
                 it.copy(
                     isLogged = false,
-                    Error = "Email cannot be empty"
+                    error = "Email cannot be empty",
+                    isCredentialInvalid = true
                 )
             }
 
             password.isBlank() -> _uiState.update {
                 it.copy(
                     isLogged = false,
-                    Error = "Password cannot be empty"
+                    error = "Password cannot be empty",
+                    isCredentialInvalid = true
                 )
             }
 
             password.length <= 6 -> _uiState.update {
                 it.copy(
                     isLogged = false,
-                    Error = "Your password cannot be less than 6 characters long"
+                    error = "Your password cannot be less than 6 characters long",
+                    isCredentialInvalid = true
                 )
             }
         }
@@ -112,7 +115,7 @@ class SignInViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLogged = false,
-                        Error = "Error trying to authenticate with Google: $e"
+                        error = "error trying to authenticate with Google: $e"
                     )
                 }
             }
@@ -120,10 +123,10 @@ class SignInViewModel @Inject constructor(
     }
 
     fun clearError() {
-        _uiState.update { it.copy(Error = null) }
+        _uiState.update { it.copy(error = null, isCredentialInvalid = false) }
     }
 
     fun clearSuccess() {
-        _uiState.update { it.copy(Success = null) }
+        _uiState.update { it.copy(success = null) }
     }
 }

@@ -21,9 +21,10 @@ import javax.inject.Inject
 class GoogleClientRemoteDataSource @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    private var isFirstLogin = true
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val credentialManager: CredentialManager = CredentialManager.create(context)
-    private val webClientId: String = context.getString(R.string.web_client)
+    private val webClientId: String = "22526282670-31a7r6fr4lq533d81ffpvlfkb2caqj7u.apps.googleusercontent.com"
 
     companion object {
         private const val TAG = "GoogleAuth"
@@ -43,8 +44,8 @@ class GoogleClientRemoteDataSource @Inject constructor(
     private fun createGoogleIdOption(): GetGoogleIdOption {
         return GetGoogleIdOption.Builder()
             .setServerClientId(webClientId)
-            .setFilterByAuthorizedAccounts(true)
-            .setAutoSelectEnabled(true)
+            .setFilterByAuthorizedAccounts(!isFirstLogin)
+            .setAutoSelectEnabled(!isFirstLogin)
             .build()
     }
 
@@ -78,20 +79,21 @@ class GoogleClientRemoteDataSource @Inject constructor(
     private suspend fun signInWithFirebaseCredential(idToken: String) {
         val authCredential = GoogleAuthProvider.getCredential(idToken, null)
         firebaseAuth.signInWithCredential(authCredential).await()
-        logSuccess("Successfully signed in with Google")
+        onLoginSuccess("Successfully signed in with Google")
     }
 
     suspend fun signOut() {
         clearCredentialState()
         firebaseAuth.signOut()
-        logSuccess("User signed out successfully")
+        onLoginSuccess("User signed out successfully")
     }
 
     private suspend fun clearCredentialState() {
         credentialManager.clearCredentialState(ClearCredentialStateRequest())
     }
 
-    private fun logSuccess(message: String) {
+    private fun onLoginSuccess(message: String) {
+        isFirstLogin = false
         Log.d(TAG, message)
     }
 }

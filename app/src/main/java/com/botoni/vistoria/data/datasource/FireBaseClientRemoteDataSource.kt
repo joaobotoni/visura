@@ -21,7 +21,6 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
     suspend fun signIn(email: String, password: String) {
         auth.signInWithEmailAndPassword(email, password).await()
         logSuccess("Success in authenticating the user")
-
     }
 
     fun signOut() {
