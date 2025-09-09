@@ -18,7 +18,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "Hello world")
+        Text(text = "Ola mundo")
     }
 }
 
