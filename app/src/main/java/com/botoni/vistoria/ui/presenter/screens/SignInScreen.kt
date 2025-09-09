@@ -130,14 +130,14 @@ fun Form(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Welcome Back!",
+                    text = "Bem-vindo de volta!",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Text(
-                    text = "Sign in to continue to your account",
+                    text = "Faça login para continuar acessando sua conta",
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center,
@@ -164,7 +164,7 @@ fun Form(
                         StandardTextField(
                             value = email,
                             placeholder = "Email",
-                            label = "Enter your email",
+                            label = "Digite seu emai",
                             onValueChange = onEmailChange,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             trailingIcon = {
@@ -185,8 +185,8 @@ fun Form(
                     ) {
                         StandardTextField(
                             value = password,
-                            placeholder = "Password",
-                            label = "Enter your password",
+                            placeholder = "Senha",
+                            label = "Digite sua senha",
                             onValueChange = onPasswordChange,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             trailingIcon = {
@@ -208,13 +208,13 @@ fun Form(
                         horizontalArrangement = Arrangement.End
                     ) {
                         StandardTextButton(
-                            text = "Forgot password?",
+                            text = "Esqueceu a senha?",
                             onClick = {}
                         )
                     }
 
                     StandardButton(
-                        text = "Continue",
+                        text = "Continuar",
                         onClick = onSignInWithEmailAndPassword,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -230,7 +230,7 @@ fun Form(
             ) {
                 HorizontalDivider(modifier = Modifier.weight(1f))
                 Text(
-                    text = "OR",
+                    text = "OU",
                     modifier = Modifier.padding(horizontal = 16.dp),
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                     fontSize = 12.sp,
@@ -240,7 +240,7 @@ fun Form(
             }
 
             StandardOutlinedButton(
-                text = "Login with Google",
+                text = "Entrar com Google",
                 onClick = onGoogleSignInClicked,
                 icon = R.drawable.google_icon,
                 modifier = Modifier
