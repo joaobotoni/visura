@@ -24,7 +24,7 @@ data class SignInState(
     val password: String = "",
     val showPassword: Boolean = false,
     val isLoggedIn: Boolean = false,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
 )
 
 @HiltViewModel

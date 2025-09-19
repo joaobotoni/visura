@@ -93,7 +93,7 @@ fun SignInScreen(
         onEmailChange = viewModel::setEmail,
         onPasswordChange = viewModel::setPassword,
         onTogglePassword = viewModel::togglePasswordVisibility,
-        onEmailLogin = viewModel::loginWithEmail,
+        onLogin = viewModel::loginWithEmail,
         onGoogleLogin = viewModel::loginWithGoogle
     )
 }
@@ -107,7 +107,7 @@ private fun LoginScreenContent(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onTogglePassword: () -> Unit,
-    onEmailLogin: () -> Unit,
+    onLogin: () -> Unit,
     onGoogleLogin: () -> Unit
 ) {
     DemoTheme {
@@ -125,7 +125,7 @@ private fun LoginScreenContent(
                     onEmailChange = onEmailChange,
                     onPasswordChange = onPasswordChange,
                     onTogglePassword = onTogglePassword,
-                    onEmailLogin = onEmailLogin,
+                    onLogin = onLogin,
                     onGoogleLogin = onGoogleLogin
                 )
             }
@@ -139,7 +139,7 @@ private fun LoginForm(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onTogglePassword: () -> Unit,
-    onEmailLogin: () -> Unit,
+    onLogin: () -> Unit,
     onGoogleLogin: () -> Unit
 ) {
     Box(
@@ -166,7 +166,7 @@ private fun LoginForm(
                 onEmailChange = onEmailChange,
                 onPasswordChange = onPasswordChange,
                 onTogglePassword = onTogglePassword,
-                onLogin = onEmailLogin
+                onLogin = onLogin
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -365,7 +365,7 @@ private fun LoginScreenPreview() {
             onEmailChange = {},
             onPasswordChange = {},
             onTogglePassword = {},
-            onEmailLogin = {},
+            onLogin = {},
             onGoogleLogin = {}
         )
     }
