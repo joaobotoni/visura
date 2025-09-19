@@ -13,9 +13,10 @@ fun StandardOutlinedButton(
     text: String,
     @DrawableRes icon: Int? = null,
     onClick: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    OutlinedButton(onClick = onClick,  modifier = modifier)
+    OutlinedButton(onClick = onClick,  modifier = modifier, enabled = enabled)
     {
         if (icon != null) {
             Icon(painter = painterResource(id = icon), contentDescription = null)

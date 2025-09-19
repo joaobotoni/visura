@@ -1,132 +1,123 @@
 package com.botoni.vistoria.ui.viewmodels
 
-import androidx.credentials.Credential
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.vistoria.domain.AuthenticationUseCase
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class SignInUiState(
+sealed class SignInEvent {
+    data class ShowMessage(val message: String, val isSuccess: Boolean) : SignInEvent()
+}
+
+data class SignInState(
     val email: String = "",
     val password: String = "",
-    val isLogged: Boolean = false,
-    val passwordVisibility: Boolean = false,
-    val error: String? = null,
-    val success: String? = null,
-    val isCredentialInvalid : Boolean? = null
+    val showPassword: Boolean = false,
+    val isLoggedIn: Boolean = false,
+    val isLoading: Boolean = false
 )
 
 @HiltViewModel
 class SignInViewModel @Inject constructor(
-    private val authenticationUseCase: AuthenticationUseCase
+    private val authUseCase: AuthenticationUseCase
 ) : ViewModel() {
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val _uiState = MutableStateFlow(SignInUiState())
-    val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
 
-    init {
-        checkUserLoggedIn()
+    private val _state = MutableStateFlow(SignInState())
+    private val _events = MutableSharedFlow<SignInEvent>()
+    val state: StateFlow<SignInState> = _state.asStateFlow()
+    val events: SharedFlow<SignInEvent> = _events.asSharedFlow()
+    fun setEmail(email: String) {
+        _state.value = _state.value.copy(email = email)
     }
 
-    fun checkUserLoggedIn() {
-        _uiState.update { it.copy(isLogged = auth.currentUser != null) }
-    }
-
-    fun updateEmail(email: String) {
-        _uiState.update { it.copy(email = email) }
-    }
-
-    fun updatePassword(password: String) {
-        _uiState.update { it.copy(password = password) }
+    fun setPassword(password: String) {
+        _state.value = _state.value.copy(password = password)
     }
 
     fun togglePasswordVisibility() {
-        _uiState.update { it.copy(passwordVisibility = !it.passwordVisibility) }
+        val current = _state.value
+        _state.value = current.copy(showPassword = !current.showPassword)
     }
 
-    fun signIn() {
-        val (email, password) = _uiState.value.let { it.email to it.password }
-        isCheckEmailAndPassword(email, password)
-        viewModelScope.launch {
-            runCatching {
-                authenticationUseCase.signUp(email, password)
-                _uiState.update { it.copy(isLogged = true, success = "success creating user") }
-            }.recoverCatching { exception ->
-                when (exception) {
-                    is FirebaseAuthUserCollisionException -> {
-                        authenticationUseCase.signIn(email, password)
-                        _uiState.update { it.copy(isLogged = true, success = "Authentication success") }
-                    }
-                    else -> throw exception
-                }
-            }.onFailure { exception ->
-                val errorMessage = when (exception) {
-                    is FirebaseAuthInvalidCredentialsException -> "error email or password invalid"
-                    else -> "error trying to authenticate"
-                }
-                _uiState.update { it.copy(isLogged = false, error = errorMessage) }
-            }
+    fun loginWithEmail() {
+        val currentState = _state.value
+
+        val validationError = validateLoginData(currentState.email, currentState.password)
+        if (validationError != null) {
+            showMessage(validationError, isSuccess = false)
+            return
         }
-    }
 
-    fun isCheckEmailAndPassword(email: String, password: String) {
-        when {
-            email.isBlank() -> _uiState.update {
-                it.copy(
-                    isLogged = false,
-                    error = "Email cannot be empty",
-                    isCredentialInvalid = true
-                )
-            }
+        _state.value = currentState.copy(isLoading = true)
 
-            password.isBlank() -> _uiState.update {
-                it.copy(
-                    isLogged = false,
-                    error = "Password cannot be empty",
-                    isCredentialInvalid = true
-                )
-            }
-
-            password.length <= 6 -> _uiState.update {
-                it.copy(
-                    isLogged = false,
-                    error = "Your password cannot be less than 6 characters long",
-                    isCredentialInvalid = true
-                )
-            }
-        }
-    }
-
-    fun signInWithGoogle() {
         viewModelScope.launch {
             try {
-                authenticationUseCase.signInWithGoogle()
-                _uiState.update { it.copy(isLogged = true) }
+                authUseCase.signIn(currentState.email, currentState.password)
+                handleLoginSuccess()
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLogged = false,
-                        error = "error trying to authenticate with Google: $e"
-                    )
-                }
+                handleLoginError(e)
             }
         }
     }
 
-    fun clearError() {
-        _uiState.update { it.copy(error = null, isCredentialInvalid = false) }
+    fun loginWithGoogle() {
+        _state.value = _state.value.copy(isLoading = true)
+
+        viewModelScope.launch {
+            try {
+                authUseCase.signInWithGoogle()
+                handleLoginSuccess()
+            } catch (e: Exception) {
+                handleLoginError(e, "Erro ao fazer login com Google")
+            }
+        }
     }
 
-    fun clearSuccess() {
-        _uiState.update { it.copy(success = null) }
+    private fun validateLoginData(email: String, password: String): String? {
+        return when {
+            email.isBlank() -> "Email é obrigatório"
+            password.isBlank() -> "Senha é obrigatória"
+            password.length < 6 -> "Senha deve ter pelo menos 6 caracteres"
+            !isValidEmail(email) -> "Email inválido"
+            else -> null
+        }
+    }
+
+    private fun isValidEmail(email: String): Boolean {
+        return email.contains("@") && email.contains(".")
+    }
+
+    private fun handleLoginSuccess() {
+        _state.value = _state.value.copy(
+            isLoggedIn = true,
+            isLoading = false
+        )
+        showMessage("Login realizado com sucesso!", isSuccess = true)
+    }
+
+    private fun handleLoginError(exception: Exception, defaultMessage: String = "Erro ao fazer login") {
+        _state.value = _state.value.copy(isLoading = false)
+
+        val errorMessage = when (exception) {
+            is FirebaseAuthInvalidCredentialsException -> "Email ou senha incorretos"
+            else -> defaultMessage
+        }
+
+        showMessage(errorMessage, isSuccess = false)
+    }
+
+    private fun showMessage(message: String, isSuccess: Boolean) {
+        viewModelScope.launch {
+            _events.emit(SignInEvent.ShowMessage(message, isSuccess))
+        }
     }
 }

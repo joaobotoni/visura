@@ -56,7 +56,7 @@ fun DemoTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
- // Apply the chosen color scheme and typography to your app
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,

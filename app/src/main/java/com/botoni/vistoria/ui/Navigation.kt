@@ -15,7 +15,7 @@ fun Navigation(
 
     NavHost(navController = navController, startDestination = "signIn") {
         composable("signIn") {
-            SignInScreen(onSignInSuccess = {
+            SignInScreen(onLoginSuccess = {
                 navController.navigate("main") {
                     popUpTo("signIn") { inclusive = true }
                 }

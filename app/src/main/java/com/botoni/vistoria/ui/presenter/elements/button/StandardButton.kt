@@ -18,7 +18,9 @@ import androidx.compose.ui.unit.dp
 fun StandardButton(
     text: String,
     onClick: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
+
     @DrawableRes icon: Int? = null,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary
@@ -27,6 +29,7 @@ fun StandardButton(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         modifier = modifier,
+        enabled = enabled,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor, contentColor = contentColor
         )
