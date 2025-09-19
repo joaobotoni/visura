@@ -1,5 +1,6 @@
 package com.botoni.vistoria.ui.viewmodels
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.vistoria.domain.AuthenticationUseCase
@@ -86,14 +87,15 @@ class SignInViewModel @Inject constructor(
         return when {
             email.isBlank() -> "Email é obrigatório"
             password.isBlank() -> "Senha é obrigatória"
-            password.length < 6 -> "Senha deve ter pelo menos 6 caracteres"
+            password.length < 6 -> "Senha deve ter pelo menos \n6 caracteres"
             !isValidEmail(email) -> "Email inválido"
             else -> null
         }
     }
 
     private fun isValidEmail(email: String): Boolean {
-        return email.contains("@") && email.contains(".")
+        return email.isNotBlank() &&
+                Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
     }
 
     private fun handleLoginSuccess() {

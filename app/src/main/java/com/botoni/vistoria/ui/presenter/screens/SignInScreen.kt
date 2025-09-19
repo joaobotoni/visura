@@ -252,7 +252,7 @@ private fun EmailInput(
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Email,
-                contentDescription = "Ícone de email",
+                contentDescription = null,
                 modifier = Modifier.size(24.dp)
             )
         },
