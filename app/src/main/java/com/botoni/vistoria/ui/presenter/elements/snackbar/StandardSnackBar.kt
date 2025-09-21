@@ -24,83 +24,97 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
-sealed class SnackbarType(
+enum class SnackbarType(
     val containerColor: Color,
     val contentColor: Color,
     val iconColor: Color,
     val icon: ImageVector
 ) {
-    object Success : SnackbarType(
+    SUCCESS(
         containerColor = Color(0xFF104C12),
-        contentColor = Color(0xFFFFFFFF),
+        contentColor = Color.White,
         iconColor = Color(0xFF4CAF50),
         icon = Icons.Default.CheckCircle
-    )
-
-    object Error : SnackbarType(
+    ),
+    ERROR(
         containerColor = Color(0xFFDD493E),
-        contentColor = Color(0xFFFFFFFF),
-        iconColor = Color(0xFFFFFFFF),
+        contentColor = Color.White,
+        iconColor = Color.White,
+        icon = Icons.Outlined.Warning
+    ),
+    DEFAULT(
+        containerColor = Color(0xFF424242),
+        contentColor = Color.White,
+        iconColor = Color.White,
         icon = Icons.Outlined.Warning
     )
-
 }
 
 @Composable
 fun StandardSnackbar(
-    snackBarHostState: SnackbarHostState,
-    snackBarState: Boolean
+    hostState: SnackbarHostState,
+    type: SnackbarType = SnackbarType.DEFAULT
 ) {
-    val snackbarType = if (snackBarState) {
-        SnackbarType.Success
-    } else {
-        SnackbarType.Error
-    }
-
     SnackbarHost(
-        hostState = snackBarHostState,
-        modifier = Modifier.padding(16.dp),
-        snackbar = {
-            snackBarHostState.currentSnackbarData?.let { snackbarData ->
-                Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = snackbarType.containerColor,
-                        contentColor = snackbarType.contentColor
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(
-                                imageVector = snackbarType.icon,
-                                contentDescription = null,
-                                tint = snackbarType.iconColor
-                            )
-                            Text(
-                                text = snackbarData.visuals.message,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        IconButton(
-                            onClick = { snackbarData.dismiss() },
-                            modifier = Modifier.padding(start = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Fechar",
-                                tint = snackbarType.contentColor
-                            )
-                        }
-                    }
-                }
+        hostState = hostState,
+        modifier = Modifier.padding(16.dp)
+    ) { data ->
+        Card(
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = type.containerColor,
+                contentColor = type.contentColor
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                MessageContent(
+                    message = data.visuals.message,
+                    type = type
+                )
+                DismissButton(
+                    onDismiss = data::dismiss,
+                    tint = type.contentColor
+                )
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun MessageContent(message: String, type: SnackbarType) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = type.icon,
+            contentDescription = null,
+            tint = type.iconColor
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+private fun DismissButton(onDismiss: () -> Unit, tint: Color) {
+    IconButton(
+        onClick = onDismiss,
+        modifier = Modifier.padding(start = 8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Fechar",
+            tint = tint
+        )
+    }
 }

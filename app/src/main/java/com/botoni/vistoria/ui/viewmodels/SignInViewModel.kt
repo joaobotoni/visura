@@ -5,26 +5,51 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.vistoria.domain.AuthenticationUseCase
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+sealed class UiState {
+    object Idle : UiState()
+    data class Success(val message: String) : UiState()
+    data class Error(val message: String, val type: ErrorType) : UiState()
+}
+
+enum class ErrorType {
+    VALIDATION, AUTHENTICATION, UNKNOWN
+}
+
 sealed class SignInEvent {
-    data class ShowMessage(val message: String, val isSuccess: Boolean) : SignInEvent()
+    data class ShowMessage(
+        val message: String,
+        val isSuccess: Boolean,
+        val errorType: ErrorType? = null
+    ) : SignInEvent()
+    object NavigateToHome : SignInEvent()
+}
+
+data class FieldState(
+    val value: String = "",
+    val error: String? = null
+) {
+    val isValid: Boolean get() = error == null
 }
 
 data class SignInState(
-    val email: String = "",
-    val password: String = "",
+    val email: FieldState = FieldState(),
+    val password: FieldState = FieldState(),
     val showPassword: Boolean = false,
-    val isLoggedIn: Boolean = false,
-    val isLoading: Boolean = false,
+    val uiState: UiState = UiState.Idle,
+    val isEmailLoading: Boolean = false,
+    val isGoogleLoading: Boolean = false
 )
 
 @HiltViewModel
@@ -34,92 +59,193 @@ class SignInViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(SignInState())
     private val _events = MutableSharedFlow<SignInEvent>()
-    val state: StateFlow<SignInState> = _state.asStateFlow()
-    val events: SharedFlow<SignInEvent> = _events.asSharedFlow()
+    val state = _state.asStateFlow()
+    val events = _events.asSharedFlow()
+
     fun setEmail(email: String) {
-        _state.value = _state.value.copy(email = email)
+        updateState {
+            copy(
+                email = FieldState(email.trim()),
+                uiState = if (uiState is UiState.Error) UiState.Idle else uiState
+            )
+        }
     }
 
     fun setPassword(password: String) {
-        _state.value = _state.value.copy(password = password)
+        updateState {
+            copy(
+                password = FieldState(password),
+                uiState = if (uiState is UiState.Error) UiState.Idle else uiState
+            )
+        }
     }
 
     fun togglePasswordVisibility() {
-        val current = _state.value
-        _state.value = current.copy(showPassword = !current.showPassword)
+        updateState { copy(showPassword = !showPassword) }
+    }
+
+    fun clearErrorsAndState() {
+        updateState {
+            copy(
+                email = email.copy(error = null),
+                password = password.copy(error = null),
+                uiState = UiState.Idle,
+                isEmailLoading = false,
+                isGoogleLoading = false
+            )
+        }
     }
 
     fun loginWithEmail() {
-        val currentState = _state.value
-
-        val validationError = validateLoginData(currentState.email, currentState.password)
-        if (validationError != null) {
-            showMessage(validationError, isSuccess = false)
-            return
-        }
-
-        _state.value = currentState.copy(isLoading = true)
+        if (!validateForm()) return
 
         viewModelScope.launch {
             try {
-                authUseCase.signIn(currentState.email, currentState.password)
-                handleLoginSuccess()
+                updateState { copy(isEmailLoading = true) }
+
+                authUseCase.signIn(
+                    email = state.value.email.value,
+                    password = state.value.password.value
+                )
+                emitEmailSuccess("Login realizado com sucesso!")
             } catch (e: Exception) {
-                handleLoginError(e)
+                emitEmailError(e.toUiError())
+            } finally {
+                updateState { copy(isEmailLoading = false) }
             }
         }
     }
 
     fun loginWithGoogle() {
-        _state.value = _state.value.copy(isLoading = true)
-
         viewModelScope.launch {
             try {
+                updateState { copy(isGoogleLoading = true) }
                 authUseCase.signInWithGoogle()
-                handleLoginSuccess()
+                emitGoogleSuccess("Login com Google realizado com sucesso!")
+
             } catch (e: Exception) {
-                handleLoginError(e, "Erro ao fazer login com Google")
+                emitGoogleError(e.toUiError())
+            } finally {
+                updateState { copy(isGoogleLoading = false) }
             }
         }
     }
 
-    private fun validateLoginData(email: String, password: String): String? {
-        return when {
-            email.isBlank() -> "Email é obrigatório"
-            password.isBlank() -> "Senha é obrigatória"
-            password.length < 6 -> "Senha deve ter pelo menos \n6 caracteres"
-            !isValidEmail(email) -> "Email inválido"
-            else -> null
+    private fun validateForm(): Boolean {
+        val emailError = validateEmail(state.value.email.value)
+        val passwordError = validatePassword(state.value.password.value)
+
+        val hasErrors = emailError != null || passwordError != null
+
+        if (hasErrors) {
+            updateState {
+                copy(
+                    email = email.copy(error = emailError),
+                    password = password.copy(error = passwordError),
+                    uiState = UiState.Error(
+                        message = emailError ?: passwordError ?: "Erro de validação",
+                        type = ErrorType.VALIDATION
+                    )
+                )
+            }
+
+            val message = emailError ?: passwordError ?: "Preencha os campos corretamente"
+            emitEvent(
+                SignInEvent.ShowMessage(
+                    message = message,
+                    isSuccess = false,
+                    errorType = ErrorType.VALIDATION
+                )
+            )
         }
+
+        return !hasErrors
     }
 
-    private fun isValidEmail(email: String): Boolean {
-        return email.isNotBlank() &&
-                Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    private fun validateEmail(email: String): String? = when {
+        email.isBlank() -> "Email é obrigatório"
+        !Patterns.EMAIL_ADDRESS.matcher(email).matches() -> "Formato de email inválido"
+        else -> null
     }
 
-    private fun handleLoginSuccess() {
-        _state.value = _state.value.copy(
-            isLoggedIn = true,
-            isLoading = false
+    private fun validatePassword(password: String): String? = when {
+        password.isBlank() -> "Senha é obrigatória"
+        password.length < 6 -> "Senha muito fraca. \nUse no mínimo 6 caracteres"
+        else -> null
+    }
+
+    private suspend fun emitEmailSuccess(message: String) {
+        updateState { copy(uiState = UiState.Success(message)) }
+        emitEvent(SignInEvent.ShowMessage(message, isSuccess = true))
+        delay(300)
+        emitEvent(SignInEvent.NavigateToHome)
+    }
+
+    private suspend fun emitGoogleSuccess(message: String) {
+        updateState { copy(uiState = UiState.Success(message)) }
+        emitEvent(SignInEvent.ShowMessage(message, isSuccess = true))
+        delay(300)
+        emitEvent(SignInEvent.NavigateToHome)
+    }
+
+    private fun emitEmailError(error: UiState.Error) {
+        val isAuthError = error.type == ErrorType.AUTHENTICATION
+
+        updateState {
+            copy(
+                uiState = error,
+                email = if (isAuthError) email.copy(error = "Credenciais inválidas") else email,
+                password = if (isAuthError) password.copy(error = "Credenciais inválidas") else password
+            )
+        }
+
+        emitEvent(
+            SignInEvent.ShowMessage(
+                message = error.message,
+                isSuccess = false,
+                errorType = error.type
+            )
         )
-        showMessage("Login realizado com sucesso!", isSuccess = true)
     }
 
-    private fun handleLoginError(exception: Exception, defaultMessage: String = "Erro ao fazer login") {
-        _state.value = _state.value.copy(isLoading = false)
+    private fun emitGoogleError(error: UiState.Error) {
+        updateState { copy(uiState = error) }
 
-        val errorMessage = when (exception) {
-            is FirebaseAuthInvalidCredentialsException -> "Email ou senha incorretos"
-            else -> defaultMessage
-        }
-
-        showMessage(errorMessage, isSuccess = false)
+        emitEvent(
+            SignInEvent.ShowMessage(
+                message = error.message,
+                isSuccess = false,
+                errorType = error.type
+            )
+        )
     }
 
-    private fun showMessage(message: String, isSuccess: Boolean) {
+    private fun Throwable.toUiError(): UiState.Error = when (this) {
+        is FirebaseAuthInvalidCredentialsException -> UiState.Error(
+            message = "Email ou senha incorretos",
+            type = ErrorType.AUTHENTICATION
+        )
+        is FirebaseAuthInvalidUserException -> UiState.Error(
+            message = "Usuário não encontrado",
+            type = ErrorType.AUTHENTICATION
+        )
+        is FirebaseAuthUserCollisionException -> UiState.Error(
+            message = "Este email já está cadastrado",
+            type = ErrorType.AUTHENTICATION
+        )
+        else -> UiState.Error(
+            message = "Erro inesperado. Tente novamente",
+            type = ErrorType.UNKNOWN
+        )
+    }
+
+    private fun emitEvent(event: SignInEvent) {
         viewModelScope.launch {
-            _events.emit(SignInEvent.ShowMessage(message, isSuccess))
+            _events.emit(event)
         }
+    }
+
+    private fun updateState(transform: SignInState.() -> SignInState) {
+        _state.update(transform)
     }
 }

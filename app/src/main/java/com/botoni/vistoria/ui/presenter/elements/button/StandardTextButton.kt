@@ -17,12 +17,14 @@ fun StandardTextButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled : Boolean,
     @DrawableRes icon: Int? = null,
     contentColor: Color = MaterialTheme.colorScheme.primary
 ) {
     TextButton(
         onClick = onClick,
         modifier = modifier,
+        enabled = enabled,
         colors = ButtonDefaults.textButtonColors(contentColor = contentColor)
     ) {
         if (icon != null) {

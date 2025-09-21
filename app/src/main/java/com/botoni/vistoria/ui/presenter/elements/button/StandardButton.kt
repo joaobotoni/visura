@@ -18,9 +18,8 @@ import androidx.compose.ui.unit.dp
 fun StandardButton(
     text: String,
     onClick: () -> Unit,
-    enabled: Boolean,
     modifier: Modifier = Modifier,
-
+    enabled: Boolean,
     @DrawableRes icon: Int? = null,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary
