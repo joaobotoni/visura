@@ -12,11 +12,11 @@ plugins {
 }
 
 android {
-    namespace = "com.botoni.vistoria"
+    namespace = "com.botoni.visura"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.botoni.vistoria"
+        applicationId = "com.botoni.visura"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
