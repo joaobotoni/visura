@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "22526282670",
-    "project_id": "vistoria-hml",
-    "storage_bucket": "vistoria-hml.firebasestorage.app"
+    "project_number": "307083149527",
+    "project_id": "visura-95141",
+    "storage_bucket": "visura-95141.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:22526282670:android:a245db72cde9b3efa8563f",
+        "mobilesdk_app_id": "1:307083149527:android:008c9468597abc21aab092",
         "android_client_info": {
-          "package_name": "com.botoni.vistoria"
+          "package_name": "com.botoni.visura"
         }
       },
       "oauth_client": [
         {
-          "client_id": "22526282670-9pr3umcejpui1bdgitfuvmsvppnjh1g4.apps.googleusercontent.com",
+          "client_id": "307083149527-3dlojnmgshjlm5nial38an0fi1fcerg2.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.botoni.vistoria",
-            "certificate_hash": "b9582782db063fbc25a8b09448f1f5992923cbac"
+            "package_name": "com.botoni.visura",
+            "certificate_hash": "776d7373e68ca799b985d4c758b3ec5650303cb4"
           }
         },
         {
-          "client_id": "22526282670-31a7r6fr4lq533d81ffpvlfkb2caqj7u.apps.googleusercontent.com",
+          "client_id": "307083149527-tdgum4cpjvj21ovjc0vsogq1bo77q6m5.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDJV_hT6UUkuLepsM1JsCka8_AohCsT0yk"
+          "current_key": "AIzaSyBDkEXUeytMNRE4iq5pJDQCUi56COXcBHk"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "22526282670-31a7r6fr4lq533d81ffpvlfkb2caqj7u.apps.googleusercontent.com",
+              "client_id": "307083149527-tdgum4cpjvj21ovjc0vsogq1bo77q6m5.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

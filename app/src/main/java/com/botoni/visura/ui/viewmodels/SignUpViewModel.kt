@@ -3,11 +3,11 @@ package com.botoni.visura.ui.viewmodels
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.botoni.visura.domain.AuthenticationUseCase
 import com.botoni.visura.data.datasource.GoogleAuthException
+import com.botoni.visura.domain.AuthenticationUseCase
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -18,49 +18,33 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-sealed class UiState {
-    object Idle : UiState()
-    data class Success(val message: String) : UiState()
-    data class Error(val message: String, val type: ErrorType) : UiState()
-}
-
-enum class ErrorType {
-    VALIDATION,
-    AUTHENTICATION,
-    NETWORK,
-    CANCELLED,
-    UNKNOWN
-}
-sealed class SignInEvent {
+sealed class SignUpEvent {
     data class ShowMessage(
         val message: String,
         val isSuccess: Boolean,
         val errorType: ErrorType? = null
-    ) : SignInEvent()
+    ) : SignUpEvent()
 
-    object NavigateToHome : SignInEvent()
+    object NavigateToHome : SignUpEvent()
 }
-data class FieldState(
-    val value: String = "",
-    val error: String? = null
-) {
-    val isValid: Boolean get() = error == null
-}
-data class SignInState(
+
+data class SignUpState(
     val email: FieldState = FieldState(),
     val password: FieldState = FieldState(),
+    val confirmPassword: FieldState = FieldState(),
     val showPassword: Boolean = false,
+    val showConfirmPassword: Boolean = false,
     val uiState: UiState = UiState.Idle,
     val isEmailLoading: Boolean = false,
     val isGoogleLoading: Boolean = false
 )
 @HiltViewModel
-class SignInViewModel @Inject constructor(
+class SignUpViewModel @Inject constructor(
     private val authUseCase: AuthenticationUseCase
 ) : ViewModel() {
-    private val _state = MutableStateFlow(SignInState())
+    private val _state = MutableStateFlow(SignUpState())
     val state = _state.asStateFlow()
-    private val _events = MutableSharedFlow<SignInEvent>()
+    private val _events = MutableSharedFlow<SignUpEvent>()
     val events = _events.asSharedFlow()
     fun setEmail(email: String) {
         updateState {
@@ -80,8 +64,21 @@ class SignInViewModel @Inject constructor(
         }
     }
 
+    fun setConfirmPassword(confirmPassword: String) {
+        updateState {
+            copy(
+                confirmPassword = FieldState(confirmPassword),
+                uiState = if (uiState is UiState.Error) UiState.Idle else uiState
+            )
+        }
+    }
+
     fun togglePasswordVisibility() {
         updateState { copy(showPassword = !showPassword) }
+    }
+
+    fun toggleConfirmPasswordVisibility() {
+        updateState { copy(showConfirmPassword = !showConfirmPassword) }
     }
 
     fun clearErrorsAndState() {
@@ -89,6 +86,7 @@ class SignInViewModel @Inject constructor(
             copy(
                 email = email.copy(error = null),
                 password = password.copy(error = null),
+                confirmPassword = confirmPassword.copy(error = null),
                 uiState = UiState.Idle,
                 isEmailLoading = false,
                 isGoogleLoading = false
@@ -96,36 +94,36 @@ class SignInViewModel @Inject constructor(
         }
     }
 
-    fun loginWithEmail() {
+    fun signUpWithEmail() {
         if (!validateInputs()) return
         executeAuthOperation(
             setLoading = { isLoading -> copy(isEmailLoading = isLoading) },
             operation = {
-                authUseCase.signIn(
+                authUseCase.signUp(
                     email = state.value.email.value,
                     password = state.value.password.value
                 )
             },
-            successMessage = "Login realizado com sucesso!",
-            onError = ::handleEmailLoginError
+            successMessage = "Conta criada com sucesso!",
+            onError = ::handleEmailSignUpError
         )
     }
 
-    fun loginWithGoogle() {
+    fun signUpWithGoogle() {
         executeAuthOperation(
             setLoading = { isLoading -> copy(isGoogleLoading = isLoading) },
-            operation = { authUseCase.signInWithGoogle() },
-            successMessage = "Login com Google realizado com sucesso!",
-            onError = ::handleGoogleLoginError
+            operation = { authUseCase.signUpWithGoogle() },
+            successMessage = "Cadastro com Google realizado com sucesso!",
+            onError = ::handleGoogleSignUpError
         )
     }
-
     private fun validateInputs(): Boolean {
         val emailError = validateEmail()
         val passwordError = validatePassword()
+        val confirmPasswordError = validateConfirmPassword()
 
-        if (emailError != null || passwordError != null) {
-            showValidationErrors(emailError, passwordError)
+        if (emailError != null || passwordError != null || confirmPasswordError != null) {
+            showValidationErrors(emailError, passwordError, confirmPasswordError)
             return false
         }
 
@@ -150,28 +148,43 @@ class SignInViewModel @Inject constructor(
         }
     }
 
-    private fun showValidationErrors(emailError: String?, passwordError: String?) {
+    private fun validateConfirmPassword(): String? {
+        val password = state.value.password.value
+        val confirmPassword = state.value.confirmPassword.value
+        return when {
+            confirmPassword.isBlank() -> "Confirmação de senha é obrigatória"
+            confirmPassword != password -> "As senhas não coincidem"
+            else -> null
+        }
+    }
+
+    private fun showValidationErrors(
+        emailError: String?,
+        passwordError: String?,
+        confirmPasswordError: String?
+    ) {
         updateState {
             copy(
                 email = email.copy(error = emailError),
                 password = password.copy(error = passwordError),
+                confirmPassword = confirmPassword.copy(error = confirmPasswordError),
                 uiState = UiState.Error(
-                    message = emailError ?: passwordError ?: "Erro de validação",
+                    message = emailError ?: passwordError ?: confirmPasswordError ?: "Erro de validação",
                     type = ErrorType.VALIDATION
                 )
             )
         }
-
         emitEvent(
-            SignInEvent.ShowMessage(
-                message = emailError ?: passwordError ?: "Preencha os campos corretamente",
+            SignUpEvent.ShowMessage(
+                message = emailError ?: passwordError ?: confirmPasswordError
+                ?: "Preencha os campos corretamente",
                 isSuccess = false,
                 errorType = ErrorType.VALIDATION
             )
         )
     }
     private fun executeAuthOperation(
-        setLoading: SignInState.(Boolean) -> SignInState,
+        setLoading: SignUpState.(Boolean) -> SignUpState,
         operation: suspend () -> Unit,
         successMessage: String,
         onError: (Throwable) -> Unit
@@ -191,25 +204,38 @@ class SignInViewModel @Inject constructor(
 
     private suspend fun handleSuccess(message: String) {
         updateState { copy(uiState = UiState.Success(message)) }
-        emitEvent(SignInEvent.ShowMessage(message, isSuccess = true))
+        emitEvent(SignUpEvent.ShowMessage(message, isSuccess = true))
         delay(300)
-        emitEvent(SignInEvent.NavigateToHome)
+        emitEvent(SignUpEvent.NavigateToHome)
     }
-    private fun handleEmailLoginError(error: Throwable) {
+    private fun handleEmailSignUpError(error: Throwable) {
         val uiError = mapToUiError(error)
         val isAuthError = uiError.type == ErrorType.AUTHENTICATION
-
         updateState {
             copy(
                 uiState = uiError,
-                email = if (isAuthError) email.copy(error = "Credenciais inválidas") else email,
-                password = if (isAuthError) password.copy(error = "Credenciais inválidas") else password
+                email = when (error) {
+                    is FirebaseAuthUserCollisionException ->
+                        email.copy(error = "Este email já está cadastrado")
+                    is FirebaseAuthInvalidCredentialsException ->
+                        email.copy(error = "Email inválido")
+                    else -> if (isAuthError) email.copy(error = "Email inválido") else email
+                },
+                password = when (error) {
+                    is FirebaseAuthWeakPasswordException ->
+                        password.copy(error = "Senha muito fraca")
+                    else -> if (isAuthError && error !is FirebaseAuthUserCollisionException) {
+                        password.copy(error = "Senha inválida")
+                    } else {
+                        password
+                    }
+                }
             )
         }
         showErrorMessage(uiError)
     }
 
-    private fun handleGoogleLoginError(error: Throwable) {
+    private fun handleGoogleSignUpError(error: Throwable) {
         val uiError = mapToUiError(error)
         updateState { copy(uiState = uiError) }
         showErrorMessage(uiError)
@@ -217,26 +243,25 @@ class SignInViewModel @Inject constructor(
 
     private fun showErrorMessage(error: UiState.Error) {
         emitEvent(
-            SignInEvent.ShowMessage(
+            SignUpEvent.ShowMessage(
                 message = error.message,
                 isSuccess = false,
                 errorType = error.type
             )
         )
     }
-
     private fun mapToUiError(exception: Throwable): UiState.Error = when (exception) {
         is FirebaseAuthInvalidCredentialsException ->
-            UiState.Error("Email ou senha incorretos", ErrorType.AUTHENTICATION)
-
-        is FirebaseAuthInvalidUserException ->
-            UiState.Error("Usuário não encontrado", ErrorType.AUTHENTICATION)
+            UiState.Error("Email inválido", ErrorType.AUTHENTICATION)
 
         is FirebaseAuthUserCollisionException ->
             UiState.Error("Este email já está cadastrado", ErrorType.AUTHENTICATION)
 
+        is FirebaseAuthWeakPasswordException ->
+            UiState.Error("Senha muito fraca. Use no mínimo 6 caracteres", ErrorType.AUTHENTICATION)
+
         is GoogleAuthException.UserCancelled ->
-            UiState.Error("Login cancelado", ErrorType.CANCELLED)
+            UiState.Error("Cadastro cancelado", ErrorType.CANCELLED)
 
         is GoogleAuthException.NoAccountFound ->
             UiState.Error("Nenhuma conta Google encontrada", ErrorType.AUTHENTICATION)
@@ -256,13 +281,11 @@ class SignInViewModel @Inject constructor(
         else ->
             UiState.Error("Erro inesperado. Tente novamente", ErrorType.UNKNOWN)
     }
-
-
-    private fun updateState(transform: SignInState.() -> SignInState) {
+    private fun updateState(transform: SignUpState.() -> SignUpState) {
         _state.update(transform)
     }
 
-    private fun emitEvent(event: SignInEvent) {
+    private fun emitEvent(event: SignUpEvent) {
         viewModelScope.launch {
             _events.emit(event)
         }

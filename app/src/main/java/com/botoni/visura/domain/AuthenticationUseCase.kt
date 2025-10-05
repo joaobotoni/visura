@@ -17,6 +17,9 @@ class AuthenticationUseCase @Inject constructor(
     suspend fun signInWithGoogle() =
         googleClientRepository.signInWithGoogle()
 
+    suspend fun signUpWithGoogle() =
+        googleClientRepository.signUpWithGoogle()
+
     suspend fun signOut(){
         fireBaseClientRepository.signOut()
         googleClientRepository.signOut()
