@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "307083149527-vnapp51083fol3s0j2qdvekebmovh1sm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.botoni.visura",
+            "certificate_hash": "37619ed495e082296c45d19b767954947b069b72"
+          }
+        },
+        {
           "client_id": "307083149527-tdgum4cpjvj21ovjc0vsogq1bo77q6m5.apps.googleusercontent.com",
           "client_type": 3
         }
