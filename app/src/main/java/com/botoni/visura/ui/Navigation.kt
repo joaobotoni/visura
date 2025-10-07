@@ -1,5 +1,6 @@
 package com.botoni.visura.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
@@ -68,13 +69,13 @@ fun Navigation(navController: NavHostController = rememberNavController()) {
             route = Screen.SignIn.route,
             enterTransition = {
                 slideIntoContainer(
-                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right,
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
                     animationSpec = slideAnimation
                 )
             },
             exitTransition = {
                 slideOutOfContainer(
-                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left,
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
                     animationSpec = slideAnimation
                 )
             }
@@ -103,13 +104,13 @@ fun Navigation(navController: NavHostController = rememberNavController()) {
             route = Screen.SignUp.route,
             enterTransition = {
                 slideIntoContainer(
-                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left,
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
                     animationSpec = slideAnimation
                 )
             },
             exitTransition = {
                 slideOutOfContainer(
-                    towards = androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right,
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
                     animationSpec = slideAnimation
                 )
             }

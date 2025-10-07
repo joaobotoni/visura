@@ -1,5 +1,6 @@
 package com.botoni.visura.ui.presenter.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,15 +50,15 @@ import com.botoni.visura.ui.presenter.elements.button.StandardButton
 import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.visura.ui.presenter.elements.button.StandardTextButton
 import com.botoni.visura.ui.presenter.elements.input.StandardTextField
-import com.botoni.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.botoni.visura.ui.presenter.elements.snackbar.SnackbarType
+import com.botoni.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.botoni.visura.ui.presenter.theme.DemoTheme
-import com.botoni.visura.ui.viewmodels.ErrorType
 import com.botoni.visura.ui.viewmodels.FieldState
 import com.botoni.visura.ui.viewmodels.SignInEvent
 import com.botoni.visura.ui.viewmodels.SignInState
 import com.botoni.visura.ui.viewmodels.SignInViewModel
 import com.botoni.visura.ui.viewmodels.UiState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 
 @Composable
@@ -67,28 +68,22 @@ fun SignInScreen(
     viewModel: SignInViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
-    var snackbarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
+    val snackBarHostState = remember { SnackbarHostState() }
+    var snackBarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
 
     HandleSignInEvents(
         events = viewModel.events,
-        snackBarHostState = snackbarHostState,
+        snackBarHostState = snackBarHostState,
         onNavigate = onLoginSuccess,
-        onSnackbarTypeChange = { snackbarType = it }
+        onSnackBarTypeChange = { snackBarType = it }
     )
 
     SignInScreenContent(
         state = state,
-        snackbarHostState = snackbarHostState,
-        snackbarType = snackbarType,
-        onEmailChange = { email ->
-            viewModel.setEmail(email)
-            viewModel.clearErrorsAndState()
-        },
-        onPasswordChange = { password ->
-            viewModel.setPassword(password)
-            viewModel.clearErrorsAndState()
-        },
+        snackBarHostState = snackBarHostState,
+        snackBarType = snackBarType,
+        onEmailChange = viewModel::setEmail,
+        onPasswordChange = viewModel::setPassword,
         onTogglePassword = viewModel::togglePasswordVisibility,
         onLogin = viewModel::loginWithEmail,
         onGoogleLogin = viewModel::loginWithGoogle,
@@ -101,36 +96,33 @@ private fun HandleSignInEvents(
     events: SharedFlow<SignInEvent>,
     snackBarHostState: SnackbarHostState,
     onNavigate: () -> Unit,
-    onSnackbarTypeChange: (SnackbarType) -> Unit
+    onSnackBarTypeChange: (SnackbarType) -> Unit
 ) {
     LaunchedEffect(Unit) {
         events.collect { event ->
             when (event) {
                 is SignInEvent.ShowMessage -> {
-                    onSnackbarTypeChange(
-                        if (event.isSuccess) SnackbarType.SUCCESS else SnackbarType.ERROR
-                    )
-
+                    val type = if (event.isSuccess) SnackbarType.SUCCESS else SnackbarType.ERROR
+                    onSnackBarTypeChange(type)
                     snackBarHostState.showSnackbar(
                         message = event.message,
-                        duration = when {
-                            event.isSuccess -> SnackbarDuration.Short
-                            event.errorType == ErrorType.VALIDATION || event.errorType == ErrorType.UNKNOWN -> SnackbarDuration.Short
-                            else -> SnackbarDuration.Long
-                        }
+                        duration = SnackbarDuration.Long
                     )
+                    if (event.isSuccess) {
+                        onNavigate()
+                    }
                 }
-                SignInEvent.NavigateToHome -> onNavigate()
             }
         }
     }
 }
 
+
 @Composable
 private fun SignInScreenContent(
     state: SignInState,
-    snackbarHostState: SnackbarHostState,
-    snackbarType: SnackbarType,
+    snackBarHostState: SnackbarHostState,
+    snackBarType: SnackbarType,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onTogglePassword: () -> Unit,
@@ -146,8 +138,8 @@ private fun SignInScreenContent(
             Scaffold(
                 snackbarHost = {
                     StandardSnackbar(
-                        hostState = snackbarHostState,
-                        type = snackbarType
+                        hostState = snackBarHostState,
+                        type = snackBarType
                     )
                 }
             ) { paddingValues ->
@@ -177,6 +169,10 @@ private fun SignInForm(
     onSignUpClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isLoading = state.isEmailLoading || state.isGoogleLoading
+    val isSuccess = state.uiState is UiState.Success
+    val isEnabled = !isLoading && !isSuccess
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -190,18 +186,29 @@ private fun SignInForm(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        SignInInputs(
+        SignInInputFields(
             emailState = state.email,
             passwordState = state.password,
             showPassword = state.showPassword,
-            isEmailLoading = state.isEmailLoading,
-            isGoogleLoading = state.isGoogleLoading,
-            state = state,
+            isEnabled = isEnabled,
             onEmailChange = onEmailChange,
             onPasswordChange = onPasswordChange,
-            onTogglePassword = onTogglePassword,
-            onLogin = onLogin,
-            onSignUpClick = onSignUpClick
+            onTogglePassword = onTogglePassword
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SignUpLink(
+            onClick = onSignUpClick,
+            enabled = isEnabled
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        LoginButton(
+            isLoading = state.isEmailLoading,
+            isEnabled = isEnabled && state.email.value.isNotEmpty() && state.password.value.isNotEmpty(),
+            onClick = onLogin
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -212,8 +219,7 @@ private fun SignInForm(
 
         GoogleButton(
             isLoading = state.isGoogleLoading,
-            isEnabled = !state.isEmailLoading && !state.isGoogleLoading &&
-                    state.uiState !is UiState.Success,
+            isEnabled = isEnabled,
             onClick = onGoogleLogin
         )
     }
@@ -244,18 +250,14 @@ private fun SignInHeader() {
 }
 
 @Composable
-private fun SignInInputs(
+private fun SignInInputFields(
     emailState: FieldState,
     passwordState: FieldState,
     showPassword: Boolean,
-    isEmailLoading: Boolean,
-    isGoogleLoading: Boolean,
-    state: SignInState,
+    isEnabled: Boolean,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onTogglePassword: () -> Unit,
-    onLogin: () -> Unit,
-    onSignUpClick: () -> Unit
+    onTogglePassword: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -263,29 +265,16 @@ private fun SignInInputs(
     ) {
         EmailField(
             state = emailState,
-            isEnabled = !isEmailLoading && !isGoogleLoading && state.uiState !is UiState.Success,
+            isEnabled = isEnabled,
             onValueChange = onEmailChange
         )
 
         PasswordField(
             state = passwordState,
             showPassword = showPassword,
-            isEnabled = !isEmailLoading && !isGoogleLoading && state.uiState !is UiState.Success,
+            isEnabled = isEnabled,
             onValueChange = onPasswordChange,
             onTogglePassword = onTogglePassword
-        )
-
-        SignUpLink(
-            onClick = onSignUpClick,
-            enabled = !isEmailLoading && !isGoogleLoading && state.uiState !is UiState.Success
-        )
-
-        LoginButton(
-            isLoading = isEmailLoading,
-            isEnabled = !isEmailLoading && !isGoogleLoading &&
-                    emailState.value.isNotEmpty() && passwordState.value.isNotEmpty() &&
-                    state.uiState !is UiState.Success,
-            onClick = onLogin
         )
     }
 }
@@ -354,7 +343,7 @@ private fun PasswordField(
 @Composable
 private fun SignUpLink(
     onClick: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
