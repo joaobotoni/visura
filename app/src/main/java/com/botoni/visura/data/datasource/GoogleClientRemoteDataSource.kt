@@ -33,7 +33,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
 ) {
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val credentialManager: CredentialManager = CredentialManager.create(context)
-    private val webClientId: String = "307083149527-tdgum4cpjvj21ovjc0vsogq1bo77q6m5.apps.googleusercontent.com"
+    private val webClientId: String = ""
 
     suspend fun signInWithGoogle() {
         try {
