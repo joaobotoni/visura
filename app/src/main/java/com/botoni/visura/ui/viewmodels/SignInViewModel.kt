@@ -145,7 +145,6 @@ class SignInViewModel @Inject constructor(
         val password = state.value.password.value
         return when {
             password.isBlank() -> "Senha é obrigatória"
-            password.length < 6 -> "Senha muito fraca. \nUse no mínimo 6 caracteres"
             else -> null
         }
     }

@@ -126,7 +126,6 @@ class SignUpViewModel @Inject constructor(
             showValidationErrors(emailError, passwordError, confirmPasswordError)
             return false
         }
-
         return true
     }
 
@@ -143,7 +142,12 @@ class SignUpViewModel @Inject constructor(
         val password = state.value.password.value
         return when {
             password.isBlank() -> "Senha é obrigatória"
-            password.length < 6 -> "Senha muito fraca. \nUse no mínimo 6 caracteres"
+            password.length < 8 -> "A senha deve ter no mínimo 8 caracteres"
+            !password.any { it.isUpperCase() } -> "Senha precisa ter ao menos uma letra maiúscula."
+            !password.any { it.isLowerCase() } -> "Senha precisa ter ao menos uma letra minúscula"
+            !password.any { it.isDigit() } -> "Senha precisa ter ao menos um número"
+            !password.any { "!@#$%^&*()_+-=[]{}|;:'\",.<>?".contains(it) } ->
+                "Senha precisa ter ao menos um caractere especial: ! @ # $ % ^ & *"
             else -> null
         }
     }

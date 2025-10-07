@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 enum class SnackbarType(
@@ -76,7 +78,8 @@ fun StandardSnackbar(
             ) {
                 MessageContent(
                     message = data.visuals.message,
-                    type = type
+                    type = type,
+                    modifier = Modifier.weight(1f)
                 )
                 DismissButton(
                     onDismiss = data::dismiss,
@@ -88,8 +91,13 @@ fun StandardSnackbar(
 }
 
 @Composable
-private fun MessageContent(message: String, type: SnackbarType) {
+private fun MessageContent(
+    message: String,
+    type: SnackbarType,
+    modifier: Modifier = Modifier
+) {
     Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -100,7 +108,9 @@ private fun MessageContent(message: String, type: SnackbarType) {
         )
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -113,7 +123,7 @@ private fun DismissButton(onDismiss: () -> Unit, tint: Color) {
     ) {
         Icon(
             imageVector = Icons.Default.Close,
-            contentDescription = "Fechar",
+            contentDescription = null,
             tint = tint
         )
     }
