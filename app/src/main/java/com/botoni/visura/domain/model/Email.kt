@@ -12,5 +12,6 @@ class Email(val value: String) {
             throw AuthenticationException("Formato de e-mail inválido")
         }
     }
+
     override fun toString(): String = value
 }

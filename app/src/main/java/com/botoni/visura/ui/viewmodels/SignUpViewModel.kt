@@ -1,6 +1,7 @@
 package com.botoni.visura.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.botoni.visura.domain.exceptions.AuthenticationException
 import com.botoni.visura.domain.model.Email
 import com.botoni.visura.domain.model.Password
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 
@@ -58,15 +60,23 @@ class SignUpViewModel @Inject constructor(
         }
     }
 
-    fun signUpWithEmail(){
-         try {
-
-         } catch (e: AuthenticationException) {
-
-         }
+    fun signUpWithEmail() {
+        viewModelScope.launch {
+            val email: Email = uiState.value.email
+            val password: Password = requireMatchingPasswords()
+            try {
+                authenticationUseCase.signUp(email, password)
+            } catch (e: AuthenticationException) {
+                //TODO()
+            }
+        }
     }
 
-    fun signUpWithGoogle(){
+    private fun requireMatchingPasswords(): Password =
+        uiState.value.password.takeIf { it.compareTo(uiState.value.confirmPassword) == 0 }
+            ?: throw AuthenticationException("Senhas não coincidem")
+
+    fun signUpWithGoogle() {
 
     }
 }
