@@ -1,10 +1,11 @@
+
 package com.botoni.visura.ui.viewmodels
 
 import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.botoni.visura.domain.AuthenticationUseCase
+import com.botoni.visura.domain.usecase.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
