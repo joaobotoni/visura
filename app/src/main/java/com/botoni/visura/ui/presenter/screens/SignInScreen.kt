@@ -1,6 +1,5 @@
 package com.botoni.visura.ui.presenter.screens
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,7 +48,7 @@ import com.botoni.visura.R
 import com.botoni.visura.ui.presenter.elements.button.StandardButton
 import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.visura.ui.presenter.elements.button.StandardTextButton
-import com.botoni.visura.ui.presenter.elements.input.StandardTextField
+import com.botoni.visura.ui.presenter.elements.field.StandardTextField
 import com.botoni.visura.ui.presenter.elements.snackbar.SnackbarType
 import com.botoni.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.botoni.visura.ui.presenter.theme.DemoTheme
@@ -58,7 +57,6 @@ import com.botoni.visura.ui.viewmodels.SignInEvent
 import com.botoni.visura.ui.viewmodels.SignInState
 import com.botoni.visura.ui.viewmodels.SignInViewModel
 import com.botoni.visura.ui.viewmodels.UiState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 
 @Composable

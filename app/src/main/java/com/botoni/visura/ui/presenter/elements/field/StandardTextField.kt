@@ -1,4 +1,4 @@
-package com.botoni.visura.ui.presenter.elements.input
+package com.botoni.visura.ui.presenter.elements.field
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape

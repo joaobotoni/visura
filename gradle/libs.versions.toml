@@ -24,6 +24,7 @@ lifecycleViewmodelCompose = "2.9.2"
 materialIconsExtended = "1.7.8"
 navigationCompose = "2.9.2"
 animationVersion = "1.9.2"
+playServicesNearby = "19.3.0"
 
 [libraries]
 androidx-animation = { module = "androidx.compose.animation:animation", version.ref = "animation" }
@@ -60,6 +61,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesPlayServices" }
 androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animationVersion" }
+play-services-nearby = { group = "com.google.android.gms", name = "play-services-nearby", version.ref = "playServicesNearby" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

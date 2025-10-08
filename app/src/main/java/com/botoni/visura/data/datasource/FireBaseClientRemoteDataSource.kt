@@ -1,6 +1,8 @@
 package com.botoni.visura.data.datasource
 
 import android.util.Log
+import com.botoni.visura.domain.model.Email
+import com.botoni.visura.domain.model.Password
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
@@ -13,13 +15,13 @@ class FireBaseClientRemoteDataSource @Inject constructor() {
         private const val TAG = "FireBaseAuth"
     }
 
-    suspend fun signUp(email: String, password: String) {
-        auth.createUserWithEmailAndPassword(email, password).await()
+    suspend fun signUp(email: Email, password: Password) {
+        auth.createUserWithEmailAndPassword(email.value, password.value).await()
         logSuccess("Success registering the user")
     }
 
-    suspend fun signIn(email: String, password: String) {
-        auth.signInWithEmailAndPassword(email, password).await()
+    suspend fun signIn(email: Email, password: Password) {
+        auth.signInWithEmailAndPassword(email.value, password.value).await()
         logSuccess("Success in authenticating the user")
     }
 
