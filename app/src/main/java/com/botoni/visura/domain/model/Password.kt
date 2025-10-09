@@ -1,32 +1,19 @@
 package com.botoni.visura.domain.model
 
 import com.botoni.visura.domain.exceptions.AuthenticationException
+import com.botoni.visura.domain.exceptions.Error
 
 class Password(val value: String) : Comparable<Password> {
     init {
         if (value.isBlank()) {
-            throw AuthenticationException("Senha é obrigatória")
+            throw AuthenticationException("Senha é obrigatória", Error.VALIDATION)
         }
         if (value.length < 8) {
-            throw AuthenticationException("Mínimo 8 caracteres")
+            throw AuthenticationException("Mínimo 8 caracteres", Error.VALIDATION)
         }
     }
 
     override fun compareTo(other: Password): Int {
         return this.value.compareTo(other.value)
     }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as Password
-        return value == other.value
-    }
-
-    override fun hashCode(): Int {
-        return value.hashCode()
-    }
-
-    override fun toString(): String = value
 }

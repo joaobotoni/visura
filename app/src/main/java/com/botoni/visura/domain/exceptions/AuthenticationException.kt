@@ -1,3 +1,11 @@
-package com.botoni.visura.domain.exceptions
+    package com.botoni.visura.domain.exceptions
 
-class AuthenticationException(msg: String) : Exception(msg)
+    enum class Error {
+        VALIDATION,
+        AUTHENTICATION,
+        NETWORK,
+        CANCELLED,
+        UNKNOWN
+    }
+
+    class AuthenticationException(message: String, error: Error) : Exception(message)

@@ -3,14 +3,13 @@ package com.botoni.visura.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.visura.domain.exceptions.AuthenticationException
+import com.botoni.visura.domain.exceptions.Error
 import com.botoni.visura.domain.model.Email
 import com.botoni.visura.domain.model.Password
 import com.botoni.visura.domain.usecase.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -20,33 +19,17 @@ import javax.inject.Inject
 data class SignUpState(
     val email: Email = Email(""),
     val password: Password = Password(""),
-    val confirmPassword: Password = Password(""),
+    val confirm: Password = Password(""),
     val showPassword: Boolean = false,
     val showConfirmPassword: Boolean = false,
 )
-
-sealed class SignUpEvent {
-    data class ShowMessage(
-        val message: String?,
-        val isSuccess: Boolean,
-        val errorType: ErrorType? = null
-    ) : SignUpEvent()
-}
-
-enum class ErrorType {
-    VALIDATION, AUTHENTICATION, NETWORK, CANCELLED, UNKNOWN
-}
-
-
 @HiltViewModel
 class SignUpViewModel @Inject constructor(
     private val authenticationUseCase: AuthenticationUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SignUpState())
     val uiState: StateFlow<SignUpState> = _uiState.asStateFlow()
-    private val _events = MutableSharedFlow<SignUpEvent>()
-    val events = _events.asSharedFlow()
-
+    private val state = uiState.value
     fun setEmail(email: Email) {
         _uiState.update { current ->
             current.copy(email = email)
@@ -59,9 +42,9 @@ class SignUpViewModel @Inject constructor(
         }
     }
 
-    fun setConfirmPassword(confirmPassword: Password) {
+    fun setConfirmPassword(confirm: Password) {
         _uiState.update { current ->
-            current.copy(confirmPassword = confirmPassword)
+            current.copy(confirm = confirm)
         }
     }
 
@@ -77,36 +60,30 @@ class SignUpViewModel @Inject constructor(
         }
     }
 
+    private fun assertPasswordsMatch(): Password =
+        state.password.takeIf { it.compareTo(state.confirm) == 0 }
+            ?: throw AuthenticationException("Senhas não coincidem", Error.AUTHENTICATION)
+
     fun signUpWithEmail() {
         viewModelScope.launch {
-            val email: Email = uiState.value.email
-            val password: Password = requireMatchingPasswords()
+            val email: Email = state.email
+            val password: Password = assertPasswordsMatch()
             try {
                 authenticationUseCase.signUp(email, password)
-                _events.emit(
-                    value = SignUpEvent.ShowMessage(
-                        message = "Cadastro feito com sucesso",
-                        isSuccess = true
-                    )
-                )
-            } catch (e: AuthenticationException) {
-                _events.emit(
-                    SignUpEvent.ShowMessage(
-                        message = e.message,
-                        isSuccess = false,
-                        errorType = ErrorType.VALIDATION
-                    )
-                )
+            } catch (exception: AuthenticationException) {
+
             }
         }
     }
 
-    private fun requireMatchingPasswords(): Password =
-        uiState.value.password.takeIf { it.compareTo(uiState.value.confirmPassword) == 0 }
-            ?: throw AuthenticationException("Senhas não coincidem")
-
     fun signUpWithGoogle() {
+        viewModelScope.launch {
+            try {
+                authenticationUseCase.signUpWithGoogle()
+            } catch (exception: AuthenticationException) {
 
+            }
+        }
     }
 }
 
