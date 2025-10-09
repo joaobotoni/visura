@@ -3,17 +3,21 @@ package com.botoni.visura.domain.model
 import com.botoni.visura.domain.exceptions.AuthenticationException
 import com.botoni.visura.domain.exceptions.Error
 
-class Password(val value: String) : Comparable<Password> {
+@JvmInline
+value class Password(private val value: String) : Comparable<Password> {
+
     init {
-        if (value.isBlank()) {
-            throw AuthenticationException("Senha é obrigatória", Error.VALIDATION)
+        require(value.isNotBlank()) {
+            throw AuthenticationException(Error.VALIDATION, "Senha é obrigatória")
         }
-        if (value.length < 8) {
-            throw AuthenticationException("Mínimo 8 caracteres", Error.VALIDATION)
+        require(value.length >= MIN_LENGTH) {
+            throw AuthenticationException(Error.VALIDATION, "Mínimo $MIN_LENGTH caracteres")
         }
     }
 
-    override fun compareTo(other: Password): Int {
-        return this.value.compareTo(other.value)
+    override fun compareTo(other: Password): Int = value.compareTo(other.value)
+
+    companion object {
+        private const val MIN_LENGTH = 8
     }
 }
