@@ -4,17 +4,24 @@ import android.util.Patterns
 import com.botoni.visura.domain.exceptions.AuthenticationException
 import com.botoni.visura.domain.exceptions.Error
 
-class Email(val value: String) : Comparable<Email> {
+
+@JvmInline
+value class Email(private val value: String) : Comparable<Email> {
+
     init {
-        if (value.isBlank()) {
-            throw AuthenticationException("E-mail é obrigatório", Error.VALIDATION)
+        require(value.isNotBlank()) {
+            throw AuthenticationException(
+                Error.VALIDATION,
+                "E-mail é obrigatório"
+            )
         }
-        if (!Patterns.EMAIL_ADDRESS.matcher(value).matches()) {
-            throw AuthenticationException("Formato de e-mail inválido", Error.VALIDATION)
+        require(Patterns.EMAIL_ADDRESS.matcher(value).matches()) {
+            throw AuthenticationException(
+                Error.VALIDATION,
+                "E-mail é inválido"
+            )
         }
     }
 
-    override fun compareTo(other: Email): Int {
-        return this.value.compareTo(other.value)
-    }
+    override fun compareTo(other: Email): Int = value.compareTo(other.value)
 }
