@@ -22,16 +22,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -43,21 +36,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.botoni.visura.R
 import com.botoni.visura.ui.presenter.elements.button.StandardButton
 import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.visura.ui.presenter.elements.button.StandardTextButton
 import com.botoni.visura.ui.presenter.elements.field.StandardTextField
-import com.botoni.visura.ui.presenter.elements.snackbar.SnackbarType
-import com.botoni.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.botoni.visura.ui.presenter.theme.DemoTheme
-import com.botoni.visura.ui.viewmodels.FieldState
-import com.botoni.visura.ui.viewmodels.SignUpEvent
-import com.botoni.visura.ui.viewmodels.SignUpState
 import com.botoni.visura.ui.viewmodels.SignUpViewModel
-import com.botoni.visura.ui.viewmodels.UiState
-import kotlinx.coroutines.flow.SharedFlow
 
 @Composable
 fun SignUpScreen(
@@ -65,87 +50,27 @@ fun SignUpScreen(
     onSignInClick: () -> Unit,
     viewModel: SignUpViewModel = hiltViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackBarHostState = remember { SnackbarHostState() }
-    var snackBarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
-
-    HandleSignUpEvents(
-        events = viewModel.events,
-        snackBarHostState = snackBarHostState,
-        onNavigate = onSignUpSuccess,
-        onSnackBarTypeChange = { snackBarType = it }
-    )
-
-    SignUpScreenContent(
-        state = state,
-        snackBarHostState = snackBarHostState,
-        snackBarType = snackBarType,
-        onEmailChange = viewModel::setEmail,
-        onPasswordChange = viewModel::setPassword,
-        onConfirmPasswordChange = viewModel::setConfirmPassword,
-        onTogglePassword = viewModel::togglePasswordVisibility,
-        onToggleConfirmPassword = viewModel::toggleConfirmPasswordVisibility,
-        onSignUp = viewModel::signUpWithEmail,
-        onGoogleSignUp = viewModel::signUpWithGoogle,
-        onSignInClick = onSignInClick
-    )
 }
 
-@Composable
-private fun HandleSignUpEvents(
-    events: SharedFlow<SignUpEvent>,
-    snackBarHostState: SnackbarHostState,
-    onNavigate: () -> Unit,
-    onSnackBarTypeChange: (SnackbarType) -> Unit
-) {
-    LaunchedEffect(Unit) {
-        events.collect { event ->
-            when (event) {
-                is SignUpEvent.ShowMessage -> {
-                    val type = if (event.isSuccess) SnackbarType.SUCCESS else SnackbarType.ERROR
-                    onSnackBarTypeChange(type)
-                    snackBarHostState.showSnackbar(
-                        message = event.message,
-                        duration =  SnackbarDuration.Long
-                    )
-                    if (event.isSuccess) {
-                        onNavigate()
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun SignUpScreenContent(
-    state: SignUpState,
-    snackBarHostState: SnackbarHostState,
-    snackBarType: SnackbarType,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
     onTogglePassword: () -> Unit,
     onToggleConfirmPassword: () -> Unit,
+    onSignInClick: () -> Unit,
     onSignUp: () -> Unit,
     onGoogleSignUp: () -> Unit,
-    onSignInClick: () -> Unit
 ) {
     DemoTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            Scaffold(
-                snackbarHost = {
-                    StandardSnackbar(
-                        hostState = snackBarHostState,
-                        type = snackBarType
-                    )
-                }
-            ) { paddingValues ->
+            Scaffold { paddingValues ->
                 SignUpForm(
-                    state = state,
                     onEmailChange = onEmailChange,
                     onPasswordChange = onPasswordChange,
                     onConfirmPasswordChange = onConfirmPasswordChange,
@@ -163,21 +88,16 @@ private fun SignUpScreenContent(
 
 @Composable
 private fun SignUpForm(
-    state: SignUpState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
     onTogglePassword: () -> Unit,
     onToggleConfirmPassword: () -> Unit,
     onSignUp: () -> Unit,
-    onGoogleSignUp: () -> Unit,
     onSignInClick: () -> Unit,
+    onGoogleSignUp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isLoading = state.isEmailLoading || state.isGoogleLoading
-    val isSuccess = state.uiState is UiState.Success
-    val isEnabled = !isLoading && !isSuccess
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -192,12 +112,7 @@ private fun SignUpForm(
         Spacer(modifier = Modifier.height(32.dp))
 
         SignUpInputFields(
-            emailState = state.email,
-            passwordState = state.password,
-            confirmPasswordState = state.confirmPassword,
-            showPassword = state.showPassword,
-            showConfirmPassword = state.showConfirmPassword,
-            isEnabled = isEnabled,
+            isEnabled = false,
             onEmailChange = onEmailChange,
             onPasswordChange = onPasswordChange,
             onConfirmPasswordChange = onConfirmPasswordChange,
@@ -209,17 +124,14 @@ private fun SignUpForm(
 
         SignInLink(
             onClick = onSignInClick,
-            enabled = isEnabled
+            enabled = false
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         SignUpButton(
-            isLoading = state.isEmailLoading,
-            isEnabled = isEnabled &&
-                    state.email.value.isNotEmpty() &&
-                    state.password.value.isNotEmpty() &&
-                    state.confirmPassword.value.isNotEmpty(),
+            isLoading = false,
+            isEnabled = false,
             onClick = onSignUp
         )
 
@@ -230,8 +142,8 @@ private fun SignUpForm(
         Spacer(modifier = Modifier.height(24.dp))
 
         GoogleButton(
-            isLoading = state.isGoogleLoading,
-            isEnabled = isEnabled,
+            isLoading = false,
+            isEnabled = false,
             onClick = onGoogleSignUp
         )
     }
@@ -263,11 +175,6 @@ private fun SignUpHeader() {
 
 @Composable
 private fun SignUpInputFields(
-    emailState: FieldState,
-    passwordState: FieldState,
-    confirmPasswordState: FieldState,
-    showPassword: Boolean,
-    showConfirmPassword: Boolean,
     isEnabled: Boolean,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
@@ -280,22 +187,19 @@ private fun SignUpInputFields(
         modifier = Modifier.fillMaxWidth()
     ) {
         EmailField(
-            state = emailState,
             isEnabled = isEnabled,
             onValueChange = onEmailChange
         )
 
         PasswordField(
-            state = passwordState,
-            showPassword = showPassword,
+            showPassword = false,
             isEnabled = isEnabled,
             onValueChange = onPasswordChange,
             onTogglePassword = onTogglePassword
         )
 
         ConfirmPasswordField(
-            state = confirmPasswordState,
-            showPassword = showConfirmPassword,
+            showPassword = false,
             isEnabled = isEnabled,
             onValueChange = onConfirmPasswordChange,
             onTogglePassword = onToggleConfirmPassword
@@ -305,12 +209,11 @@ private fun SignUpInputFields(
 
 @Composable
 private fun EmailField(
-    state: FieldState,
     isEnabled: Boolean,
     onValueChange: (String) -> Unit
 ) {
     StandardTextField(
-        value = state.value,
+        value = "",
         placeholder = "Email",
         label = "Digite seu email",
         onValueChange = onValueChange,
@@ -325,21 +228,20 @@ private fun EmailField(
             )
         },
         visualTransformation = VisualTransformation.None,
-        isError = !state.isValid,
+        isError = false,
         modifier = Modifier.fillMaxWidth()
     )
 }
 
 @Composable
 private fun PasswordField(
-    state: FieldState,
-    showPassword: Boolean,
     isEnabled: Boolean,
+    showPassword: Boolean,
     onValueChange: (String) -> Unit,
     onTogglePassword: () -> Unit
 ) {
     StandardTextField(
-        value = state.value,
+        value = "",
         placeholder = "Senha",
         label = "Digite sua senha",
         onValueChange = onValueChange,
@@ -359,21 +261,20 @@ private fun PasswordField(
             }
         },
         visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-        isError = !state.isValid,
+        isError = false,
         modifier = Modifier.fillMaxWidth()
     )
 }
 
 @Composable
 private fun ConfirmPasswordField(
-    state: FieldState,
-    showPassword: Boolean,
     isEnabled: Boolean,
+    showPassword: Boolean,
     onValueChange: (String) -> Unit,
     onTogglePassword: () -> Unit
 ) {
     StandardTextField(
-        value = state.value,
+        value = "",
         placeholder = "Confirmar senha",
         label = "Confirme sua senha",
         onValueChange = onValueChange,
@@ -393,15 +294,15 @@ private fun ConfirmPasswordField(
             }
         },
         visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-        isError = !state.isValid,
+        isError = false,
         modifier = Modifier.fillMaxWidth()
     )
 }
 
 @Composable
 private fun SignInLink(
-    onClick: () -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
+    onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -442,14 +343,12 @@ private fun DividerWithText() {
             modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
         )
-
         Text(
             text = "OU",
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
         HorizontalDivider(
             modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
@@ -459,8 +358,8 @@ private fun DividerWithText() {
 
 @Composable
 private fun GoogleButton(
-    isLoading: Boolean,
     isEnabled: Boolean,
+    isLoading: Boolean,
     onClick: () -> Unit
 ) {
     StandardOutlinedButton(
@@ -479,7 +378,6 @@ private fun GoogleButton(
 private fun SignUpScreenPreview() {
     DemoTheme {
         SignUpForm(
-            state = SignUpState(),
             onEmailChange = {},
             onPasswordChange = {},
             onConfirmPasswordChange = {},
