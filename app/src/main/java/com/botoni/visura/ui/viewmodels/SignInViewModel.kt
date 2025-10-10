@@ -2,14 +2,12 @@ package com.botoni.visura.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.botoni.visura.data.datasource.GoogleAuthException
 import com.botoni.visura.domain.exceptions.AuthenticationException
 import com.botoni.visura.domain.exceptions.Error
 import com.botoni.visura.domain.model.Email
 import com.botoni.visura.domain.model.Password
 import com.botoni.visura.domain.usecase.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,7 +57,7 @@ class SignInViewModel @Inject constructor(
     fun signInWithEmail() {
         viewModelScope.launch {
             setEmailLoading(true)
-            performEmailSignIn()
+            emailSignIn()
             setEmailLoading(false)
         }
     }
@@ -67,7 +65,7 @@ class SignInViewModel @Inject constructor(
     fun signInWithGoogle() {
         viewModelScope.launch {
             setGoogleLoading(true)
-            performGoogleSignIn()
+            googleSignIn()
             setGoogleLoading(false)
         }
     }
@@ -80,22 +78,20 @@ class SignInViewModel @Inject constructor(
         _state.update { it.copy(googleLoading = loading) }
     }
 
-    private suspend fun performEmailSignIn() {
+    private suspend fun emailSignIn() {
         val event = try {
             val current = _state.value
             auth.signIn(current.email, current.password)
-            delay(1500L)
-            createSuccess("Login com email efetuado com sucesso")
+            createSuccess("Login efetuado com sucesso")
         } catch (e: AuthenticationException) {
             createError(e)
         }
         emit(event)
     }
 
-    private suspend fun performGoogleSignIn() {
+    private suspend fun googleSignIn() {
         val event = try {
             auth.signInWithGoogle()
-            delay(1500L)
             createSuccess("Login com Google efetuado com sucesso")
         } catch (e: AuthenticationException) {
             createError(e)

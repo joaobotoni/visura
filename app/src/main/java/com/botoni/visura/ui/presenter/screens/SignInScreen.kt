@@ -22,14 +22,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,8 @@ import com.botoni.visura.ui.presenter.elements.button.StandardButton
 import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.visura.ui.presenter.elements.button.StandardTextButton
 import com.botoni.visura.ui.presenter.elements.field.StandardTextField
+import com.botoni.visura.ui.presenter.elements.snackbar.SnackbarType
+import com.botoni.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.botoni.visura.ui.presenter.theme.DemoTheme
 import com.botoni.visura.ui.viewmodels.SignInState
 import com.botoni.visura.ui.viewmodels.SignInViewModel
@@ -60,9 +63,15 @@ fun SignInScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var snackbarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
 
     LaunchedEffect(key1 = Unit) {
         viewModel.event.collectLatest { event ->
+            snackbarType = if (event.success) {
+                SnackbarType.SUCCESS
+            } else {
+                SnackbarType.ERROR
+            }
             snackbarHostState.showSnackbar(event.message)
         }
     }
@@ -70,6 +79,7 @@ fun SignInScreen(
     SignInScreenContent(
         state = state,
         snackbarHostState = snackbarHostState,
+        snackbarType = snackbarType,
         onEmailChange = { viewModel.setEmail(Email(it)) },
         onPasswordChange = { viewModel.setPassword(Password(it)) },
         onTogglePasswordVisibility = viewModel::togglePassword,
@@ -83,6 +93,7 @@ fun SignInScreen(
 private fun SignInScreenContent(
     state: SignInState,
     snackbarHostState: SnackbarHostState,
+    snackbarType: SnackbarType,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onTogglePasswordVisibility: () -> Unit,
@@ -96,7 +107,12 @@ private fun SignInScreenContent(
             color = MaterialTheme.colorScheme.background
         ) {
             Scaffold(
-                snackbarHost = { SnackbarHost(snackbarHostState) }
+                snackbarHost = {
+                    StandardSnackbar(
+                        hostState = snackbarHostState,
+                        type = snackbarType
+                    )
+                }
             ) { paddingValues ->
                 SignInForm(
                     modifier = Modifier.padding(paddingValues),
@@ -358,6 +374,7 @@ private fun SignInScreenPreview() {
         SignInScreenContent(
             state = SignInState(),
             snackbarHostState = SnackbarHostState(),
+            snackbarType = SnackbarType.DEFAULT,
             onEmailChange = {},
             onPasswordChange = {},
             onTogglePasswordVisibility = {},

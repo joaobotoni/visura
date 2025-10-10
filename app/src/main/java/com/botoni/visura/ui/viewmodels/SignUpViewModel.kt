@@ -8,7 +8,6 @@ import com.botoni.visura.domain.model.Email
 import com.botoni.visura.domain.model.Password
 import com.botoni.visura.domain.usecase.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,7 +67,7 @@ class SignUpViewModel @Inject constructor(
     fun signUpWithEmail() {
         viewModelScope.launch {
             setEmailLoading(true)
-            performEmailSignUp()
+            emailSignUp()
             setEmailLoading(false)
         }
     }
@@ -76,7 +75,7 @@ class SignUpViewModel @Inject constructor(
     fun signUpWithGoogle() {
         viewModelScope.launch {
             setGoogleLoading(true)
-            performGoogleSignUp()
+            googleSignUp()
             setGoogleLoading(false)
         }
     }
@@ -89,23 +88,21 @@ class SignUpViewModel @Inject constructor(
         _state.update { it.copy(googleLoading = loading) }
     }
 
-    private suspend fun performEmailSignUp() {
+    private suspend fun emailSignUp() {
         val event = try {
             val (email, password) = validate()
             auth.signUp(email, password)
-            delay(1500L)
-            createSuccess("Registro com email efetuado com sucesso")
+            createSuccess("Registro efetuado com sucesso")
         } catch (e: Exception) {
             createError(e)
         }
         emit(event)
     }
 
-    private suspend fun performGoogleSignUp() {
+    private suspend fun googleSignUp() {
         val event = try {
             auth.signUpWithGoogle()
-            delay(1500L)
-            createSuccess("Registro com Google efetuado com sucesso")
+            createSuccess("Registro efetuado com sucesso")
         } catch (e: AuthenticationException) {
             createError(e)
         }
