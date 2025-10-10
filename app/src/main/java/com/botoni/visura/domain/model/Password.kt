@@ -5,24 +5,42 @@ import com.botoni.visura.domain.exceptions.Error
 
 @JvmInline
 value class Password(val value: String) : Comparable<Password> {
-    init {
-        require(value.isBlank()) {
-            throw AuthenticationException(
-                Error.VALIDATION,
-                "Senha não informada"
-            )
+
+    fun matches(confirmation: Password): Result<Unit> {
+        return if (this.value == confirmation.value) {
+            Result.success(Unit)
+        } else {
+            Result.failure(AuthenticationException(Error.VALIDATION, "As senhas não coincidem"))
         }
-        require(value.length >= 8) {
-            throw AuthenticationException(
-                Error.VALIDATION,
-                "Senha deve ter pelo menos 8 caracteres"
-            )
-        }
-        require(value.any { it.isDigit() }) {
-            throw AuthenticationException(
-                Error.VALIDATION,
-                "Senha deve conter pelo menos um número"
-            )
+    }
+
+    companion object {
+        fun create(value: String): Result<Password> {
+            if (value.isBlank()) {
+                return Result.failure(
+                    AuthenticationException(
+                        Error.VALIDATION,
+                        "Senha não informada"
+                    )
+                )
+            }
+            if (value.length < 8) {
+                return Result.failure(
+                    AuthenticationException(
+                        Error.VALIDATION,
+                        "Senha deve ter pelo menos 8 caracteres"
+                    )
+                )
+            }
+            if (!value.any { it.isDigit() }) {
+                return Result.failure(
+                    AuthenticationException(
+                        Error.VALIDATION,
+                        "Senha deve conter pelo menos um número"
+                    )
+                )
+            }
+            return Result.success(Password(value))
         }
     }
 

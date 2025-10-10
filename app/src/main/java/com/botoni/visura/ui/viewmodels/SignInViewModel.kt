@@ -2,6 +2,7 @@ package com.botoni.visura.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.botoni.visura.data.datasource.GoogleAuthException
 import com.botoni.visura.domain.exceptions.AuthenticationException
 import com.botoni.visura.domain.exceptions.Error
 import com.botoni.visura.domain.model.Email
@@ -22,121 +23,99 @@ data class SignInState(
     val email: Email = Email(""),
     val password: Password = Password(""),
     val showPassword: Boolean = false,
-    val isEmailLoading: Boolean = false,
-    val isGoogleLoading: Boolean = false
+    val emailLoading: Boolean = false,
+    val googleLoading: Boolean = false
 )
 
 data class SignInEvent(
     val message: String,
-    val isSuccess: Boolean,
+    val success: Boolean,
     val error: Error? = null
 )
 
 @HiltViewModel
 class SignInViewModel @Inject constructor(
-    private val authenticationUseCase: AuthenticationUseCase
+    private val auth: AuthenticationUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SignInState())
-    val uiState: StateFlow<SignInState> = _uiState.asStateFlow()
+    private val _state = MutableStateFlow(SignInState())
+    val state: StateFlow<SignInState> = _state.asStateFlow()
 
-    private val _uiEvent = MutableSharedFlow<SignInEvent>()
-    val event = _uiEvent.asSharedFlow()
+    private val _event = MutableSharedFlow<SignInEvent>()
+    val event = _event.asSharedFlow()
 
-    fun updateEmail(email: Email) {
-        _uiState.update { current -> current.copy(email = email) }
+    fun setEmail(email: Email) {
+        _state.update { it.copy(email = email) }
     }
 
-    fun updatePassword(password: Password) {
-        _uiState.update { current -> current.copy(password = password) }
+    fun setPassword(password: Password) {
+        _state.update { it.copy(password = password) }
     }
 
-    fun togglePasswordVisibility() {
-        _uiState.update { current ->
-            current.copy(showPassword = !current.showPassword)
-        }
+    fun togglePassword() {
+        _state.update { it.copy(showPassword = !it.showPassword) }
     }
 
     fun signInWithEmail() {
         viewModelScope.launch {
-            startEmailLoading()
-            executeEmailSignIn()
-            stopEmailLoading()
+            setEmailLoading(true)
+            performEmailSignIn()
+            setEmailLoading(false)
         }
     }
 
     fun signInWithGoogle() {
         viewModelScope.launch {
-            startGoogleLoading()
-            executeGoogleSignIn()
-            stopGoogleLoading()
+            setGoogleLoading(true)
+            performGoogleSignIn()
+            setGoogleLoading(false)
         }
     }
 
-    private fun startEmailLoading() {
-        _uiState.update { current -> current.copy(isEmailLoading = true) }
+    private fun setEmailLoading(loading: Boolean) {
+        _state.update { it.copy(emailLoading = loading) }
     }
 
-    private fun stopEmailLoading() {
-        _uiState.update { current -> current.copy(isEmailLoading = false) }
+    private fun setGoogleLoading(loading: Boolean) {
+        _state.update { it.copy(googleLoading = loading) }
     }
 
-    private fun startGoogleLoading() {
-        _uiState.update { current -> current.copy(isGoogleLoading = true) }
-    }
-
-    private fun stopGoogleLoading() {
-        _uiState.update { current -> current.copy(isGoogleLoading = false) }
-    }
-
-    private suspend fun executeEmailSignIn() {
-        val result = performEmailSignIn()
-        notifyEvent(result)
-    }
-
-    private suspend fun executeGoogleSignIn() {
-        val result = performGoogleSignIn()
-        notifyEvent(result)
-    }
-
-    private suspend fun performEmailSignIn(): SignInEvent {
-        return try {
-            val currentState = _uiState.value
-            authenticationUseCase.signIn(currentState.email, currentState.password)
+    private suspend fun performEmailSignIn() {
+        val event = try {
+            val current = _state.value
+            auth.signIn(current.email, current.password)
             delay(1500L)
-            successEvent("Login com email efetuado com sucesso")
-        } catch (exception: AuthenticationException) {
-            errorEvent(exception)
+            createSuccess("Login com email efetuado com sucesso")
+        } catch (e: AuthenticationException) {
+            createError(e)
         }
+        emit(event)
     }
 
-    private suspend fun performGoogleSignIn(): SignInEvent {
-        return try {
-            authenticationUseCase.signInWithGoogle()
+    private suspend fun performGoogleSignIn() {
+        val event = try {
+            auth.signInWithGoogle()
             delay(1500L)
-            successEvent("Login com Google efetuado com sucesso")
-        } catch (exception: AuthenticationException) {
-            errorEvent(exception)
+            createSuccess("Login com Google efetuado com sucesso")
+        } catch (e: AuthenticationException) {
+            createError(e)
         }
+        emit(event)
     }
 
-    private suspend fun notifyEvent(signInEvent: SignInEvent) {
-        _uiEvent.emit(signInEvent)
+    private suspend fun emit(event: SignInEvent) {
+        _event.emit(event)
     }
 
-    private fun successEvent(message: String): SignInEvent {
-        return SignInEvent(
-            message = message,
-            isSuccess = true,
-            error = null
-        )
-    }
+    private fun createSuccess(message: String) = SignInEvent(
+        message = message,
+        success = true,
+        error = null
+    )
 
-    private fun errorEvent(exception: AuthenticationException): SignInEvent {
-        return SignInEvent(
-            message = exception.message ?: "Erro desconhecido",
-            isSuccess = false,
-            error = Error.AUTHENTICATION
-        )
-    }
+    private fun createError(exception: AuthenticationException) = SignInEvent(
+        message = exception.message ?: "Erro desconhecido",
+        success = false,
+        error = Error.AUTHENTICATION
+    )
 }
