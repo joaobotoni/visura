@@ -9,6 +9,8 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
     id("com.google.gms.google-services")
+    kotlin("plugin.serialization") version "2.0.21"
+
 }
 
 android {
@@ -47,7 +49,7 @@ android {
 }
 
 dependencies {
-
+    implementation(libs.kotlinx.serialization.json.v173)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
@@ -64,6 +66,7 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.androidx.compose.animation)
     implementation(libs.play.services.nearby)
+    implementation(libs.androidx.compose.foundation)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.material.icons.extended)
 

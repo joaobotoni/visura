@@ -16,49 +16,97 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.botoni.visura.R
+import com.botoni.visura.domain.model.Email
+import com.botoni.visura.domain.model.Password
 import com.botoni.visura.ui.presenter.elements.button.StandardButton
 import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.visura.ui.presenter.elements.button.StandardTextButton
 import com.botoni.visura.ui.presenter.elements.field.StandardTextField
 import com.botoni.visura.ui.presenter.theme.DemoTheme
+import com.botoni.visura.ui.viewmodels.SignInState
+import com.botoni.visura.ui.viewmodels.SignInViewModel
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
-fun SignInScreen() {
-    SignInScreenContent()
+fun SignInScreen(
+    viewModel: SignInViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(key1 = Unit) {
+        viewModel.event.collectLatest { event ->
+            snackbarHostState.showSnackbar(event.message)
+        }
+    }
+
+    SignInScreenContent(
+        state = state,
+        snackbarHostState = snackbarHostState,
+        onEmailChange = { viewModel.setEmail(Email(it)) },
+        onPasswordChange = { viewModel.setPassword(Password(it)) },
+        onTogglePasswordVisibility = viewModel::togglePassword,
+        onSignInWithEmail = viewModel::signInWithEmail,
+        onSignInWithGoogle = viewModel::signInWithGoogle,
+        onSignUpClick = { /* TODO: Navigate to sign up screen if needed */ }
+    )
 }
 
 @Composable
-private fun SignInScreenContent() {
+private fun SignInScreenContent(
+    state: SignInState,
+    snackbarHostState: SnackbarHostState,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onTogglePasswordVisibility: () -> Unit,
+    onSignInWithEmail: () -> Unit,
+    onSignInWithGoogle: () -> Unit,
+    onSignUpClick: () -> Unit
+) {
     DemoTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
             Scaffold(
-                snackbarHost = {
-                    // Snackbar removido, pois depende de estados e eventos
-                }
+                snackbarHost = { SnackbarHost(snackbarHostState) }
             ) { paddingValues ->
                 SignInForm(
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = Modifier.padding(paddingValues),
+                    state = state,
+                    onEmailChange = onEmailChange,
+                    onPasswordChange = onPasswordChange,
+                    onTogglePasswordVisibility = onTogglePasswordVisibility,
+                    onSignInWithEmail = onSignInWithEmail,
+                    onSignInWithGoogle = onSignInWithGoogle,
+                    onSignUpClick = onSignUpClick
                 )
             }
         }
@@ -67,7 +115,14 @@ private fun SignInScreenContent() {
 
 @Composable
 private fun SignInForm(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    state: SignInState,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onTogglePasswordVisibility: () -> Unit,
+    onSignInWithEmail: () -> Unit,
+    onSignInWithGoogle: () -> Unit,
+    onSignUpClick: () -> Unit
 ) {
     Column(
         modifier = modifier
@@ -82,15 +137,25 @@ private fun SignInForm(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        SignInInputFields()
+        SignInInputFields(
+            state = state,
+            onEmailChange = onEmailChange,
+            onPasswordChange = onPasswordChange,
+            onTogglePasswordVisibility = onTogglePasswordVisibility
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        SignUpLink()
+        SignUpLink(
+            onSignUpClick = onSignUpClick
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        LoginButton()
+        LoginButton(
+            enabled = !state.emailLoading,
+            onClick = onSignInWithEmail
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -98,7 +163,10 @@ private fun SignInForm(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        GoogleButton()
+        GoogleButton(
+            enabled = !state.googleLoading,
+            onClick = onSignInWithGoogle
+        )
     }
 }
 
@@ -128,25 +196,39 @@ private fun SignInHeader() {
 
 @Composable
 private fun SignInInputFields(
+    state: SignInState,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onTogglePasswordVisibility: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        EmailField()
+        EmailField(
+            value = state.email.value,
+            onValueChange = onEmailChange
+        )
 
-        PasswordField()
+        PasswordField(
+            value = state.password.value,
+            onValueChange = onPasswordChange,
+            showPassword = state.showPassword,
+            onToggleVisibility = onTogglePasswordVisibility
+        )
     }
 }
 
 @Composable
 private fun EmailField(
+    value: String,
+    onValueChange: (String) -> Unit
 ) {
     StandardTextField(
-        value = "", // Valor fixo, pois estados foram removidos
+        value = value,
         placeholder = "Email",
         label = "Digite seu email",
-        onValueChange = {},
+        onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         trailingIcon = {
@@ -165,28 +247,32 @@ private fun EmailField(
 
 @Composable
 private fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    showPassword: Boolean,
+    onToggleVisibility: () -> Unit
 ) {
     StandardTextField(
-        value = "", // Valor fixo, pois estados foram removidos
+        value = value,
         placeholder = "Senha",
         label = "Digite sua senha",
-        onValueChange = {},
+        onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
             IconButton(
-                onClick = {},
+                onClick = onToggleVisibility,
                 enabled = true
             ) {
                 Icon(
                     modifier = Modifier.size(24.dp),
-                    imageVector = Icons.Default.Visibility,
-                    contentDescription = "Mostrar senha",
+                    imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (showPassword) "Esconder senha" else "Mostrar senha",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
-        visualTransformation = VisualTransformation.None,
+        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
         isError = false,
         modifier = Modifier.fillMaxWidth()
     )
@@ -194,6 +280,7 @@ private fun PasswordField(
 
 @Composable
 private fun SignUpLink(
+    onSignUpClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -201,7 +288,7 @@ private fun SignUpLink(
     ) {
         StandardTextButton(
             text = "Ainda não possui uma conta?",
-            onClick = {},
+            onClick = onSignUpClick,
             enabled = true
         )
     }
@@ -209,11 +296,13 @@ private fun SignUpLink(
 
 @Composable
 private fun LoginButton(
+    enabled: Boolean,
+    onClick: () -> Unit
 ) {
     StandardButton(
         text = "Continuar",
-        onClick = {},
-        enabled = true,
+        onClick = onClick,
+        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .height(50.dp)
@@ -248,11 +337,13 @@ private fun DividerWithText() {
 
 @Composable
 private fun GoogleButton(
+    enabled: Boolean,
+    onClick: () -> Unit
 ) {
     StandardOutlinedButton(
         text = "Entrar com Google",
-        onClick = {},
-        enabled = true,
+        onClick = onClick,
+        enabled = enabled,
         icon = R.drawable.google_icon,
         modifier = Modifier
             .fillMaxWidth()
@@ -264,6 +355,15 @@ private fun GoogleButton(
 @Composable
 private fun SignInScreenPreview() {
     DemoTheme {
-        SignInForm()
+        SignInScreenContent(
+            state = SignInState(),
+            snackbarHostState = SnackbarHostState(),
+            onEmailChange = {},
+            onPasswordChange = {},
+            onTogglePasswordVisibility = {},
+            onSignInWithEmail = {},
+            onSignInWithGoogle = {},
+            onSignUpClick = {}
+        )
     }
 }

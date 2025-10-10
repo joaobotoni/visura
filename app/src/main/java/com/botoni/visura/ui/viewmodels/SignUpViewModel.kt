@@ -23,144 +23,128 @@ data class SignUpState(
     val password: Password = Password(""),
     val confirm: Password = Password(""),
     val showPassword: Boolean = false,
-    val showConfirmPassword: Boolean = false,
-    val isEmailLoading: Boolean = false,
-    val isGoogleLoading: Boolean = false
+    val showConfirm: Boolean = false,
+    val emailLoading: Boolean = false,
+    val googleLoading: Boolean = false
 )
 
 data class SignUpEvent(
     val message: String,
-    val isSuccess: Boolean,
+    val success: Boolean,
     val error: Error? = null
 )
 
 @HiltViewModel
 class SignUpViewModel @Inject constructor(
-    private val authenticationUseCase: AuthenticationUseCase
+    private val auth: AuthenticationUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SignUpState())
-    val uiState: StateFlow<SignUpState> = _uiState.asStateFlow()
+    private val _state = MutableStateFlow(SignUpState())
+    val state: StateFlow<SignUpState> = _state.asStateFlow()
 
-    private val _uiEvent = MutableSharedFlow<SignUpEvent>()
-    val event = _uiEvent.asSharedFlow()
+    private val _event = MutableSharedFlow<SignUpEvent>()
+    val event = _event.asSharedFlow()
 
-    fun updateEmail(email: Email) {
-        _uiState.update { current -> current.copy(email = email) }
+    fun setEmail(email: Email) {
+        _state.update { it.copy(email = email) }
     }
 
-    fun updatePassword(password: Password) {
-        _uiState.update { current -> current.copy(password = password) }
+    fun setPassword(password: Password) {
+        _state.update { it.copy(password = password) }
     }
 
-    fun updateConfirmPassword(confirm: Password) {
-        _uiState.update { current -> current.copy(confirm = confirm) }
+    fun setConfirm(confirm: Password) {
+        _state.update { it.copy(confirm = confirm) }
     }
 
-    fun togglePasswordVisibility() {
-        _uiState.update { current ->
-            current.copy(showPassword = !current.showPassword)
-        }
+    fun togglePassword() {
+        _state.update { it.copy(showPassword = !it.showPassword) }
     }
 
-    fun toggleConfirmPasswordVisibility() {
-        _uiState.update { current ->
-            current.copy(showConfirmPassword = !current.showConfirmPassword)
-        }
+    fun toggleConfirm() {
+        _state.update { it.copy(showConfirm = !it.showConfirm) }
     }
 
     fun signUpWithEmail() {
         viewModelScope.launch {
-            startEmailLoading()
-            executeEmailSignUp()
-            stopEmailLoading()
+            setEmailLoading(true)
+            performEmailSignUp()
+            setEmailLoading(false)
         }
     }
 
     fun signUpWithGoogle() {
         viewModelScope.launch {
-            startGoogleLoading()
-            executeGoogleSignUp()
-            stopGoogleLoading()
+            setGoogleLoading(true)
+            performGoogleSignUp()
+            setGoogleLoading(false)
         }
     }
 
-    private fun startEmailLoading() {
-        _uiState.update { current -> current.copy(isEmailLoading = true) }
+    private fun setEmailLoading(loading: Boolean) {
+        _state.update { it.copy(emailLoading = loading) }
     }
 
-    private fun stopEmailLoading() {
-        _uiState.update { current -> current.copy(isEmailLoading = false) }
+    private fun setGoogleLoading(loading: Boolean) {
+        _state.update { it.copy(googleLoading = loading) }
     }
 
-    private fun startGoogleLoading() {
-        _uiState.update { current -> current.copy(isGoogleLoading = true) }
-    }
-
-    private fun stopGoogleLoading() {
-        _uiState.update { current -> current.copy(isGoogleLoading = false) }
-    }
-
-    private suspend fun executeEmailSignUp() {
-        val result = performEmailSignUp()
-        notifyEvent(result)
-    }
-
-    private suspend fun executeGoogleSignUp() {
-        val result = performGoogleSignUp()
-        notifyEvent(result)
-    }
-
-    private suspend fun performEmailSignUp(): SignUpEvent {
-        return try {
-            val email = _uiState.value.email
-            val password = validatePasswordMatch()
-            authenticationUseCase.signUp(email, password)
+    private suspend fun performEmailSignUp() {
+        val event = try {
+            val (email, password) = validate()
+            auth.signUp(email, password)
             delay(1500L)
-            successEvent("Registro com email efetuado com sucesso")
-        } catch (exception: AuthenticationException) {
-            errorEvent(exception)
+            createSuccess("Registro com email efetuado com sucesso")
+        } catch (e: Exception) {
+            createError(e)
         }
+        emit(event)
     }
 
-    private suspend fun performGoogleSignUp(): SignUpEvent {
-        return try {
-            authenticationUseCase.signUpWithGoogle()
+    private suspend fun performGoogleSignUp() {
+        val event = try {
+            auth.signUpWithGoogle()
             delay(1500L)
-            successEvent("Registro com Google efetuado com sucesso")
-        } catch (exception: AuthenticationException) {
-            errorEvent(exception)
+            createSuccess("Registro com Google efetuado com sucesso")
+        } catch (e: AuthenticationException) {
+            createError(e)
         }
+        emit(event)
     }
 
-    private fun validatePasswordMatch(): Password {
-        val currentState = _uiState.value
-        return when (currentState.password == currentState.confirm) {
-            true -> currentState.password
-            false -> throw AuthenticationException(
-                Error.VALIDATION,
-                "Senhas não coincidem"
-            )
-        }
+    private fun validate(): Pair<Email, Password> {
+        val email = validateEmail()
+        val password = validatePassword()
+        validateConfirm(password)
+        return email to password
     }
 
-    private suspend fun notifyEvent(signUpEvent: SignUpEvent) {
-        _uiEvent.emit(signUpEvent)
+    private fun validateEmail(): Email {
+        return Email.create(_state.value.email.value).getOrThrow()
     }
 
-    private fun successEvent(message: String): SignUpEvent {
-        return SignUpEvent(
-            message = message,
-            isSuccess = true,
-            error = null
-        )
+    private fun validatePassword(): Password {
+        return Password.create(_state.value.password.value).getOrThrow()
     }
 
-    private fun errorEvent(exception: AuthenticationException): SignUpEvent {
-        return SignUpEvent(
-            message = exception.message ?: "Erro desconhecido",
-            isSuccess = false,
-            error = Error.AUTHENTICATION
-        )
+    private fun validateConfirm(password: Password) {
+        val confirm = Password.create(_state.value.confirm.value).getOrThrow()
+        password.matches(confirm).getOrThrow()
     }
+
+    private suspend fun emit(event: SignUpEvent) {
+        _event.emit(event)
+    }
+
+    private fun createSuccess(message: String) = SignUpEvent(
+        message = message,
+        success = true,
+        error = null
+    )
+
+    private fun createError(exception: Throwable) = SignUpEvent(
+        message = exception.message ?: "Erro desconhecido",
+        success = false,
+        error = (exception as? AuthenticationException)?.let { Error.AUTHENTICATION }
+    )
 }
