@@ -9,11 +9,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.google.firebase.auth.FirebaseAuth
 
-
 @Composable
 fun MainScreen(modifier: Modifier = Modifier) {
     val auth = FirebaseAuth.getInstance()
-    var user = auth.currentUser
+    val user = auth.currentUser
 
     Column(
         modifier = modifier.fillMaxSize(),

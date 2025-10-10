@@ -6,13 +6,12 @@ import com.botoni.visura.domain.exceptions.Error
 
 
 @JvmInline
-value class Email(private val value: String) : Comparable<Email> {
-
+value class Email(val value: String) : Comparable<Email> {
     init {
         require(value.isNotBlank()) {
             throw AuthenticationException(
                 Error.VALIDATION,
-                "E-mail é obrigatório"
+                "E-mail não informado"
             )
         }
         require(Patterns.EMAIL_ADDRESS.matcher(value).matches()) {
