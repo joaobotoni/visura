@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -53,6 +54,7 @@ import com.botoni.visura.ui.presenter.elements.field.StandardTextField
 import com.botoni.visura.ui.presenter.elements.snackbar.SnackbarType
 import com.botoni.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.botoni.visura.ui.presenter.theme.DemoTheme
+import com.botoni.visura.ui.viewmodels.SignInEvent
 import com.botoni.visura.ui.viewmodels.SignInState
 import com.botoni.visura.ui.viewmodels.SignInViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -65,14 +67,17 @@ fun SignInScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var snackbarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
 
-    LaunchedEffect(key1 = Unit) {
+    LaunchedEffect(Unit) {
         viewModel.event.collectLatest { event ->
-            snackbarType = if (event.success) {
-                SnackbarType.SUCCESS
-            } else {
-                SnackbarType.ERROR
+            snackbarType = when (event) {
+                is SignInEvent.Success -> SnackbarType.SUCCESS
+                is SignInEvent.Error -> SnackbarType.ERROR
             }
-            snackbarHostState.showSnackbar(event.message)
+            val message = when (event) {
+                is SignInEvent.Success -> event.message
+                is SignInEvent.Error -> event.message
+            }
+            snackbarHostState.showSnackbar(message)
         }
     }
 
@@ -193,7 +198,7 @@ private fun SignInHeader() {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Bem-vindo de volta!",
+            text = stringResource(R.string.sign_in_header),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -201,7 +206,7 @@ private fun SignInHeader() {
         )
 
         Text(
-            text = "Faça login para continuar acessando sua conta",
+            text = stringResource(R.string.sign_in_header_con),
             fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
@@ -242,15 +247,15 @@ private fun EmailField(
 ) {
     StandardTextField(
         value = value,
-        placeholder = "Email",
-        label = "Digite seu email",
+        placeholder = stringResource(R.string.email_field_placeholder_login),
+        label = stringResource(R.string.email_field_label_login),
         onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Email,
-                contentDescription = "Ícone de email",
+                contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -270,8 +275,8 @@ private fun PasswordField(
 ) {
     StandardTextField(
         value = value,
-        placeholder = "Senha",
-        label = "Digite sua senha",
+        placeholder = stringResource(R.string.password_field_placeholder_login),
+        label = stringResource(R.string.password_field_label_login),
         onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -283,7 +288,7 @@ private fun PasswordField(
                 Icon(
                     modifier = Modifier.size(24.dp),
                     imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = if (showPassword) "Esconder senha" else "Mostrar senha",
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -303,7 +308,7 @@ private fun SignUpLink(
         horizontalArrangement = Arrangement.End
     ) {
         StandardTextButton(
-            text = "Ainda não possui uma conta?",
+            text = stringResource(R.string.sign_up_link),
             onClick = onSignUpClick,
             enabled = true
         )
@@ -316,7 +321,7 @@ private fun LoginButton(
     onClick: () -> Unit
 ) {
     StandardButton(
-        text = "Continuar",
+        text = stringResource(R.string.login_button),
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
@@ -338,7 +343,7 @@ private fun DividerWithText() {
         )
 
         Text(
-            text = "OU",
+            text = stringResource(R.string.divider_with_text),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -357,7 +362,7 @@ private fun GoogleButton(
     onClick: () -> Unit
 ) {
     StandardOutlinedButton(
-        text = "Entrar com Google",
+        text = stringResource(R.string.google_login_button),
         onClick = onClick,
         enabled = enabled,
         icon = R.drawable.google_icon,

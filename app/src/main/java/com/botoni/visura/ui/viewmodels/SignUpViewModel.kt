@@ -1,16 +1,18 @@
 package com.botoni.visura.ui.viewmodels
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.botoni.visura.R
+import com.botoni.visura.domain.exceptions.AuthError
 import com.botoni.visura.domain.exceptions.AuthenticationException
-import com.botoni.visura.domain.exceptions.Error
 import com.botoni.visura.domain.model.Email
 import com.botoni.visura.domain.model.Password
 import com.botoni.visura.domain.usecase.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -26,20 +28,54 @@ data class SignUpState(
     val emailLoading: Boolean = false,
     val googleLoading: Boolean = false
 )
+sealed interface SignUpEvent {
+    data class Success(val message: String) : SignUpEvent
+    data class Error(val message: String, val error: AuthError?) : SignUpEvent
+}
+private class SignUpValidator {
 
-data class SignUpEvent(
-    val message: String,
-    val success: Boolean,
-    val error: Error? = null
-)
+    fun validate(state: SignUpState): Result<Pair<Email, Password>> = runCatching {
+        val email = checkEmail(state.email)
+        val password = checkPassword(state.password)
+        checkConfirm(password, state.confirm)
+        email to password
+    }
+
+    private fun checkEmail(email: Email): Email =
+        Email.create(email.value).getOrThrow()
+
+    private fun checkPassword(password: Password): Password =
+        Password.create(password.value).getOrThrow()
+
+    private fun checkConfirm(password: Password, confirm: Password) {
+        val validConfirm = Password.create(confirm.value).getOrThrow()
+        password.matches(validConfirm).getOrThrow()
+    }
+}
+
+private class SignUpEventMapper(private val context: Context) {
+
+    fun toSuccess(): SignUpEvent.Success =
+        SignUpEvent.Success(context.getString(R.string.success_message_register))
+
+    fun toError(exception: Throwable): SignUpEvent.Error {
+        val message = exception.message ?: context.getString(R.string.unknown_message)
+        val error = (exception as? AuthenticationException)?.let { exception.error }
+        return SignUpEvent.Error(message, error)
+    }
+}
 
 @HiltViewModel
 class SignUpViewModel @Inject constructor(
+    @ApplicationContext context: Context,
     private val auth: AuthenticationUseCase
 ) : ViewModel() {
 
+    private val validator = SignUpValidator()
+    private val mapper = SignUpEventMapper(context)
+
     private val _state = MutableStateFlow(SignUpState())
-    val state: StateFlow<SignUpState> = _state.asStateFlow()
+    val state = _state.asStateFlow()
 
     private val _event = MutableSharedFlow<SignUpEvent>()
     val event = _event.asSharedFlow()
@@ -66,82 +102,42 @@ class SignUpViewModel @Inject constructor(
 
     fun signUpWithEmail() {
         viewModelScope.launch {
-            setEmailLoading(true)
-            emailSignUp()
-            setEmailLoading(false)
+            _state.update { it.copy(emailLoading = true) }
+            send(emailSignUp())
+            _state.update { it.copy(emailLoading = false) }
         }
     }
 
     fun signUpWithGoogle() {
         viewModelScope.launch {
-            setGoogleLoading(true)
-            googleSignUp()
-            setGoogleLoading(false)
+            _state.update { it.copy(googleLoading = true) }
+            send(googleSignUp())
+            _state.update { it.copy(googleLoading = false) }
         }
     }
 
-    private fun setEmailLoading(loading: Boolean) {
-        _state.update { it.copy(emailLoading = loading) }
+    private suspend fun emailSignUp(): SignUpEvent {
+        return validator.validate(_state.value)
+            .mapCatching { (email, password) ->
+                auth.signUp(email, password)
+            }
+            .fold(
+                onSuccess = { mapper.toSuccess() },
+                onFailure = { mapper.toError(it) }
+            )
     }
 
-    private fun setGoogleLoading(loading: Boolean) {
-        _state.update { it.copy(googleLoading = loading) }
-    }
-
-    private suspend fun emailSignUp() {
-        val event = try {
-            val (email, password) = validate()
-            auth.signUp(email, password)
-            createSuccess("Registro efetuado com sucesso")
-        } catch (e: Exception) {
-            createError(e)
-        }
-        emit(event)
-    }
-
-    private suspend fun googleSignUp() {
-        val event = try {
+    private suspend fun googleSignUp(): SignUpEvent {
+        return runCatching {
             auth.signUpWithGoogle()
-            createSuccess("Registro efetuado com sucesso")
-        } catch (e: AuthenticationException) {
-            createError(e)
         }
-        emit(event)
+            .fold(
+                onSuccess = { mapper.toSuccess() },
+                onFailure = { mapper.toError(it) }
+            )
     }
 
-    private fun validate(): Pair<Email, Password> {
-        val email = validateEmail()
-        val password = validatePassword()
-        validateConfirm(password)
-        return email to password
-    }
-
-    private fun validateEmail(): Email {
-        return Email.create(_state.value.email.value).getOrThrow()
-    }
-
-    private fun validatePassword(): Password {
-        return Password.create(_state.value.password.value).getOrThrow()
-    }
-
-    private fun validateConfirm(password: Password) {
-        val confirm = Password.create(_state.value.confirm.value).getOrThrow()
-        password.matches(confirm).getOrThrow()
-    }
-
-    private suspend fun emit(event: SignUpEvent) {
+    private suspend fun send(event: SignUpEvent) {
         _event.emit(event)
     }
-
-    private fun createSuccess(message: String) = SignUpEvent(
-        message = message,
-        success = true,
-        error = null
-    )
-
-    private fun createError(exception: Throwable) = SignUpEvent(
-        message = exception.message ?: "Erro desconhecido",
-        success = false,
-        error = (exception as? AuthenticationException)?.let { Error.AUTHENTICATION }
-    )
 }
