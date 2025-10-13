@@ -5,13 +5,8 @@ enum class AuthError {
     AUTHENTICATION,
     NETWORK,
     CANCELLED,
-    UNKNOWN,
     INVALID_CREDENTIAL,
     NO_ACCOUNT_FOUND,
-    INVALID_EMAIL,
-    WRONG_PASSWORD,
-    USER_NOT_FOUND,
-    WEAK_PASSWORD,
     EMAIL_ALREADY_IN_USE,
     TOO_MANY_REQUESTS,
     USER_DISABLED
@@ -44,23 +39,11 @@ sealed class AuthenticationException(
     class GoogleNoAccountFound :
         AuthenticationException(AuthError.NO_ACCOUNT_FOUND, "Nenhuma conta Google encontrada")
 
-    class GoogleInvalidCredential :
+    class InvalidCredential :
         AuthenticationException(AuthError.INVALID_CREDENTIAL, "Email ou Senha inválida")
 
-    class InvalidCredential :
+    class GoogleInvalidCredential :
         AuthenticationException(AuthError.INVALID_CREDENTIAL, "Credencial Google invalida")
-
-    class InvalidEmail(message: String = "Email inválido") :
-        AuthenticationException(AuthError.INVALID_EMAIL, message)
-
-    class WrongPassword(message: String = "Senha incorreta") :
-        AuthenticationException(AuthError.WRONG_PASSWORD, message)
-
-    class UserNotFound(message: String = "Usuário não encontrado") :
-        AuthenticationException(AuthError.USER_NOT_FOUND, message)
-
-    class WeakPassword(message: String = "Senha muito fraca. Use no mínimo 6 caracteres") :
-        AuthenticationException(AuthError.WEAK_PASSWORD, message)
 
     class EmailAlreadyInUse(message: String = "Este email já está em uso") :
         AuthenticationException(AuthError.EMAIL_ALREADY_IN_USE, message)
