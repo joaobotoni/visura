@@ -1,4 +1,4 @@
-package com.botoni.visura.ui.navigation
+package com.botoni.visura.ui
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
@@ -24,13 +24,10 @@ object SignUp
 fun Navigation(navController: NavHostController = rememberNavController()) {
     NavHost(
         navController = navController,
-        startDestination = SignUp
+        startDestination = SignIn
     ) {
         composable<Main> { MainScreen() }
         composable<SignIn> { SignInScreen() }
         composable<SignUp> { SignUpScreen() }
     }
 }
-
-
-

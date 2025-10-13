@@ -1,16 +1,18 @@
 package com.botoni.visura.ui.viewmodels
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.botoni.visura.R
+import com.botoni.visura.domain.exceptions.AuthError
 import com.botoni.visura.domain.exceptions.AuthenticationException
-import com.botoni.visura.domain.exceptions.Error
 import com.botoni.visura.domain.model.Email
 import com.botoni.visura.domain.model.Password
 import com.botoni.visura.domain.usecase.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -25,19 +27,48 @@ data class SignInState(
     val googleLoading: Boolean = false
 )
 
-data class SignInEvent(
-    val message: String,
-    val success: Boolean,
-    val error: Error? = null
-)
+sealed interface SignInEvent {
+    data class Success(val message: String) : SignInEvent
+    data class Error(val message: String, val error: AuthError?) : SignInEvent
+}
+
+private class SignInValidator {
+    fun validate(state: SignInState): Result<Pair<Email, Password>> = runCatching {
+        val email = checkEmail(state.email)
+        val password = checkPassword(state.password)
+        email to password
+    }
+
+    private fun checkEmail(email: Email): Email =
+        Email.access(email.value).getOrThrow()
+
+    private fun checkPassword(password: Password): Password =
+        Password.access(password.value).getOrThrow()
+}
+
+private class SignInEventMapper(private val context: Context) {
+
+    fun toSuccess(): SignInEvent.Success =
+        SignInEvent.Success(context.getString(R.string.success_message_login))
+
+    fun toError(exception: Throwable): SignInEvent.Error {
+        val message = exception.message ?: context.getString(R.string.unknown_message)
+        val error = (exception as? AuthenticationException)?.let { AuthError.AUTHENTICATION }
+        return SignInEvent.Error(message, error)
+    }
+}
 
 @HiltViewModel
 class SignInViewModel @Inject constructor(
+    @ApplicationContext context: Context,
     private val auth: AuthenticationUseCase
 ) : ViewModel() {
 
+    private val validator = SignInValidator()
+    private val mapper = SignInEventMapper(context)
+
     private val _state = MutableStateFlow(SignInState())
-    val state: StateFlow<SignInState> = _state.asStateFlow()
+    val state = _state.asStateFlow()
 
     private val _event = MutableSharedFlow<SignInEvent>()
     val event = _event.asSharedFlow()
@@ -56,62 +87,42 @@ class SignInViewModel @Inject constructor(
 
     fun signInWithEmail() {
         viewModelScope.launch {
-            setEmailLoading(true)
-            emailSignIn()
-            setEmailLoading(false)
+            _state.update { it.copy(emailLoading = true) }
+            send(emailSignIn())
+            _state.update { it.copy(emailLoading = false) }
         }
     }
 
     fun signInWithGoogle() {
         viewModelScope.launch {
-            setGoogleLoading(true)
-            googleSignIn()
-            setGoogleLoading(false)
+            _state.update { it.copy(googleLoading = true) }
+            send(googleSignIn())
+            _state.update { it.copy(googleLoading = false) }
         }
     }
 
-    private fun setEmailLoading(loading: Boolean) {
-        _state.update { it.copy(emailLoading = loading) }
+    private suspend fun emailSignIn(): SignInEvent {
+        return validator.validate(_state.value)
+            .mapCatching { (email, password) ->
+                auth.signIn(email, password)
+            }
+            .fold(
+                onSuccess = { mapper.toSuccess() },
+                onFailure = { mapper.toError(it) }
+            )
     }
 
-    private fun setGoogleLoading(loading: Boolean) {
-        _state.update { it.copy(googleLoading = loading) }
-    }
-
-    private suspend fun emailSignIn() {
-        val event = try {
-            val current = _state.value
-            auth.signIn(current.email, current.password)
-            createSuccess("Login efetuado com sucesso")
-        } catch (e: AuthenticationException) {
-            createError(e)
-        }
-        emit(event)
-    }
-
-    private suspend fun googleSignIn() {
-        val event = try {
+    private suspend fun googleSignIn(): SignInEvent {
+        return runCatching {
             auth.signInWithGoogle()
-            createSuccess("Login com Google efetuado com sucesso")
-        } catch (e: AuthenticationException) {
-            createError(e)
         }
-        emit(event)
+            .fold(
+                onSuccess = { mapper.toSuccess() },
+                onFailure = { mapper.toError(it) }
+            )
     }
 
-    private suspend fun emit(event: SignInEvent) {
+    private suspend fun send(event: SignInEvent) {
         _event.emit(event)
     }
-
-    private fun createSuccess(message: String) = SignInEvent(
-        message = message,
-        success = true,
-        error = null
-    )
-
-    private fun createError(exception: AuthenticationException) = SignInEvent(
-        message = exception.message ?: "Erro desconhecido",
-        success = false,
-        error = Error.AUTHENTICATION
-    )
 }

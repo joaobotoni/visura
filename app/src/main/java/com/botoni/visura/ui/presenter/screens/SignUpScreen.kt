@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -53,6 +54,7 @@ import com.botoni.visura.ui.presenter.elements.field.StandardTextField
 import com.botoni.visura.ui.presenter.elements.snackbar.SnackbarType
 import com.botoni.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.botoni.visura.ui.presenter.theme.DemoTheme
+import com.botoni.visura.ui.viewmodels.SignUpEvent
 import com.botoni.visura.ui.viewmodels.SignUpState
 import com.botoni.visura.ui.viewmodels.SignUpViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -65,14 +67,17 @@ fun SignUpScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var snackbarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
 
-    LaunchedEffect(key1 = Unit) {
+    LaunchedEffect(Unit) {
         viewModel.event.collectLatest { event ->
-            snackbarType = if (event.success) {
-                SnackbarType.SUCCESS
-            } else {
-                SnackbarType.ERROR
+            snackbarType = when (event) {
+                is SignUpEvent.Success -> SnackbarType.SUCCESS
+                is SignUpEvent.Error -> SnackbarType.ERROR
             }
-            snackbarHostState.showSnackbar(event.message)
+            val message = when (event) {
+                is SignUpEvent.Success -> event.message
+                is SignUpEvent.Error -> event.message
+            }
+            snackbarHostState.showSnackbar(message)
         }
     }
 
@@ -87,8 +92,7 @@ fun SignUpScreen(
         onToggleConfirmPasswordVisibility = viewModel::toggleConfirm,
         onSignUpWithEmail = viewModel::signUpWithEmail,
         onSignUpWithGoogle = viewModel::signUpWithGoogle,
-        onSignInClick = { /* TODO: Navigate to sign in screen if needed */ }
-    )
+        onSignInClick = { /* TODO: Navigate to sign in screen if needed */ })
 }
 
 @Composable
@@ -107,17 +111,14 @@ private fun SignUpScreenContent(
 ) {
     DemoTheme {
         Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+            modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
         ) {
             Scaffold(
                 snackbarHost = {
                     StandardSnackbar(
-                        hostState = snackbarHostState,
-                        type = snackbarType
+                        hostState = snackbarHostState, type = snackbarType
                     )
-                }
-            ) { paddingValues ->
+                }) { paddingValues ->
                 SignUpForm(
                     modifier = Modifier.padding(paddingValues),
                     state = state,
@@ -179,8 +180,7 @@ private fun SignUpForm(
         Spacer(modifier = Modifier.height(20.dp))
 
         SignUpButton(
-            enabled = !state.emailLoading,
-            onClick = onSignUpWithEmail
+            enabled = !state.emailLoading, onClick = onSignUpWithEmail
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -190,8 +190,7 @@ private fun SignUpForm(
         Spacer(modifier = Modifier.height(24.dp))
 
         GoogleButton(
-            enabled = !state.googleLoading,
-            onClick = onSignUpWithGoogle
+            enabled = !state.googleLoading, onClick = onSignUpWithGoogle
         )
     }
 }
@@ -203,14 +202,14 @@ private fun SignUpHeader() {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Crie sua conta!",
+            text = stringResource(R.string.sign_up_header),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
         Text(
-            text = "Preencha os dados abaixo para começar",
+            text = stringResource(R.string.sign_up_header_con),
             fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
@@ -229,12 +228,10 @@ private fun SignUpInputFields(
     onToggleConfirmPasswordVisibility: () -> Unit
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.fillMaxWidth()
+        verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.fillMaxWidth()
     ) {
         EmailField(
-            value = state.email.value,
-            onValueChange = onEmailChange
+            value = state.email.value, onValueChange = onEmailChange
         )
 
         PasswordField(
@@ -255,20 +252,19 @@ private fun SignUpInputFields(
 
 @Composable
 private fun EmailField(
-    value: String,
-    onValueChange: (String) -> Unit
+    value: String, onValueChange: (String) -> Unit
 ) {
     StandardTextField(
         value = value,
-        placeholder = "Email",
-        label = "Digite seu email",
+        placeholder = stringResource(R.string.email_field_placeholder_register),
+        label = stringResource(R.string.email_field_label_register),
         onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         trailingIcon = {
             Icon(
                 imageVector = Icons.Default.Email,
-                contentDescription = "Icone de email",
+                contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -288,20 +284,19 @@ private fun PasswordField(
 ) {
     StandardTextField(
         value = value,
-        placeholder = "Senha",
-        label = "Digite sua senha",
+        placeholder = stringResource(R.string.password_field_placeholder_register),
+        label = stringResource(R.string.password_field_label_register),
         onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
             IconButton(
-                onClick = onToggleVisibility,
-                enabled = true
+                onClick = onToggleVisibility, enabled = true
             ) {
                 Icon(
                     modifier = Modifier.size(24.dp),
                     imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = if (showPassword) "Esconder senha" else "Mostrar senha",
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -321,20 +316,19 @@ private fun ConfirmPasswordField(
 ) {
     StandardTextField(
         value = value,
-        placeholder = "Confirmar senha",
-        label = "Confirme sua senha",
+        placeholder = stringResource(R.string.password_confirm_field_placeholder_register),
+        label = stringResource(R.string.password_confirm_field_label_register),
         onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
             IconButton(
-                onClick = onToggleVisibility,
-                enabled = true
+                onClick = onToggleVisibility, enabled = true
             ) {
                 Icon(
                     modifier = Modifier.size(24.dp),
                     imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = if (showPassword) "Esconder senha" else "Mostrar senha",
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -350,24 +344,20 @@ private fun SignInLink(
     onSignInClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End
     ) {
         StandardTextButton(
-            text = "Já possui uma conta?",
-            onClick = onSignInClick,
-            enabled = true
+            text = stringResource(R.string.sign_in_link), onClick = onSignInClick, enabled = true
         )
     }
 }
 
 @Composable
 private fun SignUpButton(
-    enabled: Boolean,
-    onClick: () -> Unit
+    enabled: Boolean, onClick: () -> Unit
 ) {
     StandardButton(
-        text = "Criar conta",
+        text = stringResource(R.string.register_button),
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
@@ -388,7 +378,7 @@ private fun DividerWithText() {
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
         )
         Text(
-            text = "OU",
+            text = stringResource(R.string.divider_with_text),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -402,11 +392,10 @@ private fun DividerWithText() {
 
 @Composable
 private fun GoogleButton(
-    enabled: Boolean,
-    onClick: () -> Unit
+    enabled: Boolean, onClick: () -> Unit
 ) {
     StandardOutlinedButton(
-        text = "Cadastrar com Google",
+        text = stringResource(R.string.google_register_button),
         onClick = onClick,
         enabled = enabled,
         icon = R.drawable.google_icon,
@@ -431,7 +420,6 @@ private fun SignInScreenPreview() {
             onToggleConfirmPasswordVisibility = {},
             onSignUpWithEmail = {},
             onSignUpWithGoogle = {},
-            onSignInClick = {}
-        )
+            onSignInClick = {})
     }
 }
