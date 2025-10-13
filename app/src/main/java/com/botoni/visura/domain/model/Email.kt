@@ -15,7 +15,7 @@ value class Email(val value: String) : Comparable<Email> {
             }
             if (!Patterns.EMAIL_ADDRESS.matcher(value).matches()) {
                 return Result.failure(
-                    AuthenticationException.ValidationError("E-mail é inválido")
+                    AuthenticationException.ValidationError("E-mail inválido")
                 )
             }
             return Result.success(Email(value))
