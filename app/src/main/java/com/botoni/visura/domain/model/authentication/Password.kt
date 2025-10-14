@@ -1,6 +1,6 @@
-package com.botoni.visura.domain.model
+package com.botoni.visura.domain.model.authentication
 
-import com.botoni.visura.domain.exceptions.AuthenticationException
+import com.botoni.visura.domain.exceptions.authentication.AuthenticationException
 
 @JvmInline
 value class Password(val value: String) : Comparable<Password> {

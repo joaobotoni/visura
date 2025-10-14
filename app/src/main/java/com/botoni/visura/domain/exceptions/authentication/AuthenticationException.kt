@@ -1,4 +1,4 @@
-package com.botoni.visura.domain.exceptions
+package com.botoni.visura.domain.exceptions.authentication
 
 enum class AuthError {
     VALIDATION,
