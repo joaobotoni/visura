@@ -28,19 +28,17 @@ data class SignUpState(
     val emailLoading: Boolean = false,
     val googleLoading: Boolean = false
 )
+
 sealed interface SignUpEvent {
     data class Success(val message: String) : SignUpEvent
     data class Error(val message: String, val error: AuthError?) : SignUpEvent
 }
+
 private class SignUpValidator {
-
     fun validate(state: SignUpState): Result<Pair<Email, Password>> = runCatching {
-        val email = checkEmail(state.email)
-        val password = checkPassword(state.password)
-        checkConfirm(password, state.confirm)
-        email to password
+        checkEmail(state.email) to checkPassword(state.password)
+            .also { checkConfirm(it, state.confirm) }
     }
-
     private fun checkEmail(email: Email): Email =
         Email.create(email.value).getOrThrow()
 

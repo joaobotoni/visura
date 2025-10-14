@@ -34,11 +34,8 @@ sealed interface SignInEvent {
 
 private class SignInValidator {
     fun validate(state: SignInState): Result<Pair<Email, Password>> = runCatching {
-        val email = checkEmail(state.email)
-        val password = checkPassword(state.password)
-        email to password
+        checkEmail(state.email) to checkPassword(state.password)
     }
-
     private fun checkEmail(email: Email): Email =
         Email.access(email.value).getOrThrow()
 

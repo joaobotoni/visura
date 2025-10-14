@@ -9,10 +9,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.botoni.vistoria" />
-                  <option name="mobileSdkAppId" value="1:1050517506185:android:6813c594f9ba9089749e58" />
-                  <option name="projectId" value="homologacao-404f0" />
-                  <option name="projectNumber" value="1050517506185" />
+                  <option name="appId" value="com.botoni.visura" />
+                  <option name="mobileSdkAppId" value="1:307083149527:android:008c9468597abc21aab092" />
+                  <option name="projectId" value="visura-95141" />
+                  <option name="projectNumber" value="307083149527" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
