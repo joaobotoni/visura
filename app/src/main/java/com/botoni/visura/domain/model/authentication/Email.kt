@@ -1,7 +1,7 @@
-package com.botoni.visura.domain.model
+package com.botoni.visura.domain.model.authentication
 
 import android.util.Patterns
-import com.botoni.visura.domain.exceptions.AuthenticationException
+import com.botoni.visura.domain.exceptions.authentication.AuthenticationException
 
 
 @JvmInline

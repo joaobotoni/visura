@@ -1,5 +1,6 @@
 package com.botoni.visura.ui.presenter.elements.button
 
+import android.annotation.SuppressLint
 import androidx.annotation.DrawableRes
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -14,9 +15,9 @@ fun StandardOutlinedButton(
     @DrawableRes icon: Int? = null,
     onClick: () -> Unit,
     enabled: Boolean,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
-    OutlinedButton(onClick = onClick,  modifier = modifier, enabled = enabled)
+    OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled)
     {
         if (icon != null) {
             Icon(painter = painterResource(id = icon), contentDescription = null)
