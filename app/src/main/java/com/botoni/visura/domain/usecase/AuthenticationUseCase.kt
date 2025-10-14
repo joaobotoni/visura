@@ -14,7 +14,6 @@ class AuthenticationUseCase @Inject constructor(
     suspend fun signIn(email: Email, password: Password) =
         fireBaseClientRepository.signIn(email, password)
 
-
     suspend fun signUp(email: Email, password: Password) =
         fireBaseClientRepository.signUp(email, password)
 
