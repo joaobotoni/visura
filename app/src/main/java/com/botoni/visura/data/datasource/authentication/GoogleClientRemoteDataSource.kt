@@ -1,4 +1,4 @@
-package com.botoni.visura.data.datasource
+package com.botoni.visura.data.datasource.authentication
 
 import android.content.Context
 import androidx.credentials.ClearCredentialStateRequest
@@ -10,10 +10,9 @@ import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
-import com.botoni.visura.domain.exceptions.AuthenticationException
+import com.botoni.visura.domain.exceptions.authentication.AuthenticationException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,7 +23,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val credentialManager: CredentialManager = CredentialManager.create(context)
+    private val credentialManager: CredentialManager = CredentialManager.Companion.create(context)
     private val webClientId: String =
         "307083149527-tdgum4cpjvj21ovjc0vsogq1bo77q6m5.apps.googleusercontent.com"
 
@@ -104,7 +103,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
 
     private fun validateCredential(credential: Credential) {
         val isValid =
-            credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            credential is CustomCredential && credential.type == GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
         if (!isValid) {
             throw AuthenticationException.GoogleInvalidCredential()
         }
@@ -112,7 +111,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
 
     private fun extractIdToken(credential: Credential): String {
         val googleIdTokenCredential =
-            GoogleIdTokenCredential.createFrom((credential as CustomCredential).data)
+            GoogleIdTokenCredential.Companion.createFrom((credential as CustomCredential).data)
         return googleIdTokenCredential.idToken
     }
 

@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.visura.R
-import com.botoni.visura.domain.exceptions.AuthError
-import com.botoni.visura.domain.exceptions.AuthenticationException
-import com.botoni.visura.domain.model.Email
-import com.botoni.visura.domain.model.Password
-import com.botoni.visura.domain.usecase.AuthenticationUseCase
+import com.botoni.visura.domain.exceptions.authentication.AuthError
+import com.botoni.visura.domain.exceptions.authentication.AuthenticationException
+import com.botoni.visura.domain.model.authentication.Email
+import com.botoni.visura.domain.model.authentication.Password
+import com.botoni.visura.domain.usecase.authentication.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -52,7 +52,6 @@ private class SignUpValidator {
 }
 
 private class SignUpEventMapper(private val context: Context) {
-
     fun toSuccess(): SignUpEvent.Success =
         SignUpEvent.Success(context.getString(R.string.success_message_register))
 

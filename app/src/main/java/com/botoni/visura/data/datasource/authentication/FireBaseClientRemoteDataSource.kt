@@ -1,8 +1,8 @@
-package com.botoni.visura.data.datasource
+package com.botoni.visura.data.datasource.authentication
 
-import com.botoni.visura.domain.exceptions.AuthenticationException
-import com.botoni.visura.domain.model.Email
-import com.botoni.visura.domain.model.Password
+import com.botoni.visura.domain.exceptions.authentication.AuthenticationException
+import com.botoni.visura.domain.model.authentication.Email
+import com.botoni.visura.domain.model.authentication.Password
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.AuthResult

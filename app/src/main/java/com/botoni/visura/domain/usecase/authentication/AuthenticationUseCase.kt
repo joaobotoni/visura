@@ -1,10 +1,9 @@
-package com.botoni.visura.domain.usecase
+package com.botoni.visura.domain.usecase.authentication
 
-import android.util.Log
-import com.botoni.visura.data.repository.FireBaseClientRepository
-import com.botoni.visura.data.repository.GoogleClientRepository
-import com.botoni.visura.domain.model.Email
-import com.botoni.visura.domain.model.Password
+import com.botoni.visura.data.repository.authentication.FireBaseClientRepository
+import com.botoni.visura.data.repository.authentication.GoogleClientRepository
+import com.botoni.visura.domain.model.authentication.Email
+import com.botoni.visura.domain.model.authentication.Password
 import javax.inject.Inject
 
 class AuthenticationUseCase @Inject constructor(

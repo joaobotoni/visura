@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.botoni.visura.R
-import com.botoni.visura.domain.model.Email
-import com.botoni.visura.domain.model.Password
+import com.botoni.visura.domain.model.authentication.Email
+import com.botoni.visura.domain.model.authentication.Password
 import com.botoni.visura.ui.presenter.elements.button.StandardButton
 import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.botoni.visura.ui.presenter.elements.button.StandardTextButton
@@ -61,7 +61,9 @@ import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun SignUpScreen(
-    viewModel: SignUpViewModel = hiltViewModel()
+    viewModel: SignUpViewModel = hiltViewModel(),
+    navSignIn: () -> Unit,
+    navMain: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -78,6 +80,9 @@ fun SignUpScreen(
                 is SignUpEvent.Error -> event.message
             }
             snackbarHostState.showSnackbar(message)
+            if (event is SignUpEvent.Success) {
+                navMain()
+            }
         }
     }
 
@@ -92,7 +97,8 @@ fun SignUpScreen(
         onToggleConfirmPasswordVisibility = viewModel::toggleConfirm,
         onSignUpWithEmail = viewModel::signUpWithEmail,
         onSignUpWithGoogle = viewModel::signUpWithGoogle,
-        onSignInClick = { /* TODO: Navigate to sign in screen if needed */ })
+        onSignInClick = navSignIn
+    )
 }
 
 @Composable
@@ -295,7 +301,7 @@ private fun PasswordField(
             ) {
                 Icon(
                     modifier = Modifier.size(24.dp),
-                    imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    imageVector = if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -327,7 +333,7 @@ private fun ConfirmPasswordField(
             ) {
                 Icon(
                     modifier = Modifier.size(24.dp),
-                    imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    imageVector = if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
