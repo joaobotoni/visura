@@ -10,13 +10,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
+import com.botoni.visura.ui.viewmodels.MainViewModel
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 
 @Composable
-fun MainScreen(modifier: Modifier = Modifier) {
+fun MainScreen(
+    modifier: Modifier = Modifier,
+    mainViewModel: MainViewModel = hiltViewModel()
+) {
     val auth: FirebaseAuth = Firebase.auth
     val user = auth.currentUser
 
@@ -31,7 +36,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
         ) {
             StandardOutlinedButton(
                 text = "Sair",
-                onClick = {},
+                onClick = mainViewModel::exit,
                 enabled = true,
                 modifier = Modifier.align(Alignment.TopStart)
             )
