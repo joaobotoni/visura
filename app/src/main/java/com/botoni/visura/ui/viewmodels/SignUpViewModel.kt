@@ -9,6 +9,7 @@ import com.botoni.visura.domain.exceptions.authentication.AuthenticationExceptio
 import com.botoni.visura.domain.model.authentication.Email
 import com.botoni.visura.domain.model.authentication.Password
 import com.botoni.visura.domain.usecase.authentication.AuthenticationUseCase
+import dagger.Reusable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,7 +29,7 @@ data class SignUpState(
     val emailLoading: Boolean = false,
     val googleLoading: Boolean = false
 )
-
+@Reusable
 sealed interface SignUpEvent {
     data class Success(val message: String) : SignUpEvent
     data class Error(val message: String, val error: AuthError?) : SignUpEvent
@@ -39,6 +40,7 @@ private class SignUpValidator {
         checkEmail(state.email) to checkPassword(state.password)
             .also { checkConfirm(it, state.confirm) }
     }
+
     private fun checkEmail(email: Email): Email =
         Email.create(email.value).getOrThrow()
 
@@ -50,7 +52,7 @@ private class SignUpValidator {
         password.matches(validConfirm).getOrThrow()
     }
 }
-
+@Reusable
 private class SignUpEventMapper(private val context: Context) {
     fun toSuccess(): SignUpEvent.Success =
         SignUpEvent.Success(context.getString(R.string.success_message_register))
@@ -99,17 +101,23 @@ class SignUpViewModel @Inject constructor(
 
     fun signUpWithEmail() {
         viewModelScope.launch {
-            _state.update { it.copy(emailLoading = true) }
-            send(emailSignUp())
-            _state.update { it.copy(emailLoading = false) }
+            try {
+                _state.update { it.copy(emailLoading = true) }
+                send(emailSignUp())
+            } finally {
+                _state.update { it.copy(emailLoading = false) }
+            }
         }
     }
 
     fun signUpWithGoogle() {
         viewModelScope.launch {
-            _state.update { it.copy(googleLoading = true) }
-            send(googleSignUp())
-            _state.update { it.copy(googleLoading = false) }
+            try {
+                _state.update { it.copy(googleLoading = true) }
+                send(googleSignUp())
+            } finally {
+                _state.update { it.copy(googleLoading = false) }
+            }
         }
     }
 
@@ -133,7 +141,6 @@ class SignUpViewModel @Inject constructor(
                 onFailure = { mapper.toError(it) }
             )
     }
-
     private suspend fun send(event: SignUpEvent) {
         _event.emit(event)
     }

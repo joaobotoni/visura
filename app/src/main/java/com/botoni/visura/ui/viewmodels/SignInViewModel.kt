@@ -9,6 +9,7 @@ import com.botoni.visura.domain.exceptions.authentication.AuthenticationExceptio
 import com.botoni.visura.domain.model.authentication.Email
 import com.botoni.visura.domain.model.authentication.Password
 import com.botoni.visura.domain.usecase.authentication.AuthenticationUseCase
+import dagger.Reusable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -27,6 +28,7 @@ data class SignInState(
     val googleLoading: Boolean = false
 )
 
+@Reusable
 sealed interface SignInEvent {
     data class Success(val message: String) : SignInEvent
     data class Error(val message: String, val error: AuthError?) : SignInEvent
@@ -36,13 +38,14 @@ private class SignInValidator {
     fun validate(state: SignInState): Result<Pair<Email, Password>> = runCatching {
         checkEmail(state.email) to checkPassword(state.password)
     }
+
     private fun checkEmail(email: Email): Email =
         Email.access(email.value).getOrThrow()
 
     private fun checkPassword(password: Password): Password =
         Password.access(password.value).getOrThrow()
 }
-
+@Reusable
 private class SignInEventMapper(private val context: Context) {
 
     fun toSuccess(): SignInEvent.Success =
@@ -84,17 +87,23 @@ class SignInViewModel @Inject constructor(
 
     fun signInWithEmail() {
         viewModelScope.launch {
-            _state.update { it.copy(emailLoading = true) }
-            send(emailSignIn())
-            _state.update { it.copy(emailLoading = false) }
+            try {
+                _state.update { it.copy(emailLoading = true) }
+                send(emailSignIn())
+            } finally {
+                _state.update { it.copy(emailLoading = false) }
+            }
         }
     }
 
     fun signInWithGoogle() {
         viewModelScope.launch {
-            _state.update { it.copy(googleLoading = true) }
-            send(googleSignIn())
-            _state.update { it.copy(googleLoading = false) }
+            try {
+                _state.update { it.copy(googleLoading = true) }
+                send(googleSignIn())
+            } finally {
+                _state.update { it.copy(googleLoading = false) }
+            }
         }
     }
 

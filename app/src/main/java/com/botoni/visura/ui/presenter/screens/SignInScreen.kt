@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,34 +58,36 @@ import com.botoni.visura.ui.presenter.theme.DemoTheme
 import com.botoni.visura.ui.viewmodels.SignInEvent
 import com.botoni.visura.ui.viewmodels.SignInState
 import com.botoni.visura.ui.viewmodels.SignInViewModel
-import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun SignInScreen(
     viewModel: SignInViewModel = hiltViewModel(),
     navSignUp: () -> Unit,
-    navMain: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var snackbarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
 
     LaunchedEffect(Unit) {
-        viewModel.event.collectLatest { event ->
+        viewModel.event.collect{ event ->
+            
             snackbarType = when (event) {
                 is SignInEvent.Success -> SnackbarType.SUCCESS
                 is SignInEvent.Error -> SnackbarType.ERROR
             }
+
             val message = when (event) {
                 is SignInEvent.Success -> event.message
                 is SignInEvent.Error -> event.message
             }
-            snackbarHostState.showSnackbar(message)
-            if (event is SignInEvent.Success) {
-                navMain()
-            }
+
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
         }
     }
+
 
     SignInScreenContent(
         state = state,
@@ -114,10 +117,8 @@ private fun SignInScreenContent(
     DemoTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
         ) {
-            Scaffold(
-                snackbarHost = {
+            Scaffold(snackbarHost = {
                     StandardSnackbar(
                         hostState = snackbarHostState,
                         type = snackbarType
