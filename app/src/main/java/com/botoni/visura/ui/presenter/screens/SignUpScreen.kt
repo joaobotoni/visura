@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,13 +58,13 @@ import com.botoni.visura.ui.presenter.theme.DemoTheme
 import com.botoni.visura.ui.viewmodels.SignUpEvent
 import com.botoni.visura.ui.viewmodels.SignUpState
 import com.botoni.visura.ui.viewmodels.SignUpViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun SignUpScreen(
     viewModel: SignUpViewModel = hiltViewModel(),
     navSignIn: () -> Unit,
-    navMain: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -71,18 +72,21 @@ fun SignUpScreen(
 
     LaunchedEffect(Unit) {
         viewModel.event.collectLatest { event ->
+
             snackbarType = when (event) {
                 is SignUpEvent.Success -> SnackbarType.SUCCESS
                 is SignUpEvent.Error -> SnackbarType.ERROR
             }
+
             val message = when (event) {
                 is SignUpEvent.Success -> event.message
                 is SignUpEvent.Error -> event.message
             }
-            snackbarHostState.showSnackbar(message)
-            if (event is SignUpEvent.Success) {
-                navMain()
-            }
+
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
         }
     }
 
@@ -117,7 +121,7 @@ private fun SignUpScreenContent(
 ) {
     DemoTheme {
         Surface(
-            modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
+            modifier = Modifier.fillMaxSize()
         ) {
             Scaffold(
                 snackbarHost = {
