@@ -15,7 +15,6 @@ Para começar, você precisará configurar seu ambiente local:
 | **1.1 Fork** | Crie uma cópia do repositório em sua conta no GitHub. | *(Ação no site do GitHub)* |
 | **1.2 Clone** | Baixe o repositório para sua máquina local. | `git clone https://github.com/joaobotoni/visura.git` |
 | **1.3 Acesso** | Navegue até o diretório do projeto. | `cd visura` |
-| **1.4 Upstream** | Adicione o repositório original como `upstream` para sincronização. | `git remote add upstream https://github.com/joaobotoni/visura.git` |
 
 ### 2. Criação de uma Branch de Trabalho
 
@@ -60,10 +59,10 @@ Antes de submeter, mantenha sua *branch* atualizada com o repositório original:
 
 ```bash
 # Baixa as últimas alterações do repositório original
-git fetch upstream
+git fetch 
 
 # Mescla as alterações na sua branch
-git merge upstream/main
+git merge origin/main
 ```
 
 Se houver conflitos, resolva-os e finalize a mesclagem:
@@ -99,7 +98,7 @@ git push origin nome-da-sua-branch
 
 ## Diretrizes de Colaboração
 
-*   **Código de Conduta:** Respeite todos os colaboradores. A comunidade Visura deve ser um ambiente acolhedor.
+*   **Código de Conduta:** Respeite todos os colaboradores.
 *   **Documentação:** Se suas alterações afetarem a funcionalidade, atualize a documentação relevante.
 *   **Commits Atômicos:** Cada *commit* deve ser focado em uma única mudança lógica.
 
@@ -107,4 +106,3 @@ Agradecemos novamente por dedicar seu tempo e esforço ao projeto Visura!
 
 
 
-ao vivo
