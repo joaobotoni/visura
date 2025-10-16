@@ -1,41 +1,30 @@
 <resources>
     <string name="app_name">visura</string>
-    <string name="success_message_login">Login efetuado com sucesso</string>
-    <string name="success_message_register">Registro efetuado com sucesso</string>
 
-    <string name="unknown_message">Erro desconhecido</string>
+    <string name="success_message_auth">Autenticação realizada com sucesso!</string>
+    <string name="unknown_error_message">Erro desconhecido</string>
 
-    <string name="sign_in_header">"Bem-vindo de volta!"</string>
-    <string name="sign_in_header_con">Faça login para continuar acessando sua conta</string>
+    <string name="header_sign_in">"Bem-vindo de volta!"</string>
+    <string name="subheader_sign_in">Faça login para continuar acessando sua conta</string>
+    <string name="header_sign_up">Crie sua conta!</string>
+    <string name="subheader_sign_up">Preencha os dados abaixo para começar</string>
 
-    <string name="sign_up_header">Crie sua conta!</string>
-    <string name="sign_up_header_con">Preencha os dados abaixo para começar</string>
+    <string name="field_label_email">Digite seu email</string>
+    <string name="field_placeholder_email">Email</string>
+    <string name="field_label_password">Digite sua senha</string>
+    <string name="field_placeholder_password">Senha</string>
 
-    <string name="email_field_label_login">Digite seu email</string>
-    <string name="email_field_placeholder_login">Email</string>
+    <string name="field_label_password_confirm">Confirmar senha</string>
+    <string name="field_placeholder_password_confirm">Confirme sua senha</string>
 
-    <string name="password_field_label_login">Digite sua senha</string>
-    <string name="password_field_placeholder_login">Senha</string>
+    <string name="link_to_sign_up">Ainda não possui uma conta?</string>
+    <string name="link_to_sign_in">Já possui uma conta?</string>
 
-    <string name="email_field_label_register">Digite seu email</string>
-    <string name="email_field_placeholder_register">Email</string>
+    <string name="button_login">Continuar</string>
+    <string name="button_register">Cadastrar-se</string>
+    <string name="button_social_login">Entrar com Google</string>
+    <string name="button_social_register">Registrar com Google</string>
 
-    <string name="password_field_label_register">Digite sua senha</string>
-    <string name="password_field_placeholder_register">Senha</string>
-
-    <string name="password_confirm_field_label_register">Confirmar senha</string>
-    <string name="password_confirm_field_placeholder_register">Confirme sua senha</string>
-
-    <string name="sign_up_link">Ainda não possui uma conta?</string>
-    <string name="sign_in_link">Já possui uma conta?</string>
-
-    <string name="login_button">Continuar</string>
-    <string name="google_login_button">Entrar com Google</string>
-
-    <string name="register_button">Cadastrar-se</string>
-    <string name="google_register_button">Registrar com Google</string>
-
-
-    <string name="divider_with_text">ou</string>
+    <string name="divider_text">ou</string>
 
 </resources>

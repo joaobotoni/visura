@@ -9,7 +9,6 @@ import com.botoni.visura.domain.exceptions.authentication.AuthenticationExceptio
 import com.botoni.visura.domain.model.authentication.Email
 import com.botoni.visura.domain.model.authentication.Password
 import com.botoni.visura.domain.usecase.authentication.AuthenticationUseCase
-import dagger.Reusable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,13 +28,13 @@ data class SignUpState(
     val emailLoading: Boolean = false,
     val googleLoading: Boolean = false
 )
-@Reusable
+
 sealed interface SignUpEvent {
     data class Success(val message: String) : SignUpEvent
     data class Error(val message: String, val error: AuthError?) : SignUpEvent
 }
 
-private class SignUpValidator {
+class SignUpValidator @Inject constructor() {
     fun validate(state: SignUpState): Result<Pair<Email, Password>> = runCatching {
         checkEmail(state.email) to checkPassword(state.password)
             .also { checkConfirm(it, state.confirm) }
@@ -48,17 +47,18 @@ private class SignUpValidator {
         Password.create(password.value).getOrThrow()
 
     private fun checkConfirm(password: Password, confirm: Password) {
-        val validConfirm = Password.create(confirm.value).getOrThrow()
-        password.matches(validConfirm).getOrThrow()
+        Password.confirm(confirm.value, password.value).getOrThrow()
     }
 }
-@Reusable
-private class SignUpEventMapper(private val context: Context) {
+
+class SignUpEventMapper @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     fun toSuccess(): SignUpEvent.Success =
-        SignUpEvent.Success(context.getString(R.string.success_message_register))
+        SignUpEvent.Success(context.getString(R.string.success_message_auth))
 
     fun toError(exception: Throwable): SignUpEvent.Error {
-        val message = exception.message ?: context.getString(R.string.unknown_message)
+        val message = exception.message ?: context.getString(R.string.unknown_error_message)
         val error = (exception as? AuthenticationException)?.let { exception.error }
         return SignUpEvent.Error(message, error)
     }
@@ -66,12 +66,10 @@ private class SignUpEventMapper(private val context: Context) {
 
 @HiltViewModel
 class SignUpViewModel @Inject constructor(
-    @ApplicationContext context: Context,
-    private val auth: AuthenticationUseCase
+    private val auth: AuthenticationUseCase,
+    private val validator: SignUpValidator,
+    private val mapper: SignUpEventMapper
 ) : ViewModel() {
-
-    private val validator = SignUpValidator()
-    private val mapper = SignUpEventMapper(context)
 
     private val _state = MutableStateFlow(SignUpState())
     val state = _state.asStateFlow()
@@ -141,6 +139,7 @@ class SignUpViewModel @Inject constructor(
                 onFailure = { mapper.toError(it) }
             )
     }
+
     private suspend fun send(event: SignUpEvent) {
         _event.emit(event)
     }
