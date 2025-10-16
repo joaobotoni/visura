@@ -9,7 +9,6 @@ import com.botoni.visura.domain.exceptions.authentication.AuthenticationExceptio
 import com.botoni.visura.domain.model.authentication.Email
 import com.botoni.visura.domain.model.authentication.Password
 import com.botoni.visura.domain.usecase.authentication.AuthenticationUseCase
-import dagger.Reusable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,13 +27,12 @@ data class SignInState(
     val googleLoading: Boolean = false
 )
 
-@Reusable
 sealed interface SignInEvent {
     data class Success(val message: String) : SignInEvent
     data class Error(val message: String, val error: AuthError?) : SignInEvent
 }
 
-private class SignInValidator {
+class SignInValidator @Inject constructor() {
     fun validate(state: SignInState): Result<Pair<Email, Password>> = runCatching {
         checkEmail(state.email) to checkPassword(state.password)
     }
@@ -45,14 +43,16 @@ private class SignInValidator {
     private fun checkPassword(password: Password): Password =
         Password.access(password.value).getOrThrow()
 }
-@Reusable
-private class SignInEventMapper(private val context: Context) {
+
+class SignInEventMapper @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
 
     fun toSuccess(): SignInEvent.Success =
-        SignInEvent.Success(context.getString(R.string.success_message_login))
+        SignInEvent.Success(context.getString(R.string.success_message_auth))
 
     fun toError(exception: Throwable): SignInEvent.Error {
-        val message = exception.message ?: context.getString(R.string.unknown_message)
+        val message = exception.message ?: context.getString(R.string.unknown_error_message)
         val error = (exception as? AuthenticationException)?.let { AuthError.AUTHENTICATION }
         return SignInEvent.Error(message, error)
     }
@@ -60,12 +60,10 @@ private class SignInEventMapper(private val context: Context) {
 
 @HiltViewModel
 class SignInViewModel @Inject constructor(
-    @ApplicationContext context: Context,
-    private val auth: AuthenticationUseCase
+    private val auth: AuthenticationUseCase,
+    private val validator: SignInValidator,
+    private val mapper: SignInEventMapper
 ) : ViewModel() {
-
-    private val validator = SignInValidator()
-    private val mapper = SignInEventMapper(context)
 
     private val _state = MutableStateFlow(SignInState())
     val state = _state.asStateFlow()

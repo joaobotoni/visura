@@ -204,7 +204,7 @@ private fun SignInHeader() {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = stringResource(R.string.sign_in_header),
+            text = stringResource(R.string.header_sign_in),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -212,7 +212,7 @@ private fun SignInHeader() {
         )
 
         Text(
-            text = stringResource(R.string.sign_in_header_con),
+            text = stringResource(R.string.subheader_sign_in),
             fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
@@ -253,8 +253,8 @@ private fun EmailField(
 ) {
     StandardTextField(
         value = value,
-        placeholder = stringResource(R.string.email_field_placeholder_login),
-        label = stringResource(R.string.email_field_label_login),
+        placeholder = stringResource(R.string.field_placeholder_email),
+        label = stringResource(R.string.field_label_email),
         onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -281,8 +281,8 @@ private fun PasswordField(
 ) {
     StandardTextField(
         value = value,
-        placeholder = stringResource(R.string.password_field_placeholder_login),
-        label = stringResource(R.string.password_field_label_login),
+        placeholder = stringResource(R.string.field_placeholder_password),
+        label = stringResource(R.string.field_label_password),
         onValueChange = onValueChange,
         enabled = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -314,7 +314,7 @@ private fun SignUpLink(
         horizontalArrangement = Arrangement.End
     ) {
         StandardTextButton(
-            text = stringResource(R.string.sign_up_link),
+            text = stringResource(R.string.link_to_sign_up),
             onClick = onSignUpClick,
             enabled = true
         )
@@ -327,7 +327,7 @@ private fun LoginButton(
     onClick: () -> Unit
 ) {
     StandardButton(
-        text = stringResource(R.string.login_button),
+        text = stringResource(R.string.button_login),
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
@@ -349,7 +349,7 @@ private fun DividerWithText() {
         )
 
         Text(
-            text = stringResource(R.string.divider_with_text),
+            text = stringResource(R.string.divider_text),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -368,7 +368,7 @@ private fun GoogleButton(
     onClick: () -> Unit
 ) {
     StandardOutlinedButton(
-        text = stringResource(R.string.google_login_button),
+        text = stringResource(R.string.button_social_login),
         onClick = onClick,
         enabled = enabled,
         icon = R.drawable.google_icon,

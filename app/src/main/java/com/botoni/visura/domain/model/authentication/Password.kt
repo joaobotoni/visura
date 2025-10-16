@@ -1,17 +1,10 @@
 package com.botoni.visura.domain.model.authentication
 
+import androidx.compose.ui.graphics.RectangleShape
 import com.botoni.visura.domain.exceptions.authentication.AuthenticationException
 
 @JvmInline
 value class Password(val value: String) : Comparable<Password> {
-    fun matches(confirmation: Password): Result<Unit> {
-        return if (this.value == confirmation.value) {
-            Result.success(Unit)
-        } else {
-            Result.failure(AuthenticationException.ValidationError("As senhas não coincidem"))
-        }
-    }
-
     companion object {
         fun create(value: String): Result<Password> {
 
@@ -40,6 +33,20 @@ value class Password(val value: String) : Comparable<Password> {
             if (value.isBlank()) {
                 return Result.failure(
                     AuthenticationException.ValidationError("Senha não informada")
+                )
+            }
+            return Result.success(Password(value))
+        }
+
+        fun confirm(value: String, other: String): Result<Password> {
+            if (value.isBlank()) {
+                return Result.failure(
+                    AuthenticationException.ValidationError("Confirmação de senha não informada")
+                )
+            }
+            if (value != other) {
+                return Result.failure(
+                    AuthenticationException.ValidationError("As senhas não coincidem")
                 )
             }
             return Result.success(Password(value))
