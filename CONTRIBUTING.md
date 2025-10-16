@@ -1,6 +1,6 @@
 # Guia de Contribuição ao Visura
 
-Bem-vindo(a) ao projeto **Visura**! Sua contribuição é extremamente valiosa para nós. Este guia detalha o processo de colaboração utilizando **Git** e **GitHub**, garantindo um fluxo de trabalho organizado e eficiente.
+Bem-vindo(a) ao projeto **Visura**! Este guia detalha o processo de colaboração utilizando **Git** e **GitHub**, garantindo um fluxo de trabalho organizado e eficiente.
 
 ---
 
@@ -80,9 +80,7 @@ Aguarde a revisão da equipe. Esteja pronto(a) para responder a sugestões e faz
 git commit -m "Ajustes conforme feedback da revisão"
 git push origin nome-da-sua-branch
 ```
-
 ---
-
 ## Diretrizes de Colaboração
 
 *   **Código de Conduta:** Respeite todos os colaboradores.
