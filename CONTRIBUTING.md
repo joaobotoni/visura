@@ -71,20 +71,7 @@ Se houver conflitos, resolva-os e finalize a mesclagem:
 git commit
 ```
 
-### 6. Envio e Criação do Pull Request (PR)
-
-1.  Envie sua *branch* para o seu *fork* no GitHub:
-    ```bash
-    git push origin nome-da-sua-branch
-    ```
-
-2.  Crie o **Pull Request (PR)**:
-    *   Acesse seu *fork* no GitHub.
-    *   Clique em **"Compare & pull request"**.
-    *   Preencha a descrição do PR com o **propósito**, **impacto** e **detalhes** das alterações.
-    *   **Vincule** a uma *issue* existente, se aplicável (ex.: `Fixes #123`).
-
-### 7. Revisão e Feedback
+### 6. Revisão e Feedback
 
 Aguarde a revisão da equipe. Esteja pronto(a) para responder a sugestões e fazer ajustes:
 
