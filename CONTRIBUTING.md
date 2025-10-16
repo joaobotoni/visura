@@ -1,71 +1,110 @@
-Guia de Contribuição
-Bem-vindo ao projeto! Agradecemos seu interesse em contribuir. Este guia explica como você pode ajudar a melhorar o projeto usando Git. Siga os passos abaixo para garantir um processo de contribuição tranquilo e organizado.
-Como Contribuir
-1. Configurando o Ambiente
+# Guia de Contribuição ao Visura
 
-Fork o repositório: Clique no botão "Fork" no GitHub para criar uma cópia do repositório na sua conta.
-Clone o repositório:git clone https://github.com/joaobotoni/visura.git
+Bem-vindo(a) ao projeto **Visura**! Sua contribuição é extremamente valiosa para nós. Este guia detalha o processo de colaboração utilizando **Git** e **GitHub**, garantindo um fluxo de trabalho organizado e eficiente.
 
+---
 
-Acesse o diretório:cd NOME_DO_REPOSITORIO
+## Como Contribuir
 
+### 1. Configuração Inicial do Ambiente
 
-Adicione o repositório original como upstream:git remote add upstream https://github.com/joaobotoni/visura.git
+Para começar, você precisará configurar seu ambiente local:
 
+| Passo | Ação | Comando |
+| :--- | :--- | :--- |
+| **1.1 Fork** | Crie uma cópia do repositório em sua conta no GitHub. | *(Ação no site do GitHub)* |
+| **1.2 Clone** | Baixe o repositório para sua máquina local. | `git clone https://github.com/joaobotoni/visura.git` |
+| **1.3 Acesso** | Navegue até o diretório do projeto. | `cd visura` |
+| **1.4 Upstream** | Adicione o repositório original como `upstream` para sincronização. | `git remote add upstream https://github.com/joaobotoni/visura.git` |
 
+### 2. Criação de uma Branch de Trabalho
 
-2. Criando uma Branch
+Toda alteração deve ser feita em uma nova *branch* para manter a `main` limpa:
 
-Crie uma branch para sua feature ou correção:git switch -c nome-da-sua-branch
+```bash
+# Crie e mude para sua nova branch
+git switch -c nome-da-sua-branch
+```
 
+> **Convenção de Nomenclatura:** Utilize nomes descritivos e prefixos claros, como:
+> - `feature/nova-funcionalidade`
+> - `fix/correcao-bug`
+> - `docs/atualizacao-readme`
 
-Use nomes descritivos, como feature/nova-funcionalidade ou fix/correcao-bug.
+### 3. Desenvolvimento e Alterações
 
-3. Fazendo Alterações
+1.  Desenvolva suas alterações no código.
+2.  **Siga o Estilo:** Mantenha-se fiel às diretrizes de estilo do projeto, se existirem.
+3.  **Teste:** Certifique-se de que suas alterações foram testadas localmente e não introduziram novos problemas.
 
-Faça suas alterações no código.
-Certifique-se de seguir as diretrizes de estilo do projeto (se houver).
-Teste suas alterações localmente antes de commitar.
+### 4. Commitando as Mudanças
 
-4. Commitando Mudanças
+Crie *commits* atômicos e com mensagens claras:
 
-Adicione os arquivos modificados:git add .
+```bash
+# Adicione todos os arquivos modificados
+git add .
 
+# Escreva uma mensagem de commit clara e concisa
+git commit -m "Descrição clara e focada do que foi alterado"
+```
 
-Escreva mensagens de commit claras e concisas:git commit -m "Descrição clara do que foi alterado"
+**Exemplo de Commit Ideal:**
+```bash
+git commit -m "feat: Adiciona funcionalidade de login com OAuth"
+```
 
+### 5. Sincronização e Resolução de Conflitos
 
-Exemplo: git commit -m "Adiciona funcionalidade de login com OAuth"
+Antes de submeter, mantenha sua *branch* atualizada com o repositório original:
 
-5. Sincronizando com o Repositório Original
+```bash
+# Baixa as últimas alterações do repositório original
+git fetch upstream
 
-Antes de enviar suas alterações, atualize sua branch com o repositório: git fetch 
+# Mescla as alterações na sua branch
+git merge upstream/main
+```
 
-Resolva conflitos, se houver, e confirme as alterações:git commit
+Se houver conflitos, resolva-os e finalize a mesclagem:
+```bash
+# Após resolver os conflitos manualmente...
+git commit
+```
 
-6. Enviando Suas Alterações
+### 6. Envio e Criação do Pull Request (PR)
 
-Envie sua branch para o seu fork:git push origin nome-da-sua-branch
+1.  Envie sua *branch* para o seu *fork* no GitHub:
+    ```bash
+    git push origin nome-da-sua-branch
+    ```
 
-Crie um Pull Request (PR) no GitHub:
-Acesse seu fork no GitHub.
-Clique em "Compare & pull request".
-Descreva suas alterações no PR com detalhes, incluindo o propósito e o impacto.
+2.  Crie o **Pull Request (PR)**:
+    *   Acesse seu *fork* no GitHub.
+    *   Clique em **"Compare & pull request"**.
+    *   Preencha a descrição do PR com o **propósito**, **impacto** e **detalhes** das alterações.
+    *   **Vincule** a uma *issue* existente, se aplicável (ex.: `Fixes #123`).
 
+### 7. Revisão e Feedback
 
+Aguarde a revisão da equipe. Esteja pronto(a) para responder a sugestões e fazer ajustes:
 
-7. Revisão e Feedback
-
-Aguarde a revisão da equipe do projeto.
-Responda a quaisquer comentários ou sugestões no PR.
-Faça ajustes, se necessário, e commit novamente:git commit -m "Ajustes conforme feedback"
+```bash
+# Após fazer os ajustes solicitados...
+git commit -m "Ajustes conforme feedback da revisão"
 git push origin nome-da-sua-branch
+```
+
+---
+
+## Diretrizes de Colaboração
+
+*   **Código de Conduta:** Respeite todos os colaboradores. A comunidade Visura deve ser um ambiente acolhedor.
+*   **Documentação:** Se suas alterações afetarem a funcionalidade, atualize a documentação relevante.
+*   **Commits Atômicos:** Cada *commit* deve ser focado em uma única mudança lógica.
+
+Agradecemos novamente por dedicar seu tempo e esforço ao projeto Visura!
 
 
 
-Diretrizes Gerais
-
-Siga o código de conduta: Respeite todos os colaboradores.
-Documentação: Atualize a documentação, se necessário.
-Commits atômicos: Faça commits pequenos e focados em uma única mudança.
-
+ao vivo
