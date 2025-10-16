@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.SplashScreen." parent="Theme.SplashScreen" >
-        <item name="android:windowSplashScreenBackground">@color/black</item>
+        <item name="android:windowSplashScreenBackground">@color/backBlackTheme</item>
         <item name="postSplashScreenTheme">@style/Theme.Demo</item>
     </style>
     <style name="Theme.Demo" parent="android:Theme.Material.Light.NoActionBar" />
