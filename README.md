@@ -24,14 +24,6 @@ O código é dividido em partes para facilitar o trabalho:
 -   **Lógica de Negócio (Domínio)**: As regras e operações principais do aplicativo.
 -   **Acesso a Dados (Dados)**: Como o aplicativo busca e guarda informações.
 
-```mermaid
-graph TD
-    UI[O que você vê na tela] -->|Pede informações, envia ações| ViewModel[Prepara informações para a tela]
-    ViewModel -->|Pede para fazer algo| UseCase[Lógica principal do aplicativo]
-    UseCase -->|Pede dados| Repository[Organiza o acesso aos dados]
-    Repository -->|Busca ou guarda dados| DataSource[Onde os dados estão (internet, banco de dados)]
-```
-
 ## Tecnologias e Técnicas Usadas
 
 O Visura é construído com ferramentas e técnicas modernas do universo Android:
