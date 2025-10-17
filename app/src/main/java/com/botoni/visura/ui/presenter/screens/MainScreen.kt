@@ -2,49 +2,134 @@ package com.botoni.visura.ui.presenter.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.botoni.visura.ui.presenter.elements.button.StandardOutlinedButton
-import com.botoni.visura.ui.viewmodels.MainViewModel
-import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.auth
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.createGraph
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
-    mainViewModel: MainViewModel = hiltViewModel()
 ) {
-    val auth: FirebaseAuth = Firebase.auth
-    val user = auth.currentUser
+    Box(
+        modifier = modifier.fillMaxSize()
+    ) {
+        Menu(modifier = modifier)
+    }
+}
+@Serializable
+@SerialName("Home")
+object Home
+
+@Serializable
+@SerialName("NewInspection")
+object NewInspection
+
+enum class Destination(
+    val route: Any,
+    val label: String,
+    val icon: ImageVector,
+    val unselectedIcon: ImageVector
+) {
+    HOME(
+        route = Home,
+        label = "Home",
+        icon = Icons.Filled.Home,
+        unselectedIcon = Icons.Outlined.Home
+    ),
+    NEWINSPECTION(
+        route = NewInspection,
+        label = "NewInspection",
+        icon = Icons.Filled.AddCircle,
+        unselectedIcon = Icons.Outlined.AddCircleOutline
+    )
+}
+@Composable
+fun Menu(modifier: Modifier = Modifier) {
+
+    val navController = rememberNavController()
+    val startDestination = Destination.HOME
+    var selected by remember { mutableIntStateOf(startDestination.ordinal) }
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val current = navBackStackEntry?.destination?.route
+
+    LaunchedEffect(current) {
+        Destination.entries.forEachIndexed { index, destination ->
+            if(current == destination.label){
+                selected = index
+            }
+        }
+    }
+
+    val graph = navController.createGraph(startDestination = startDestination.route) {
+        composable<Home> { Home() }
+        composable<NewInspection> { NewInspection() }
+    }
 
     Scaffold(
-        modifier = modifier.fillMaxSize()
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp)
-        ) {
-            StandardOutlinedButton(
-                text = "Sair",
-                onClick = mainViewModel::exit,
-                enabled = true,
-                modifier = Modifier.align(Alignment.TopStart)
-            )
-            Text(
-                modifier = Modifier.align(Alignment.Center),
-                text = "Ola: ${user?.email}"
-            )
+        modifier = modifier,
+        topBar = {
+            // TODO()
+        },
+        bottomBar = {
+            NavigationBar(
+                modifier = Modifier.fillMaxWidth(),
+                windowInsets = NavigationBarDefaults.windowInsets
+            ) {
+                Destination.entries.forEachIndexed { index, destination ->
+                    NavigationBarItem(
+                        selected = selected == index,
+                        onClick = {
+                            if (selected != index) {
+                                navController.navigate(destination.route)
+                                selected = index
+                            }
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = if (selected == index) destination.icon else destination.unselectedIcon,
+                                contentDescription = null
+                            )
+                        },
+                        label = { Text(destination.label) }
+                    )
+                }
+            }
         }
+    ) { paddingValues ->
+        NavHost(
+            navController,
+            graph,
+            Modifier
+                .padding(paddingValues)
+                .fillMaxSize()
+        )
     }
 }
 

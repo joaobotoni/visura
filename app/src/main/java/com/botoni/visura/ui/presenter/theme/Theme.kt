@@ -64,7 +64,4 @@ fun DemoTheme(
         typography = Typography,
         content = content
     )
-
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val colorHex = String.format("#%08X", backgroundColor.toArgb())
 }

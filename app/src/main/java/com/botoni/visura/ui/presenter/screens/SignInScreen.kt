@@ -365,8 +365,6 @@ private fun DividerWithText() {
     }
 }
 
-// Solução: Wrapper customizado que usa StandardOutlinedButton mas sobrescreve o ícone
-
 @Composable
 private fun GoogleButton(
     enabled: Boolean,
