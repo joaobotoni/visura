@@ -32,7 +32,6 @@ O Visura é construído com ferramentas e técnicas modernas do universo Android
 | :--- | :--- |
 | **Kotlin** | A linguagem de programação moderna e oficial para criar aplicativos Android. Usamos para escrever todo o código do aplicativo. |
 | **Jetpack Compose** | Uma forma nova e fácil de criar a interface do usuário do aplicativo, tudo de forma visual e interativa. |
-| **MVVM** | Uma maneira de organizar o código que ajuda a manter a interface do usuário separada da lógica do aplicativo. |
 | **Kotlin Coroutines** | Permite que o aplicativo faça várias coisas ao mesmo tempo sem travar, como carregar dados da internet enquanto você usa a tela. |
 | **Kotlin Flow** | Ajuda o aplicativo a lidar com informações que mudam com o tempo, como atualizações de dados em tempo real. |
 | **Hilt (Injeção de Dependência)** | Uma ferramenta que facilita a conexão entre as diferentes partes do aplicativo, tornando-o mais flexível e fácil de testar. |
