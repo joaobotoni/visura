@@ -2,6 +2,7 @@ package com.botoni.visura.ui.presenter.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -362,20 +365,37 @@ private fun DividerWithText() {
     }
 }
 
+// Solução: Wrapper customizado que usa StandardOutlinedButton mas sobrescreve o ícone
+
 @Composable
 private fun GoogleButton(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    StandardOutlinedButton(
-        text = stringResource(R.string.button_social_login),
-        onClick = onClick,
-        enabled = enabled,
-        icon = R.drawable.google_icon,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-    )
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .height(50.dp)
+    ) {
+        StandardOutlinedButton(
+            text = stringResource(R.string.button_social_login),
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.fillMaxSize()
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.google_icon),
+                contentDescription = null,
+                modifier = Modifier.size(50.dp),
+                tint = Color.Unspecified
+            )
+        }
+    }
 }
 
 @Preview(showBackground = true, showSystemUi = true)
