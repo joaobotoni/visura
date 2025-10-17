@@ -62,7 +62,7 @@ Antes de submeter, mantenha sua *branch* atualizada com o repositório original:
 git fetch 
 
 # Mescla as alterações na sua branch
-git merge *****
+git merge nome-da-branch
 ```
 
 Se houver conflitos, resolva-os e finalize a mesclagem:
