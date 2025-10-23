@@ -4,7 +4,10 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,15 +16,13 @@ import androidx.navigation.createGraph
 import com.botoni.visura.ui.presenter.screens.MainScreen
 import com.botoni.visura.ui.presenter.screens.SignInScreen
 import com.botoni.visura.ui.presenter.screens.SignUpScreen
-import com.botoni.visura.ui.presenter.screens.SplashScreen
 import com.botoni.visura.ui.viewmodels.AuthenticationEvent
+import com.botoni.visura.ui.viewmodels.AuthenticationState
 import com.botoni.visura.ui.viewmodels.AuthenticationViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.serialization.Serializable
 
-@Serializable
-object Splash
 
 @Serializable
 object Main
@@ -37,6 +38,15 @@ fun Navigation(
     navController: NavHostController = rememberNavController(),
     viewModel: AuthenticationViewModel = hiltViewModel()
 ) {
+
+    val authState by viewModel.state.collectAsStateWithLifecycle()
+
+    val startDestination = remember {
+        when (authState){
+            is AuthenticationState.Authenticated -> Main
+            AuthenticationState.Unauthenticated -> SignIn
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.event.collectLatest { event ->
@@ -60,10 +70,7 @@ fun Navigation(
         }
     }
 
-    val navGraph = navController.createGraph(startDestination = Splash) {
-        composable<Splash> {
-            SplashScreen()
-        }
+    val navGraph = navController.createGraph(startDestination = startDestination) {
 
         composable<Main> {
             MainScreen()
