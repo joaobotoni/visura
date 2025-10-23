@@ -9,6 +9,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -18,6 +20,7 @@ sealed interface AuthenticationState {
     data class Authenticated(val user: FirebaseUser) : AuthenticationState
     data object Unauthenticated : AuthenticationState
 }
+
 sealed interface AuthenticationEvent {
     data object NavigateToMain : AuthenticationEvent
     data object NavigateToSignIn : AuthenticationEvent
@@ -28,10 +31,11 @@ class AuthenticationViewModel @Inject constructor(
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(
+    private val _state = MutableStateFlow<AuthenticationState>(
         auth.currentUser?.let { AuthenticationState.Authenticated(it) }
             ?: AuthenticationState.Unauthenticated
     )
+    val state: StateFlow<AuthenticationState> = _state.asStateFlow()
     private val _event = Channel<AuthenticationEvent>(Channel.BUFFERED)
     val event: Flow<AuthenticationEvent> = _event.receiveAsFlow()
 
@@ -39,22 +43,27 @@ class AuthenticationViewModel @Inject constructor(
         viewModelScope.launch {
             callbackFlow {
                 val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-                    val state = firebaseAuth.currentUser?.let {
+                    val currentState = firebaseAuth.currentUser?.let {
                         AuthenticationState.Authenticated(it)
                     } ?: AuthenticationState.Unauthenticated
-
-                    trySend(state)
+                    trySend(currentState)
                 }
                 auth.addAuthStateListener(listener)
                 awaitClose { auth.removeAuthStateListener(listener) }
-            }.collect { state ->
-                _state.value = state
-                val event = when (state) {
-                    is AuthenticationState.Authenticated -> AuthenticationEvent.NavigateToMain
-                    AuthenticationState.Unauthenticated -> AuthenticationEvent.NavigateToSignIn
+            }.collect { newState ->
+                if (newState::class != _state.value::class) {
+                    _state.value = newState
+                    emit(newState)
                 }
-                _event.send(event)
             }
         }
+    }
+
+    private suspend fun emit(state: AuthenticationState) {
+        val event = when (state) {
+            is AuthenticationState.Authenticated -> AuthenticationEvent.NavigateToMain
+            AuthenticationState.Unauthenticated -> AuthenticationEvent.NavigateToSignIn
+        }
+        _event.send(event)
     }
 }
