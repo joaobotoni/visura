@@ -1,3 +1,4 @@
+
 // app/build.gradle.kts
 
 plugins {
@@ -50,6 +51,8 @@ android {
 
 dependencies {
 
+
+    implementation(libs.accompanist.permissions)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.kotlinx.serialization.json.v173)
     implementation(platform(libs.firebase.bom))
