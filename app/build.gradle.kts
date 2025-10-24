@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.play.services.nearby)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.play.services.location)
+    implementation(libs.androidx.compose.runtime.saveable)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.material.icons.extended)
 

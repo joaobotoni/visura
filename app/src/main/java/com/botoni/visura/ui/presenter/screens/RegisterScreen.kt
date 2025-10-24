@@ -1,47 +1,22 @@
 import android.Manifest
 import android.location.Address
+import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -54,7 +29,7 @@ import com.botoni.visura.ui.viewmodels.RegisterViewModel
 import com.botoni.visura.ui.viewmodels.RegisterUiState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-
+@RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
@@ -76,10 +51,10 @@ fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
                 LocationBottomSheet(
                     uiState = uiState,
                     onSearch = { query -> viewModel.searchAddress(query) },
-                    onCurrentLocationClick = { viewModel.fetchCurrentAddress() },
+                    onCurrentLocationClick =  { viewModel.fetchCurrentAddress() },
                     onAddressClick = { address ->
                         showBottomSheet = false
-                        // Handle address selection here
+                        // TODO: Handle address selection
                     },
                     onDismiss = {
                         showBottomSheet = false
@@ -98,10 +73,7 @@ private fun LocationButton(onClick: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
     ) {
-        Icon(
-            imageVector = Icons.Filled.LocationOn,
-            contentDescription = null
-        )
+        Icon(imageVector = Icons.Filled.LocationOn, contentDescription = null)
     }
 }
 
@@ -200,7 +172,7 @@ private fun LocationSearchBar(
 @Composable
 private fun SearchResultsList(
     visible: Boolean,
-    addresses: List<Address>,
+    addresses: Set<Address>,
     isLoading: Boolean,
     error: String?,
     onAddressClick: (Address) -> Unit
@@ -219,10 +191,7 @@ private fun SearchResultsList(
                 isLoading -> LoadingState()
                 error != null -> ErrorState(error = error)
                 addresses.isEmpty() -> EmptyState()
-                else -> AddressList(
-                    addresses = addresses,
-                    onAddressClick = onAddressClick
-                )
+                else -> AddressList(addresses = addresses, onAddressClick = onAddressClick)
             }
         }
     }
@@ -230,22 +199,24 @@ private fun SearchResultsList(
 
 @Composable
 private fun AddressList(
-    addresses: List<Address>,
+    addresses: Set<Address>,
     onAddressClick: (Address) -> Unit
 ) {
+    val addressList = remember(addresses) { addresses.toList() }
+
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         items(
-            items = addresses,
+            items = addressList,
             key = { address -> address.hashCode() }
         ) { address ->
             AddressItem(
                 address = address,
                 onClick = { onAddressClick(address) }
             )
-            if (address != addresses.last()) {
+            if (address != addressList.last()) {
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 56.dp),
                     color = MaterialTheme.colorScheme.outlineVariant
@@ -269,9 +240,7 @@ private fun AddressItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons
-
-                .Filled.LocationOn,
+            imageVector = Icons.Filled.LocationOn,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
@@ -427,9 +396,7 @@ private fun PermissionRationaleDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.permission_location_error_title)) },
-        text = {
-            Text(stringResource(R.string.permission_location_error_body))
-        },
+        text = { Text(stringResource(R.string.permission_location_error_body)) },
         confirmButton = {
             StandardTextButton(
                 text = "Permitir",
