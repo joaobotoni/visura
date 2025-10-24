@@ -27,10 +27,11 @@ import java.util.Locale
 import javax.inject.Inject
 
 data class RegisterUiState(
-    val addresses: List<Address> = emptyList(),
+    val addresses: Set<Address> = emptySet(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
+
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
     @ApplicationContext private val context: Context
@@ -47,12 +48,7 @@ class RegisterViewModel @Inject constructor(
         Geocoder(context, Locale.getDefault())
     }
 
-    @RequiresPermission(
-        anyOf = [
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ]
-    )
+    @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     fun fetchCurrentAddress() {
         viewModelScope.launch {
             setLoadingState(true)
@@ -68,12 +64,7 @@ class RegisterViewModel @Inject constructor(
         }
     }
 
-    @RequiresPermission(
-        anyOf = [
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ]
-    )
+    @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private suspend fun getCurrentLocation(): Location {
         val cancellationTokenSource = CancellationTokenSource()
 
@@ -88,7 +79,7 @@ class RegisterViewModel @Inject constructor(
         }
     }
 
-    private suspend fun geocodeLocation(location: Location): List<Address> {
+    private suspend fun geocodeLocation(location: Location): Set<Address> {
         return withContext(Dispatchers.IO) {
             val addresses = geocoder.getFromLocation(
                 location.latitude,
@@ -100,11 +91,11 @@ class RegisterViewModel @Inject constructor(
                 throw LocationException.AddressNotFoundException()
             }
 
-            addresses
+            addresses.toSet()
         }
     }
 
-    private fun updateAddresses(addresses: List<Address>) {
+    private fun updateAddresses(addresses: Set<Address>) {
         _uiState.update { it.copy(addresses = addresses, error = null) }
     }
 
@@ -127,7 +118,7 @@ class RegisterViewModel @Inject constructor(
 
     fun searchAddress(query: String) {
         if (query.length < 3) {
-            _uiState.update { it.copy(addresses = emptyList()) }
+            _uiState.update { it.copy(addresses = emptySet()) }
             return
         }
 
@@ -144,14 +135,14 @@ class RegisterViewModel @Inject constructor(
         }
     }
 
-    private suspend fun geocodeAddressByName(locationName: String): List<Address> {
+    private suspend fun geocodeAddressByName(locationName: String): Set<Address> {
         return withContext(Dispatchers.IO) {
             try {
                 val addresses = geocoder.getFromLocationName(locationName, 5)
                 if (addresses.isNullOrEmpty()) {
                     throw LocationException.AddressNotFoundException()
                 }
-                addresses
+                addresses.toSet()
             } catch (e: Exception) {
                 throw LocationException.AddressNotFoundException(e)
             }
