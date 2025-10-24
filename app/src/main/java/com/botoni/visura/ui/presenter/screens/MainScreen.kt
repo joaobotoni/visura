@@ -16,6 +16,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -115,10 +116,13 @@ fun Menu(modifier: Modifier = Modifier) {
                         },
                         icon = {
                             Icon(
-                                modifier = Modifier.size(32.dp),
+                                modifier = Modifier.size(28.dp),
                                 imageVector = if (selected == index) destination.icon else destination.unselectedIcon,
                                 contentDescription = null
                             )
+                        },
+                        label = {
+                            Text(if (destination.route == Home) "Home" else "Nova Vistoria");
                         }
                     )
                 }

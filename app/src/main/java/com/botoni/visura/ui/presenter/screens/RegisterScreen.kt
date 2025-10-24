@@ -1,5 +1,5 @@
+import android.Manifest
 import android.location.Address
-import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -34,6 +35,7 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,18 +44,27 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.botoni.visura.R
+import com.botoni.visura.ui.presenter.elements.button.StandardTextButton
 import com.botoni.visura.ui.viewmodels.RegisterViewModel
-@RequiresPermission(anyOf = ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"])
-@OptIn(ExperimentalMaterial3Api::class)
+import com.botoni.visura.ui.viewmodels.RegisterUiState
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
-fun Register(
-    modifier: Modifier = Modifier,
-    viewModel: RegisterViewModel = hiltViewModel()
-) {
+fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
     var showBottomSheet by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
+
+    RequirePermissionLocation(
+        onPermissionsGranted = { viewModel.fetchCurrentAddress() },
+        onPermissionsDenied = { viewModel.clearError() }
+    )
 
     Scaffold(
         floatingActionButton = {
@@ -63,8 +74,17 @@ fun Register(
         Box(modifier = Modifier.padding(paddingValues)) {
             if (showBottomSheet) {
                 LocationBottomSheet(
-                    viewModel = viewModel,
-                    onDismiss = { showBottomSheet = false }
+                    uiState = uiState,
+                    onSearch = { query -> viewModel.searchAddress(query) },
+                    onCurrentLocationClick = { viewModel.fetchCurrentAddress() },
+                    onAddressClick = { address ->
+                        showBottomSheet = false
+                        // Handle address selection here
+                    },
+                    onDismiss = {
+                        showBottomSheet = false
+                        viewModel.clearError()
+                    }
                 )
             }
         }
@@ -84,15 +104,17 @@ private fun LocationButton(onClick: () -> Unit) {
         )
     }
 }
-@RequiresPermission(anyOf = ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"])
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LocationBottomSheet(
-    viewModel: RegisterViewModel,
+    uiState: RegisterUiState,
+    onSearch: (String) -> Unit,
+    onCurrentLocationClick: () -> Unit,
+    onAddressClick: (Address) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
-    val uiState by viewModel.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
 
     ModalBottomSheet(
@@ -111,21 +133,17 @@ private fun LocationBottomSheet(
                 query = query,
                 onQueryChange = { newQuery ->
                     query = newQuery
-                    viewModel.searchAddress(newQuery)
+                    onSearch(newQuery)
                 },
-                onCurrentLocationClick = {
-                    viewModel.fetchCurrentAddress()
-                }
+                onCurrentLocationClick = onCurrentLocationClick
             )
 
             SearchResultsList(
-                visible = query.isNotEmpty() || uiState.isLoading || uiState.error != null || uiState.addresses.isNotEmpty(),
+                visible = query.isNotEmpty() || uiState.isLoading || uiState.addresses.isNotEmpty(),
                 addresses = uiState.addresses,
                 isLoading = uiState.isLoading,
                 error = uiState.error,
-                onAddressClick = { address ->
-                    onDismiss()
-                }
+                onAddressClick = onAddressClick
             )
         }
     }
@@ -251,7 +269,9 @@ private fun AddressItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Filled.LocationOn,
+            imageVector = Icons
+
+                .Filled.LocationOn,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
@@ -269,7 +289,7 @@ private fun AddressItem(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = buildAddressText(address),
+                text = buildAddressSecondaryText(address),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -345,7 +365,6 @@ private fun EmptyState() {
 private fun buildAddressPrimaryText(address: Address): String {
     val street = address.thoroughfare
     val neighborhood = address.subLocality
-
     return when {
         street != null && neighborhood != null -> "$street, $neighborhood"
         street != null -> street
@@ -354,13 +373,77 @@ private fun buildAddressPrimaryText(address: Address): String {
     }
 }
 
-private fun buildAddressText(address: Address): String {
+private fun buildAddressSecondaryText(address: Address): String {
     val parts = mutableListOf<String>()
-
     address.subThoroughfare?.let { parts.add(it) }
     address.locality?.let { parts.add(it) }
     address.adminArea?.let { parts.add(it) }
     address.postalCode?.let { parts.add("CEP $it") }
-
     return parts.joinToString(separator = ", ")
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun RequirePermissionLocation(
+    onPermissionsGranted: () -> Unit,
+    onPermissionsDenied: () -> Unit
+) {
+    val locationPermissionsState = rememberMultiplePermissionsState(
+        permissions = listOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    )
+
+    LaunchedEffect(locationPermissionsState.allPermissionsGranted) {
+        if (locationPermissionsState.allPermissionsGranted) {
+            onPermissionsGranted()
+        } else {
+            onPermissionsDenied()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!locationPermissionsState.allPermissionsGranted) {
+            locationPermissionsState.launchMultiplePermissionRequest()
+        }
+    }
+
+    if (locationPermissionsState.shouldShowRationale) {
+        PermissionRationaleDialog(
+            onRequestPermission = {
+                locationPermissionsState.launchMultiplePermissionRequest()
+            },
+            onDismiss = onPermissionsDenied
+        )
+    }
+}
+
+@Composable
+private fun PermissionRationaleDialog(
+    onRequestPermission: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.permission_location_error_title)) },
+        text = {
+            Text(stringResource(R.string.permission_location_error_body))
+        },
+        confirmButton = {
+            StandardTextButton(
+                text = "Permitir",
+                onClick = onRequestPermission,
+                enabled = true
+            )
+        },
+        dismissButton = {
+            StandardTextButton(
+                text = "Agora não",
+                onClick = onDismiss,
+                enabled = true,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    )
 }

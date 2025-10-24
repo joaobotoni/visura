@@ -8,6 +8,7 @@ import android.location.Location
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.botoni.visura.domain.exceptions.location.LocationException
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -30,7 +31,6 @@ data class RegisterUiState(
     val isLoading: Boolean = false,
     val error: String? = null
 )
-
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
     @ApplicationContext private val context: Context
@@ -81,7 +81,7 @@ class RegisterViewModel @Inject constructor(
             fusedLocationClient.getCurrentLocation(
                 Priority.PRIORITY_HIGH_ACCURACY,
                 cancellationTokenSource.token
-            ).await() ?: throw LocationNotFoundException()
+            ).await() ?: throw LocationException.LocationNotFoundException()
         } catch (e: Exception) {
             cancellationTokenSource.cancel()
             throw e
@@ -97,7 +97,7 @@ class RegisterViewModel @Inject constructor(
             )
 
             if (addresses.isNullOrEmpty()) {
-                throw AddressNotFoundException()
+                throw LocationException.AddressNotFoundException()
             }
 
             addresses
@@ -114,8 +114,8 @@ class RegisterViewModel @Inject constructor(
 
     private fun handleError(exception: Exception) {
         val errorMessage = when (exception) {
-            is LocationNotFoundException -> "Localização não disponível"
-            is AddressNotFoundException -> "Endereço não encontrado"
+            is LocationException.LocationNotFoundException -> "Localização não disponível"
+            is LocationException.AddressNotFoundException -> "Endereço não encontrado"
             else -> "Erro ao obter localização: ${exception.message}"
         }
         _uiState.update { it.copy(error = errorMessage) }
@@ -146,15 +146,15 @@ class RegisterViewModel @Inject constructor(
 
     private suspend fun geocodeAddressByName(locationName: String): List<Address> {
         return withContext(Dispatchers.IO) {
-            val addresses = geocoder.getFromLocationName(locationName, 5)
-
-            if (addresses.isNullOrEmpty()) {
-                throw AddressNotFoundException()
+            try {
+                val addresses = geocoder.getFromLocationName(locationName, 5)
+                if (addresses.isNullOrEmpty()) {
+                    throw LocationException.AddressNotFoundException()
+                }
+                addresses
+            } catch (e: Exception) {
+                throw LocationException.AddressNotFoundException(e)
             }
-            addresses
         }
     }
 }
-
-class LocationNotFoundException : Exception("Location not found")
-class AddressNotFoundException : Exception("Address not found")

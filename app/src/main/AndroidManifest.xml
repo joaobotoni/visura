@@ -2,10 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <application
         android:name=".VisuraApplication"
@@ -17,6 +17,7 @@
         android:roundIcon="@mipmap/_logo_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SplashScreen.">
+
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
