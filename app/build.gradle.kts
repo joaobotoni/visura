@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         applicationId = "com.botoni.visura"
-        minSdk = 31
+        minSdk = 33
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.androidx.compose.animation)
     implementation(libs.play.services.nearby)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.play.services.location)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.material.icons.extended)
 
