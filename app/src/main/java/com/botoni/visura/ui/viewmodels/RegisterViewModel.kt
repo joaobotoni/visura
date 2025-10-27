@@ -1,29 +1,18 @@
 package com.botoni.visura.ui.viewmodels
 
 import android.Manifest
-import android.content.Context
 import android.location.Address
-import android.location.Geocoder
-import android.location.Location
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.botoni.visura.domain.exceptions.location.LocationException
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
+import com.botoni.visura.domain.usecase.location.LocationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import java.util.Locale
 import javax.inject.Inject
 
 data class RegisterUiState(
@@ -34,118 +23,91 @@ data class RegisterUiState(
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    private val locationUseCase: LocationUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
 
-    private val fusedLocationClient: FusedLocationProviderClient by lazy {
-        LocationServices.getFusedLocationProviderClient(context)
-    }
-
-    private val geocoder: Geocoder by lazy {
-        Geocoder(context, Locale.getDefault())
-    }
-
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     fun fetchCurrentAddress() {
         viewModelScope.launch {
-            setLoadingState(true)
-            try {
-                val location = getCurrentLocation()
-                val addresses = geocodeLocation(location)
-                updateAddresses(addresses)
-            } catch (e: Exception) {
-                handleError(e)
-            } finally {
-                setLoadingState(false)
-            }
+            startLoading()
+            fetchLocation()
         }
     }
 
-    @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    private suspend fun getCurrentLocation(): Location {
-        val cancellationTokenSource = CancellationTokenSource()
-
-        return try {
-            fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                cancellationTokenSource.token
-            ).await() ?: throw LocationException.LocationNotFoundException()
-        } catch (e: Exception) {
-            cancellationTokenSource.cancel()
-            throw e
+    fun searchAddress(query: String) {
+        if (isQueryTooShort(query)) {
+            clearAddresses()
+            return
         }
-    }
 
-    private suspend fun geocodeLocation(location: Location): Set<Address> {
-        return withContext(Dispatchers.IO) {
-            val addresses = geocoder.getFromLocation(
-                location.latitude,
-                location.longitude,
-                5
-            )
-
-            if (addresses.isNullOrEmpty()) {
-                throw LocationException.AddressNotFoundException()
-            }
-
-            addresses.toSet()
+        viewModelScope.launch {
+            startLoading()
+            searchByName(query)
         }
-    }
-
-    private fun updateAddresses(addresses: Set<Address>) {
-        _uiState.update { it.copy(addresses = addresses, error = null) }
-    }
-
-    private fun setLoadingState(isLoading: Boolean) {
-        _uiState.update { it.copy(isLoading = isLoading) }
-    }
-
-    private fun handleError(exception: Exception) {
-        val errorMessage = when (exception) {
-            is LocationException.LocationNotFoundException -> "Localização não disponível"
-            is LocationException.AddressNotFoundException -> "Endereço não encontrado"
-            else -> "Erro ao obter localização: ${exception.message}"
-        }
-        _uiState.update { it.copy(error = errorMessage) }
     }
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 
-    fun searchAddress(query: String) {
-        if (query.length < 3) {
-            _uiState.update { it.copy(addresses = emptySet()) }
-            return
-        }
+    private fun isQueryTooShort(query: String): Boolean {
+        return query.length < 3
+    }
 
-        viewModelScope.launch {
-            setLoadingState(true)
-            try {
-                val addresses = geocodeAddressByName(query)
-                updateAddresses(addresses)
-            } catch (e: Exception) {
-                handleError(e)
-            } finally {
-                setLoadingState(false)
-            }
+    private fun clearAddresses() {
+        _uiState.update { it.copy(addresses = emptySet(), error = null) }
+    }
+
+    @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    private suspend fun fetchLocation() {
+        runCatching {
+            locationUseCase.fetchAddress()
+        }.onSuccess { addresses ->
+            showAddresses(addresses)
+        }.onFailure { error ->
+            showError(error)
         }
     }
 
-    private suspend fun geocodeAddressByName(locationName: String): Set<Address> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val addresses = geocoder.getFromLocationName(locationName, 5)
-                if (addresses.isNullOrEmpty()) {
-                    throw LocationException.AddressNotFoundException()
-                }
-                addresses.toSet()
-            } catch (e: Exception) {
-                throw LocationException.AddressNotFoundException(e)
-            }
+    private suspend fun searchByName(query: String) {
+        runCatching {
+            locationUseCase.fetchAddressByName(query)
+        }.onSuccess { addresses ->
+            showAddresses(addresses)
+        }.onFailure { error ->
+            showError(error)
+        }
+    }
+
+    private fun showAddresses(addresses: List<Address>) {
+        _uiState.update {
+            it.copy(
+                addresses = addresses.toSet(),
+                isLoading = false,
+                error = null
+            )
+        }
+    }
+
+    private fun startLoading() {
+        _uiState.update { it.copy(isLoading = true, error = null) }
+    }
+
+    private fun showError(error: Throwable) {
+        val message = buildErrorMessage(error)
+        _uiState.update {
+            it.copy(error = message, isLoading = false)
+        }
+    }
+
+    private fun buildErrorMessage(error: Throwable): String {
+        return when (error) {
+            is LocationException.LocationNotFoundException -> "Localização não disponível"
+            is LocationException.AddressNotFoundException -> "Endereço não encontrado"
+            else -> "Erro ao obter localização: ${error.message}"
         }
     }
 }
