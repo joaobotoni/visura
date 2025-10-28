@@ -1,52 +1,26 @@
 {
   "project_info": {
-    "project_number": "307083149527",
-    "project_id": "visura-95141",
-    "storage_bucket": "visura-95141.firebasestorage.app"
+    "project_number": "853549966921",
+    "project_id": "visura-90822",
+    "storage_bucket": "visura-90822.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:307083149527:android:008c9468597abc21aab092",
+        "mobilesdk_app_id": "1:853549966921:android:ea02bfc8cd54dbce3f4198",
         "android_client_info": {
-          "package_name": "com.botoni.visura"
+          "package_name": "com.visura"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "307083149527-3dlojnmgshjlm5nial38an0fi1fcerg2.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.botoni.visura",
-            "certificate_hash": "776d7373e68ca799b985d4c758b3ec5650303cb4"
-          }
-        },
-        {
-          "client_id": "307083149527-vnapp51083fol3s0j2qdvekebmovh1sm.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.botoni.visura",
-            "certificate_hash": "37619ed495e082296c45d19b767954947b069b72"
-          }
-        },
-        {
-          "client_id": "307083149527-tdgum4cpjvj21ovjc0vsogq1bo77q6m5.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBDkEXUeytMNRE4iq5pJDQCUi56COXcBHk"
+          "current_key": "AIzaSyB3FovZWADZgd-tbDSX_q3D0e8Y2LEwuTU"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "307083149527-tdgum4cpjvj21ovjc0vsogq1bo77q6m5.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
