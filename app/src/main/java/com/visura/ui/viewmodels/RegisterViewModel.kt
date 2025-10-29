@@ -18,7 +18,9 @@ import javax.inject.Inject
 data class RegisterUiState(
     val addresses: Set<Address> = emptySet(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val selectedResidenceType: String = "Residencial",
+    val selectedAddress: Address? = null
 )
 
 @HiltViewModel
@@ -51,6 +53,14 @@ class RegisterViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun updateResidenceType(type: String) {
+        _uiState.update { it.copy(selectedResidenceType = type) }
+    }
+
+    fun updateSelectedAddress(address: Address?) {
+        _uiState.update { it.copy(selectedAddress = address) }
     }
 
     private fun isQueryTooShort(query: String): Boolean {
@@ -102,6 +112,7 @@ class RegisterViewModel @Inject constructor(
             it.copy(error = message, isLoading = false)
         }
     }
+
     private fun buildErrorMessage(error: Throwable): String {
         return when (error) {
             is LocationException.LocationNotFoundException -> "Localização não disponível"
