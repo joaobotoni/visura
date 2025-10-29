@@ -102,7 +102,6 @@ class RegisterViewModel @Inject constructor(
             it.copy(error = message, isLoading = false)
         }
     }
-
     private fun buildErrorMessage(error: Throwable): String {
         return when (error) {
             is LocationException.LocationNotFoundException -> "Localização não disponível"
