@@ -91,6 +91,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -111,8 +112,7 @@ import com.visura.ui.viewmodels.RegisterViewModel
 fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var showBottomSheet by remember { mutableStateOf(false) }
-    var selectedResidenceType by rememberSaveable { mutableStateOf("Residencial") }
-    var selectedAddress by rememberSaveable { mutableStateOf<Address?>(null) }
+    var showConfirmInfoDialog by remember { mutableStateOf(false) }
 
     RequirePermissionLocation(
         onPermissionsGranted = { viewModel.fetchCurrentAddress() },
@@ -123,17 +123,17 @@ fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
         floatingActionButton = {
             AnimatedLocationButton(
                 onClick = { showBottomSheet = true },
-                hasAddress = selectedAddress != null
+                hasAddress = uiState.selectedAddress != null
             )
         },
         bottomBar = {
             AnimatedVisibility(
-                visible = selectedAddress != null,
+                visible = uiState.selectedAddress != null,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
                 FinishButton(
-                    onClick = { },
+                    onClick = { showConfirmInfoDialog = true },
                     modifier = Modifier.padding(16.dp)
                 )
             }
@@ -151,34 +151,34 @@ fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
             ) {
                 item {
                     HeaderSection(
-                        currentStep = if (selectedAddress != null) 2 else 1,
+                        currentStep = if (uiState.selectedAddress != null) 2 else 1,
                         totalSteps = 3
                     )
                 }
 
                 item {
                     ResidenceTypeSelector(
-                        selectedType = selectedResidenceType,
-                        onTypeSelected = { selectedResidenceType = it }
+                        selectedType = uiState.selectedResidenceType,
+                        onTypeSelected = { viewModel.updateResidenceType(it) }
                     )
                 }
                 item {
                     AnimatedVisibility(
-                        visible = selectedAddress != null,
+                        visible = uiState.selectedAddress != null,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
-                        selectedAddress?.let { address ->
+                        uiState.selectedAddress?.let { address ->
                             SelectedAddressCard(
                                 address = address,
-                                onRemove = { selectedAddress = null }
+                                onRemove = { viewModel.updateSelectedAddress(null) }
                             )
                         }
                     }
                 }
                 item {
                     AnimatedVisibility(
-                        visible = selectedAddress == null,
+                        visible = uiState.selectedAddress == null,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
@@ -196,7 +196,7 @@ fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
                     onSearch = { query -> viewModel.searchAddress(query) },
                     onCurrentLocationClick = { viewModel.fetchCurrentAddress() },
                     onAddressClick = { address ->
-                        selectedAddress = address
+                        viewModel.updateSelectedAddress(address)
                         showBottomSheet = false
                     },
                     onDismiss = {
@@ -205,10 +205,20 @@ fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
                     }
                 )
             }
+            InfoConfirmDialog(
+                showDialog = showConfirmInfoDialog,
+                residenceType = uiState.selectedResidenceType,
+                address = uiState.selectedAddress,
+                onConfirm = {
+                    showConfirmInfoDialog = false
+                },
+                onDismiss = {
+                    showConfirmInfoDialog = false
+                }
+            )
         }
     }
 }
-
 
 
 @Composable
@@ -316,6 +326,7 @@ fun ProgressIndicator(currentStep: Int, totalSteps: Int) {
         }
     }
 }
+
 @Composable
 fun EmptyStateLocationCard() {
     Card(
@@ -1007,6 +1018,230 @@ fun PermissionRationaleDialog(
             )
         }
     )
+}
+
+@Composable
+fun InfoConfirmDialog(
+    showDialog: Boolean,
+    residenceType: String = "Residencial",
+    address: Address? = null,
+    onConfirm: () -> Unit = {},
+    onDismiss: () -> Unit = {}
+) {
+    if (showDialog && address != null) {
+        Dialog(onDismissRequest = onDismiss) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    DialogHeader(residenceType = residenceType)
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    AddressInfoCard(address = address)
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    DialogActionButtons(
+                        onDismiss = onDismiss,
+                        onConfirm = onConfirm
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DialogHeader(residenceType: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AnimatedCheckIcon()
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ResidenceTypeBadge(type = residenceType)
+    }
+}
+
+@Composable
+private fun AnimatedCheckIcon() {
+    val scale by rememberInfiniteTransition(label = "scale").animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "icon_scale"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(72.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.secondaryContainer
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.CheckCircle,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(40.dp)
+        )
+    }
+}
+
+@Composable
+private fun ResidenceTypeBadge(type: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Text(
+            text = type,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun AddressInfoCard(address: Address) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            address.thoroughfare?.let { street ->
+                InfoRow(
+                    label = "Endereço",
+                    value = if (address.subThoroughfare != null) {
+                        "$street, ${address.subThoroughfare}"
+                    } else {
+                        street
+                    }
+                )
+            }
+
+            address.subLocality?.let { neighborhood ->
+                InfoRow(label = "Bairro", value = neighborhood)
+            }
+
+            address.locality?.let { city ->
+                InfoRow(label = "Cidade", value = city)
+            }
+
+            address.adminArea?.let { state ->
+                InfoRow(label = "Estado", value = state)
+            }
+
+            address.postalCode?.let { postalCode ->
+                InfoRow(label = "CEP", value = postalCode)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DialogActionButtons(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Button(
+            onClick = onDismiss,
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        ) {
+            Text(
+                text = "Cancelar",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        Button(
+            onClick = onConfirm,
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Confirmar",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(80.dp)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 private fun buildAddressPrimaryText(address: Address): String {
