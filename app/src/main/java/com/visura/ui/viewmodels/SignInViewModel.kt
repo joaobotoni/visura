@@ -38,7 +38,7 @@ class SignInValidator @Inject constructor() {
     }
 
     private fun checkEmail(email: Email): Email =
-        Email.access(email.value).getOrThrow()
+            Email.access(email.value).getOrThrow()
 
     private fun checkPassword(password: Password): Password =
         Password.access(password.value).getOrThrow()

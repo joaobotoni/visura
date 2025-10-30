@@ -30,4 +30,5 @@
     <string name="permission_location_error_body">Precisamos acessar sua localização para buscar endereços próximos e fornecer resultados mais precisos.</string>
     <string name="permission_allow">Permitir</string>
     <string name="permission_not_now">Agora não</string>
+    <string name="success_message_registration">Cadastro de imovel realizado com sucesso</string>
 </resources>

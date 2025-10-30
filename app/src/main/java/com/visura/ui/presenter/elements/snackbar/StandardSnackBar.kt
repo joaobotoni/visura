@@ -54,7 +54,8 @@ enum class SnackbarType(
 @Composable
 fun StandardSnackbar(
     hostState: SnackbarHostState,
-    type: SnackbarType = SnackbarType.DEFAULT
+    type: SnackbarType = SnackbarType.DEFAULT,
+    modifier: Modifier = Modifier
 ) {
     SnackbarHost(
         hostState = hostState,

@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.play.services.location)
     implementation(libs.androidx.compose.runtime.saveable)
+    implementation(libs.androidx.compose.animation.core)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.material.icons.extended)
 
