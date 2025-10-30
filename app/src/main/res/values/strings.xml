@@ -30,4 +30,9 @@
     <string name="permission_location_error_body">Precisamos acessar sua localização para buscar endereços próximos e fornecer resultados mais precisos.</string>
     <string name="permission_allow">Permitir</string>
     <string name="permission_not_now">Agora não</string>
+    <string name="imovel_verificado_desc">Imóvel Verificado</string>
+    <string name="imovel_opcoes_desc">Opções do Imóvel</string>
+    <string name="imovel_metadata">ID: %1$d - Criado em: %2$s</string>
+    <string name="imovel_endereco_format">Rua %1$s nº %2$d, %3$s, %4$s - %5$s</string>
+    <string name="imovel_complemento_format"> (%1$s)</string>
 </resources>
