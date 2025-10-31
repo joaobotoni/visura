@@ -34,6 +34,10 @@ foundation = "1.9.3"
 playServicesLocation = "21.3.0"
 runtimeSaveable = "1.9.4"
 animationCore = "1.9.4"
+foundationVersion = "1.9.4"
+androidxAnimation = "1.9.4"
+foundationLayout = "1.9.4"
+ui = "1.9.4"
 
 [libraries]
 accompanist-navigation-animation = { module = "com.google.accompanist:accompanist-navigation-animation" }
@@ -81,6 +85,10 @@ androidx-compose-foundation = { group = "androidx.compose.foundation", name = "f
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 androidx-compose-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable", version.ref = "runtimeSaveable" }
 androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "animationCore" }
+androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
+animation = { group = "androidx.compose.animation", name = "animation", version.ref = "androidxAnimation" }
+androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
