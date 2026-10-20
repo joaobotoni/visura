@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FirstProject"
+rootProject.name = "Visura"
 include(":app")

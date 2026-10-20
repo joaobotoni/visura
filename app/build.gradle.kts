@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.firstproject"
+    namespace = "com.visura"
     compileSdk {
         version = release(37) {
             minorApiLevel = 1
@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.firstproject"
+        applicationId = "com.visura.prototipo"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
