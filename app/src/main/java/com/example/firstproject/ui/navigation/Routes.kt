@@ -17,9 +17,17 @@ object Routes {
     const val PESSOAS_VINCULADAS = "pessoas_vinculadas/{imovelId}"
     const val AMBIENTES = "ambientes/{imovelId}"
     const val NOVO_AMBIENTE = "novo_ambiente"
+    const val AMBIENTE_DETALHE = "ambiente/{ambienteId}"
+    const val NOVO_ITEM = "novo_item/{ambienteId}"
+    const val ITEM_AVALIAR = "item/{ambienteId}/{itemId}"
+    const val ITEM_EDITAR = "item_editar/{ambienteId}/{itemId}"
 
     fun imovelDetalhe(imovelId: String) = "imovel_detalhe/$imovelId"
     fun novaVistoria(imovelId: String) = "nova_vistoria/$imovelId"
     fun pessoasVinculadas(imovelId: String) = "pessoas_vinculadas/$imovelId"
     fun ambientes(imovelId: String) = "ambientes/$imovelId"
+    fun ambienteDetalhe(ambienteId: String) = "ambiente/$ambienteId"
+    fun novoItem(ambienteId: String) = "novo_item/$ambienteId"
+    fun itemAvaliar(ambienteId: String, itemId: String) = "item/$ambienteId/$itemId"
+    fun itemEditar(ambienteId: String, itemId: String) = "item_editar/$ambienteId/$itemId"
 }

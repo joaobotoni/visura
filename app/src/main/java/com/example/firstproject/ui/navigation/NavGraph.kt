@@ -11,9 +11,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.firstproject.ui.screens.ambientes.AmbienteDetalheScreen
 import com.example.firstproject.ui.screens.ambientes.AmbientesScreen
+import com.example.firstproject.ui.screens.ambientes.ItemScreen
+import com.example.firstproject.ui.screens.ambientes.ModoItem
 import com.example.firstproject.ui.screens.ambientes.NovoAmbienteScreen
 import com.example.firstproject.ui.screens.ambientes.ambientesDeExemplo
+import com.example.firstproject.ui.screens.ambientes.comItem
+import com.example.firstproject.ui.screens.ambientes.semItem
 import com.example.firstproject.ui.screens.createaccount.CreateAccountDocsScreen
 import com.example.firstproject.ui.screens.createaccount.CreateAccountInfoScreen
 import com.example.firstproject.ui.screens.forgotpassword.ForgotPasswordCodeScreen
@@ -208,9 +213,7 @@ fun FirstProjectNavGraph(
             AmbientesScreen(
                 ambientes = ambientes,
                 onBackClick = { navController.popBackStack() },
-                onAmbienteClick = {
-                    // detalhe do ambiente — ainda não criado
-                },
+                onAmbienteClick = { navController.navigate(Routes.ambienteDetalhe(it.id)) },
                 onAdicionarAmbienteClick = { navController.navigate(Routes.NOVO_AMBIENTE) },
                 onContinueClick = {
                     // próxima etapa: revisão — ainda não criada
@@ -227,6 +230,70 @@ fun FirstProjectNavGraph(
                     navController.popBackStack()
                 }
             )
+        }
+
+        composable(
+            route = Routes.AMBIENTE_DETALHE,
+            arguments = listOf(navArgument("ambienteId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val ambiente = ambientes.find { it.id == backStackEntry.arguments?.getString("ambienteId") }
+
+            if (ambiente != null) {
+                AmbienteDetalheScreen(
+                    ambiente = ambiente,
+                    onBackClick = { navController.popBackStack() },
+                    onItemClick = { navController.navigate(Routes.itemAvaliar(ambiente.id, it.id)) },
+                    onAdicionarItemClick = { navController.navigate(Routes.novoItem(ambiente.id)) },
+                    onEditarItemClick = { navController.navigate(Routes.itemEditar(ambiente.id, it.id)) },
+                    onRemoverItemClick = { ambientes = ambientes.semItem(ambiente.id, it.id) }
+                )
+            }
+        }
+
+        composable(
+            route = Routes.NOVO_ITEM,
+            arguments = listOf(navArgument("ambienteId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val ambiente = ambientes.find { it.id == backStackEntry.arguments?.getString("ambienteId") }
+
+            if (ambiente != null) {
+                ItemScreen(
+                    modo = ModoItem.NOVO,
+                    nomeDoAmbiente = ambiente.nome,
+                    onBackClick = { navController.popBackStack() },
+                    onSaveClick = { item ->
+                        ambientes = ambientes.comItem(ambiente.id, item)
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+
+        // Avaliar e editar usam a mesma tela; só muda o modo
+        listOf(Routes.ITEM_AVALIAR to ModoItem.AVALIAR, Routes.ITEM_EDITAR to ModoItem.EDITAR).forEach { (rota, modo) ->
+            composable(
+                route = rota,
+                arguments = listOf(
+                    navArgument("ambienteId") { type = NavType.StringType },
+                    navArgument("itemId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val ambiente = ambientes.find { it.id == backStackEntry.arguments?.getString("ambienteId") }
+                val item = ambiente?.itens?.find { it.id == backStackEntry.arguments?.getString("itemId") }
+
+                if (ambiente != null && item != null) {
+                    ItemScreen(
+                        modo = modo,
+                        nomeDoAmbiente = ambiente.nome,
+                        itemInicial = item,
+                        onBackClick = { navController.popBackStack() },
+                        onSaveClick = { atualizado ->
+                            ambientes = ambientes.comItem(ambiente.id, atualizado)
+                            navController.popBackStack()
+                        }
+                    )
+                }
+            }
         }
     }
 }
