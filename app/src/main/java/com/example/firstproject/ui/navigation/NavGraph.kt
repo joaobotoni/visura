@@ -1,12 +1,19 @@
 package com.example.firstproject.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.firstproject.ui.screens.ambientes.AmbientesScreen
+import com.example.firstproject.ui.screens.ambientes.NovoAmbienteScreen
+import com.example.firstproject.ui.screens.ambientes.ambientesDeExemplo
 import com.example.firstproject.ui.screens.createaccount.CreateAccountDocsScreen
 import com.example.firstproject.ui.screens.createaccount.CreateAccountInfoScreen
 import com.example.firstproject.ui.screens.forgotpassword.ForgotPasswordCodeScreen
@@ -17,6 +24,7 @@ import com.example.firstproject.ui.screens.home.HomeScreen
 import com.example.firstproject.ui.screens.imoveis.ImovelDetalheScreen
 import com.example.firstproject.ui.screens.imoveis.NovoImovelScreen
 import com.example.firstproject.ui.screens.imoveis.NovoImovelTipoScreen
+import com.example.firstproject.ui.screens.imoveis.PessoaVinculada
 import com.example.firstproject.ui.screens.imoveis.imoveisDeExemplo
 import com.example.firstproject.ui.screens.login.LoginScreen
 import com.example.firstproject.ui.screens.pessoas.PessoasVinculadasScreen
@@ -26,6 +34,11 @@ import com.example.firstproject.ui.screens.vistoria.NovaVistoriaScreen
 fun FirstProjectNavGraph(
     navController: NavHostController = rememberNavController()
 ) {
+    // Vistoria em preenchimento. Fica acima do NavHost para que as etapas (pessoas, ambientes,
+    // itens e revisão) enxerguem e alterem os mesmos dados.
+    var pessoasDaVistoria by remember { mutableStateOf(emptyList<PessoaVinculada>()) }
+    var ambientes by remember { mutableStateOf(ambientesDeExemplo()) }
+
     NavHost(
         navController = navController,
         startDestination = Routes.LOGIN
@@ -178,8 +191,40 @@ fun FirstProjectNavGraph(
             PessoasVinculadasScreen(
                 pessoasIniciais = imovel?.pessoas.orEmpty(),
                 onBackClick = { navController.popBackStack() },
-                onContinueClick = { _ ->
-                    // próxima etapa: ambientes — ainda não criada
+                onContinueClick = { pessoas ->
+                    // Começa a avaliação dos ambientes do zero para esta vistoria
+                    pessoasDaVistoria = pessoas
+                    ambientes = ambientesDeExemplo()
+                    navController.navigate(Routes.ambientes(imovelId.orEmpty()))
+                }
+            )
+        }
+
+        // Vistoria, etapa 3: lista de ambientes
+        composable(
+            route = Routes.AMBIENTES,
+            arguments = listOf(navArgument("imovelId") { type = NavType.StringType })
+        ) {
+            AmbientesScreen(
+                ambientes = ambientes,
+                onBackClick = { navController.popBackStack() },
+                onAmbienteClick = {
+                    // detalhe do ambiente — ainda não criado
+                },
+                onAdicionarAmbienteClick = { navController.navigate(Routes.NOVO_AMBIENTE) },
+                onContinueClick = {
+                    // próxima etapa: revisão — ainda não criada
+                }
+            )
+        }
+
+        composable(Routes.NOVO_AMBIENTE) {
+            NovoAmbienteScreen(
+                ambientesExistentes = ambientes,
+                onBackClick = { navController.popBackStack() },
+                onAdicionarClick = { novo ->
+                    ambientes = ambientes + novo
+                    navController.popBackStack()
                 }
             )
         }
