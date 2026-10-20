@@ -21,6 +21,8 @@ object Routes {
     const val NOVO_ITEM = "novo_item/{ambienteId}"
     const val ITEM_AVALIAR = "item/{ambienteId}/{itemId}"
     const val ITEM_EDITAR = "item_editar/{ambienteId}/{itemId}"
+    const val REVISAO = "revisao/{imovelId}"
+    const val CONCLUSAO = "conclusao/{imovelId}"
 
     fun imovelDetalhe(imovelId: String) = "imovel_detalhe/$imovelId"
     fun novaVistoria(imovelId: String) = "nova_vistoria/$imovelId"
@@ -30,4 +32,6 @@ object Routes {
     fun novoItem(ambienteId: String) = "novo_item/$ambienteId"
     fun itemAvaliar(ambienteId: String, itemId: String) = "item/$ambienteId/$itemId"
     fun itemEditar(ambienteId: String, itemId: String) = "item_editar/$ambienteId/$itemId"
+    fun revisao(imovelId: String) = "revisao/$imovelId"
+    fun conclusao(imovelId: String) = "conclusao/$imovelId"
 }

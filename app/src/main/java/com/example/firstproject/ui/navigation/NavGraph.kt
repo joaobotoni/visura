@@ -1,10 +1,12 @@
 package com.example.firstproject.ui.navigation
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -33,12 +35,16 @@ import com.example.firstproject.ui.screens.imoveis.PessoaVinculada
 import com.example.firstproject.ui.screens.imoveis.imoveisDeExemplo
 import com.example.firstproject.ui.screens.login.LoginScreen
 import com.example.firstproject.ui.screens.pessoas.PessoasVinculadasScreen
+import com.example.firstproject.ui.screens.vistoria.ConclusaoScreen
 import com.example.firstproject.ui.screens.vistoria.NovaVistoriaScreen
+import com.example.firstproject.ui.screens.vistoria.RevisaoScreen
 
 @Composable
 fun FirstProjectNavGraph(
     navController: NavHostController = rememberNavController()
 ) {
+    val context = LocalContext.current
+
     // Vistoria em preenchimento. Fica acima do NavHost para que as etapas (pessoas, ambientes,
     // itens e revisão) enxerguem e alterem os mesmos dados.
     var pessoasDaVistoria by remember { mutableStateOf(emptyList<PessoaVinculada>()) }
@@ -209,15 +215,15 @@ fun FirstProjectNavGraph(
         composable(
             route = Routes.AMBIENTES,
             arguments = listOf(navArgument("imovelId") { type = NavType.StringType })
-        ) {
+        ) { backStackEntry ->
+            val imovelId = backStackEntry.arguments?.getString("imovelId").orEmpty()
+
             AmbientesScreen(
                 ambientes = ambientes,
                 onBackClick = { navController.popBackStack() },
                 onAmbienteClick = { navController.navigate(Routes.ambienteDetalhe(it.id)) },
                 onAdicionarAmbienteClick = { navController.navigate(Routes.NOVO_AMBIENTE) },
-                onContinueClick = {
-                    // próxima etapa: revisão — ainda não criada
-                }
+                onContinueClick = { navController.navigate(Routes.revisao(imovelId)) }
             )
         }
 
@@ -294,6 +300,52 @@ fun FirstProjectNavGraph(
                     )
                 }
             }
+        }
+
+        // Vistoria, etapa 4: revisão antes de finalizar
+        composable(
+            route = Routes.REVISAO,
+            arguments = listOf(navArgument("imovelId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val imovelId = backStackEntry.arguments?.getString("imovelId").orEmpty()
+
+            RevisaoScreen(
+                imovel = imoveisDeExemplo.find { it.id == imovelId },
+                pessoas = pessoasDaVistoria,
+                ambientes = ambientes,
+                onBackClick = { navController.popBackStack() },
+                onFinalizarClick = {
+                    // Tira as etapas da pilha: depois da conclusão, voltar leva para a Home
+                    navController.navigate(Routes.conclusao(imovelId)) {
+                        popUpTo(Routes.HOME)
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Routes.CONCLUSAO,
+            arguments = listOf(navArgument("imovelId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val imovel = imoveisDeExemplo.find { it.id == backStackEntry.arguments?.getString("imovelId") }
+
+            ConclusaoScreen(
+                onFinalizarClick = { navController.popBackStack(Routes.HOME, inclusive = false) },
+                onFinalizarECompartilharClick = {
+                    // SIMULAÇÃO — ainda não há laudo em PDF; compartilha um resumo em texto
+                    val resumo = buildString {
+                        appendLine("Vistoria concluída")
+                        imovel?.let { appendLine("${it.nome} — ${it.endereco}") }
+                        append("${ambientes.size} ambientes, ${ambientes.sumOf { it.itensAvaliados }} itens analisados")
+                    }
+                    val envio = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, resumo)
+                    }
+                    context.startActivity(Intent.createChooser(envio, "Compartilhar laudo"))
+                    navController.popBackStack(Routes.HOME, inclusive = false)
+                }
+            )
         }
     }
 }
