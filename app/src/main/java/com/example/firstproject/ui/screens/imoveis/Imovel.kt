@@ -8,10 +8,23 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.firstproject.ui.screens.home.StatusVistoria
 import com.example.firstproject.ui.screens.vistoria.TipoVistoria
 
+enum class PapelPessoa(val rotulo: String) {
+    PROPRIETARIO("Proprietário"),
+    INQUILINO("Inquilino")
+}
+
 data class PessoaVinculada(
     val nome: String,
-    val papel: String
-)
+    val papel: PapelPessoa,
+    val documento: String = "", // já formatado, ex.: "CPF 022.884.610-91"
+    val telefone: String = "",
+    val email: String = ""
+) {
+    // "Carla Souza Lima" -> "CS"
+    val iniciais: String
+        get() = nome.split(" ").filter { it.isNotBlank() }.take(2)
+            .joinToString("") { it.first().uppercase() }
+}
 
 data class VistoriaHistorico(
     val tipo: TipoVistoria,
@@ -47,7 +60,7 @@ val imoveisDeExemplo = listOf(
         endereco = "Rua das Palmeiras, 210 — Água Verde, Curitiba/PR",
         tipo = "Apartamento",
         finalidade = "Residencial",
-        pessoas = listOf(PessoaVinculada("Carla Souza Lima", "Proprietário")),
+        pessoas = listOf(PessoaVinculada("Carla Souza Lima", PapelPessoa.PROPRIETARIO, "CPF 022.884.610-91")),
         historico = listOf(
             VistoriaHistorico(TipoVistoria.ENTRADA, StatusVistoria.EM_ANDAMENTO, "18 jul 2026"),
             VistoriaHistorico(TipoVistoria.SAIDA, StatusVistoria.CONCLUIDA, "02 fev 2026"),
@@ -60,7 +73,7 @@ val imoveisDeExemplo = listOf(
         endereco = "Av. Brasil, 1450 — Curitiba/PR",
         tipo = "Casa",
         finalidade = "Residencial",
-        pessoas = listOf(PessoaVinculada("Beatriz Lima", "Proprietário")),
+        pessoas = listOf(PessoaVinculada("Beatriz Lima", PapelPessoa.PROPRIETARIO, "CPF 344.902.150-22")),
         historico = listOf(
             VistoriaHistorico(TipoVistoria.SAIDA, StatusVistoria.CONCLUIDA, "02 jul 2026"),
             VistoriaHistorico(TipoVistoria.ENTRADA, StatusVistoria.CONCLUIDA, "10 mar 2025")
@@ -72,7 +85,7 @@ val imoveisDeExemplo = listOf(
         endereco = "Centro Empresarial Norte — Curitiba/PR",
         tipo = "Sala",
         finalidade = "Comercial",
-        pessoas = listOf(PessoaVinculada("Empresa Delta", "Proprietário")),
+        pessoas = listOf(PessoaVinculada("Empresa Delta", PapelPessoa.PROPRIETARIO, "CNPJ 19.204.885/0001-30")),
         historico = listOf(
             VistoriaHistorico(TipoVistoria.ENTRADA, StatusVistoria.CONCLUIDA, "24 jun 2026")
         )

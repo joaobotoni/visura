@@ -121,7 +121,10 @@ fun ImovelDetalheScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(pessoa.nome, fontSize = 14.sp)
-                    Chip(pessoa.papel, StatusGreenBg, StatusGreenText)
+                    when (pessoa.papel) {
+                        PapelPessoa.PROPRIETARIO -> Chip(pessoa.papel.rotulo, StatusGreenBg, StatusGreenText)
+                        PapelPessoa.INQUILINO -> Chip(pessoa.papel.rotulo, LightBlueBg, NavyBlue)
+                    }
                 }
             }
 

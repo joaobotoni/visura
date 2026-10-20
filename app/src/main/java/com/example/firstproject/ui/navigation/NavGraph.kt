@@ -19,6 +19,7 @@ import com.example.firstproject.ui.screens.imoveis.NovoImovelScreen
 import com.example.firstproject.ui.screens.imoveis.NovoImovelTipoScreen
 import com.example.firstproject.ui.screens.imoveis.imoveisDeExemplo
 import com.example.firstproject.ui.screens.login.LoginScreen
+import com.example.firstproject.ui.screens.pessoas.PessoasVinculadasScreen
 import com.example.firstproject.ui.screens.vistoria.NovaVistoriaScreen
 
 @Composable
@@ -123,7 +124,7 @@ fun FirstProjectNavGraph(
                 ImovelDetalheScreen(
                     imovel = imovel,
                     onBackClick = { navController.popBackStack() },
-                    onNovaVistoriaClick = { navController.navigate(Routes.NOVA_VISTORIA) }
+                    onNovaVistoriaClick = { navController.navigate(Routes.novaVistoria(imovel.id)) }
                 )
             }
         }
@@ -152,11 +153,33 @@ fun FirstProjectNavGraph(
             )
         }
 
-        composable(Routes.NOVA_VISTORIA) {
+        composable(
+            route = Routes.NOVA_VISTORIA,
+            arguments = listOf(navArgument("imovelId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val imovelId = backStackEntry.arguments?.getString("imovelId").orEmpty()
+
             NovaVistoriaScreen(
                 onBackClick = { navController.popBackStack() },
                 onContinueClick = { _, _ ->
-                    // próxima etapa da vistoria — ainda não criada
+                    navController.navigate(Routes.pessoasVinculadas(imovelId))
+                }
+            )
+        }
+
+        // Vistoria, etapa 2: proprietário e inquilino (começa com as pessoas que o imóvel já tem)
+        composable(
+            route = Routes.PESSOAS_VINCULADAS,
+            arguments = listOf(navArgument("imovelId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val imovelId = backStackEntry.arguments?.getString("imovelId")
+            val imovel = imoveisDeExemplo.find { it.id == imovelId }
+
+            PessoasVinculadasScreen(
+                pessoasIniciais = imovel?.pessoas.orEmpty(),
+                onBackClick = { navController.popBackStack() },
+                onContinueClick = { _ ->
+                    // próxima etapa: ambientes — ainda não criada
                 }
             )
         }

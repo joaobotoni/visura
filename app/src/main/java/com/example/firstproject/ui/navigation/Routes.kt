@@ -13,7 +13,10 @@ object Routes {
     const val IMOVEL_DETALHE = "imovel_detalhe/{imovelId}"
     const val NOVO_IMOVEL = "novo_imovel"
     const val NOVO_IMOVEL_TIPO = "novo_imovel_tipo"
-    const val NOVA_VISTORIA = "nova_vistoria"
+    const val NOVA_VISTORIA = "nova_vistoria/{imovelId}"
+    const val PESSOAS_VINCULADAS = "pessoas_vinculadas/{imovelId}"
 
     fun imovelDetalhe(imovelId: String) = "imovel_detalhe/$imovelId"
+    fun novaVistoria(imovelId: String) = "nova_vistoria/$imovelId"
+    fun pessoasVinculadas(imovelId: String) = "pessoas_vinculadas/$imovelId"
 }

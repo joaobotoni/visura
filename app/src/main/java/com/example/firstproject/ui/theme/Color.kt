@@ -21,3 +21,11 @@ val LogoutRed = Color(0xFFC62828)
 // Chip "Vistoria de saída"
 val TipoSaidaBg = Color(0xFFFDE7E7)
 val TipoSaidaText = Color(0xFFC62828)
+
+// Aviso de pendência (ex.: falta vincular inquilino)
+val AlertaErroBg = Color(0xFFFDECEA)
+val AlertaErroText = Color(0xFF8C1D14)
+val AlertaErroIcone = Color(0xFFB3261E)
+
+// Fundo escurecido atrás dos bottom sheets
+val ScrimBg = Color(0x731A1C1E)
