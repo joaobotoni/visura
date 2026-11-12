@@ -26,7 +26,7 @@ import com.visura.ui.theme.TextGray
 @Composable
 fun CreateAccountInfoScreen(
     onBackClick: () -> Unit = {},
-    onContinueClick: () -> Unit = {}
+    onContinueClick: (nome: String, email: String, senha: String) -> Unit = { _, _, _ -> }
 ) {
     var nome by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -36,8 +36,10 @@ fun CreateAccountInfoScreen(
 
     val emailValido = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
+    val problemaSenha = problemaDaSenha(senha)
+
     val podeContinuar = nome.isNotBlank() && emailValido &&
-            senha.length >= 6 && senha == confirmarSenha
+            problemaSenha == null && senha == confirmarSenha
 
     Column(
         modifier = Modifier
@@ -76,6 +78,10 @@ fun CreateAccountInfoScreen(
             senhaVisivel = senhaVisivel,
             onToggleVisibility = { senhaVisivel = !senhaVisivel }
         )
+        if (senha.isNotEmpty() && problemaSenha != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(problemaSenha, fontSize = 12.sp, color = TextGray)
+        }
         Spacer(modifier = Modifier.height(12.dp))
         LabeledField(
             "Confirmar senha *", confirmarSenha, { confirmarSenha = it },
@@ -87,7 +93,7 @@ fun CreateAccountInfoScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = onContinueClick,
+            onClick = { onContinueClick(nome.trim(), email.trim(), senha) },
             enabled = podeContinuar,
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(containerColor = NavyBlue),
@@ -100,6 +106,17 @@ fun CreateAccountInfoScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
     }
+}
+
+// Mesmas regras da senha nova na API (backend/.../vo/NewPassword.java)
+private fun problemaDaSenha(senha: String): String? = when {
+    senha.length < 8 -> "A senha deve ter no mínimo 8 caracteres."
+    senha.none { it.isUpperCase() } -> "A senha deve ter ao menos uma letra maiúscula."
+    senha.none { it.isLowerCase() } -> "A senha deve ter ao menos uma letra minúscula."
+    senha.none { it.isDigit() } -> "A senha deve ter ao menos um número."
+    senha.all { it.isLetterOrDigit() || it.isWhitespace() } -> "A senha deve ter ao menos um caractere especial."
+    senha.any { it.isWhitespace() } -> "A senha não pode ter espaços."
+    else -> null
 }
 
 @Composable

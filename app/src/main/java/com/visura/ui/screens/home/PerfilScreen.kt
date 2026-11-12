@@ -126,6 +126,6 @@ private fun PerfilDocField(label: String, valor: String, icon: ImageVector) {
         Icon(icon, contentDescription = null, tint = TextGray, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Text(label, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(valor, color = TextGray, fontSize = 13.sp)
+        Text(valor.ifBlank { "—" }, color = TextGray, fontSize = 13.sp)
     }
 }

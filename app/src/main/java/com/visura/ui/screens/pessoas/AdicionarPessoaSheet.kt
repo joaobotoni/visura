@@ -26,7 +26,8 @@ import com.visura.ui.theme.NavyBlue
 fun AdicionarPessoaSheet(
     papel: PapelPessoa,
     onClose: () -> Unit,
-    onSave: (PessoaVinculada) -> Unit
+    // Recebe a pessoa, o CPF e o CNPJ (vazio quando não informado); o cadastro na API é feito por quem chama.
+    onSave: (pessoa: PessoaVinculada, cpf: String, cnpj: String) -> Unit
 ) {
     var nome by remember { mutableStateOf("") }
     var cpf by remember { mutableStateOf("") }
@@ -139,7 +140,9 @@ fun AdicionarPessoaSheet(
                         documento = if (cnpj.isNotBlank()) "CNPJ ${cnpj.trim()}" else "CPF ${cpf.trim()}",
                         telefone = telefone.trim(),
                         email = email.trim()
-                    )
+                    ),
+                    cpf.filter { it.isDigit() },
+                    cnpj.filter { it.isDigit() }
                 )
             },
             enabled = podeSalvar,

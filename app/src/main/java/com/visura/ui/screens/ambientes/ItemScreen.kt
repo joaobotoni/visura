@@ -1,5 +1,9 @@
 package com.visura.ui.screens.ambientes
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -33,7 +37,10 @@ fun ItemScreen(
     nomeDoAmbiente: String,
     itemInicial: ItemAmbiente = ItemAmbiente(nome = ""),
     onBackClick: () -> Unit = {},
-    onSaveClick: (ItemAmbiente) -> Unit = {}
+    onSaveClick: (ItemAmbiente) -> Unit = {},
+    // Recebe a foto escolhida e avisa pelo segundo parâmetro quando o envio deu certo.
+    // null quando o item ainda não existe na API (modo NOVO): as fotos ficam para depois de salvar.
+    onFotoEscolhida: ((Uri, () -> Unit) -> Unit)? = null
 ) {
     var nome by remember { mutableStateOf(itemInicial.nome) }
     var descricao by remember { mutableStateOf(itemInicial.descricao) }
@@ -44,6 +51,10 @@ fun ItemScreen(
     var fotos by remember { mutableIntStateOf(itemInicial.fotos) }
 
     val editaNome = modo != ModoItem.AVALIAR
+
+    val escolherFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) onFotoEscolhida?.invoke(uri) { fotos++ }
+    }
 
     val (titulo, textoBotao) = when (modo) {
         ModoItem.NOVO -> "Novo item — $nomeDoAmbiente" to "Adicionar item"
@@ -121,7 +132,16 @@ fun ItemScreen(
 
             Rotulo("Evidências fotográficas")
             Spacer(modifier = Modifier.height(8.dp))
-            EvidenciasGrid(fotos = fotos, onAdicionarFoto = { fotos++ })
+            if (onFotoEscolhida != null) {
+                EvidenciasGrid(
+                    fotos = fotos,
+                    onAdicionarFoto = {
+                        escolherFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                )
+            } else {
+                Text("Salve o item para poder adicionar fotos.", fontSize = 13.sp, color = TextGray)
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }

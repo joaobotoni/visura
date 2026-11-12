@@ -1,0 +1,52 @@
+package com.visura.vo;
+
+import com.visura.database.enums.DevicePlatform;
+import com.visura.dto.request.DeviceRequest;
+import com.visura.support.Controle;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DisplayName("Texto livre vindo do cliente")
+class UntrustedTextTest {
+
+    private static final ValidatorFactory FACTORY = Validation.buildDefaultValidatorFactory();
+    private static final Validator VALIDATOR = FACTORY.getValidator();
+
+    @AfterAll
+    static void close() {
+        FACTORY.close();
+    }
+
+    @Controle
+    @ParameterizedTest(name = "fabricante/modelo recusam: {0}")
+    @DisplayName("fabricante e modelo do dispositivo recusam HTML e caracteres de controle")
+    @ValueSource(strings = {
+            "<img src=x onerror=alert(1)>",
+            "Sam\u0000sung",
+            "Sam‮gnus"
+    })
+    void deviceRejectsUnsafeCharacters(String value) {
+        DeviceRequest device = new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, value, value, "14");
+
+        assertThat(VALIDATOR.validate(device)).hasSize(2);
+    }
+
+    @Controle
+    @ParameterizedTest(name = "modelo aceita: {0}")
+    @DisplayName("modelos reais continuam aceitos")
+    @ValueSource(strings = {"SM-S911B", "iPhone15,2", "Pixel 8 Pro (GKWS6)", "Moto g(84) 5G"})
+    void deviceAcceptsRealModels(String value) {
+        DeviceRequest device = new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", value, "14");
+
+        assertThat(VALIDATOR.validate(device)).isEmpty();
+    }
+}

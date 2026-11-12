@@ -570,7 +570,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 ```
 
 ```bash
-java -jar target/vsr-0.0.1-SNAPSHOT.jar
+java -jar target/visura-api-0.0.1-SNAPSHOT.jar
 ```
 
 Na primeira execução, o Flyway aplica as migrations. Depois que um ambiente executou as migrations, os arquivos existentes não podem mais ser alterados; mudanças novas entram em migrations novas.

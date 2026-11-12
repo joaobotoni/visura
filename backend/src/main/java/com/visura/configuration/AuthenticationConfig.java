@@ -1,0 +1,53 @@
+package com.visura.configuration;
+
+import com.visura.database.repository.LocalCredentialRepository;
+import com.visura.principal.Principal;
+import com.visura.service.LocalCredentialService;
+import com.visura.vo.Email;
+import com.visura.vo.PasswordHash;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsPasswordService;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+public class AuthenticationConfig {
+
+    @Bean
+    public UserDetailsService userDetailsService(LocalCredentialRepository localCredentialRepository) {
+        return username -> localCredentialRepository.findWithUserByEmail(Email.of(username))
+                .map(Principal::from).orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+    }
+
+    @Bean
+    public UserDetailsPasswordService userDetailsPasswordService(LocalCredentialService localCredentialService) {
+        return (principal, hash) -> upgrade(localCredentialService, (Principal) principal, hash);
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService,
+                                                         UserDetailsPasswordService userDetailsPasswordService,
+                                                         PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        provider.setUserDetailsPasswordService(userDetailsPasswordService);
+        return provider;
+    }
+
+    private static UserDetails upgrade(LocalCredentialService localCredentialService, Principal principal, String hash) {
+        localCredentialService.upgrade(principal.user(), PasswordHash.of(hash));
+        return principal;
+    }
+}

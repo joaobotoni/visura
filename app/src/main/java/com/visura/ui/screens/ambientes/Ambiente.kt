@@ -5,13 +5,16 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.util.UUID
 
+// valorApi é o "condition" do item na API
 enum class EstadoItem(val rotulo: String) {
     NOVO("Novo"),
     EXCELENTE("Excelente"),
     BOM("Bom"),
     REGULAR("Regular"),
     RUIM("Ruim"),
-    DANIFICADO("Danificado")
+    DANIFICADO("Danificado");
+
+    val valorApi: String get() = name.lowercase()
 }
 
 enum class StatusAmbiente { PENDENTE, EM_ANDAMENTO, CONCLUIDO }
@@ -57,13 +60,6 @@ fun List<Ambiente>.semItem(ambienteId: String, itemId: String): List<Ambiente> =
 // Itens que todo ambiente novo já traz (sem avaliação)
 fun itensPadrao(): List<ItemAmbiente> =
     listOf("Piso", "Paredes", "Teto", "Iluminação", "Tomadas").map { ItemAmbiente(nome = it) }
-
-// Tipos sugeridos na tela "Novo ambiente"
-val tiposDeAmbienteComuns = listOf(
-    "Escritório", "Varanda", "Closet", "Escada",
-    "Churrasqueira", "Adega", "Home theater", "Piscina",
-    "Quintal", "Depósito", "Hall de entrada", "Jardim"
-)
 
 private val iconesDeAmbiente = listOf(
     "quarto" to Icons.Filled.Bed,
@@ -111,67 +107,3 @@ fun iconeDoAmbiente(nome: String): ImageVector? =
 
 fun iconeDoItem(nome: String): ImageVector? =
     iconesDeItem.firstOrNull { nome.contains(it.first, ignoreCase = true) }?.second
-
-// Mude para true para começar com todos os itens avaliados (atalho para testar a Revisão)
-private const val SIMULAR_TUDO_AVALIADO = false
-
-private fun avaliados(vararg itens: Pair<String, EstadoItem>, fotos: Int = 1) =
-    itens.map { (nome, estado) -> ItemAmbiente(nome = nome, estado = estado, fotos = fotos) }
-
-private fun pendentes(vararg nomes: String) = nomes.map { ItemAmbiente(nome = it) }
-
-// Ambientes de exemplo de uma vistoria em andamento (3 de 7 avaliados, como no design)
-private val ambientesDeExemploBase: List<Ambiente>
-    get() = listOf(
-        Ambiente(
-            nome = "Sala",
-            itens = avaliados(
-                "Piso" to EstadoItem.BOM,
-                "Paredes" to EstadoItem.EXCELENTE,
-                "Pintura" to EstadoItem.BOM
-            ) + ItemAmbiente(
-                nome = "Portas",
-                estado = EstadoItem.DANIFICADO,
-                material = "Madeira",
-                cor = "Marrom escuro",
-                observacoes = "Porta com rachadura na parte inferior e dobradiça solta. Necessário reparo antes da próxima locação.",
-                fotos = 2
-            ) + avaliados(
-                "Janelas" to EstadoItem.BOM,
-                "Tomadas" to EstadoItem.BOM,
-                "Iluminação" to EstadoItem.EXCELENTE,
-                "Teto" to EstadoItem.BOM
-            )
-        ),
-        Ambiente(
-            nome = "Cozinha",
-            itens = avaliados(
-                "Piso" to EstadoItem.BOM,
-                "Paredes" to EstadoItem.BOM,
-                "Pia" to EstadoItem.EXCELENTE,
-                "Armários" to EstadoItem.REGULAR,
-                "Tomadas" to EstadoItem.BOM,
-                "Iluminação" to EstadoItem.BOM
-            )
-        ),
-        Ambiente(
-            nome = "Quarto 1",
-            itens = avaliados(
-                "Piso" to EstadoItem.BOM,
-                "Paredes" to EstadoItem.BOM,
-                "Janelas" to EstadoItem.EXCELENTE,
-                "Portas" to EstadoItem.BOM
-            ) + pendentes("Tomadas", "Iluminação", "Teto")
-        ),
-        Ambiente(nome = "Banheiro", itens = pendentes("Piso", "Paredes", "Pia", "Chuveiro", "Iluminação")),
-        Ambiente(nome = "Área externa", itens = pendentes("Piso", "Muros", "Portão", "Iluminação")),
-        Ambiente(nome = "Garagem", itens = pendentes("Piso", "Portão", "Iluminação")),
-        Ambiente(nome = "Lavanderia", itens = pendentes("Piso", "Tanque", "Tomadas", "Iluminação"))
-    )
-
-// Cada chamada gera ids novos, então toda vistoria começa do zero
-fun ambientesDeExemplo(): List<Ambiente> =
-    if (!SIMULAR_TUDO_AVALIADO) ambientesDeExemploBase
-    else ambientesDeExemploBase.map { amb ->
-        amb.copy(itens = amb.itens.map { if (it.estado == null) it.copy(estado = EstadoItem.BOM, fotos = 1) else it })
-    }

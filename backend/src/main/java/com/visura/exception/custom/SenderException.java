@@ -1,0 +1,22 @@
+package com.visura.exception.custom;
+
+import com.visura.exception.enums.problem.SenderProblem;
+
+public final class SenderException extends IllegalArgumentException {
+
+    private final SenderProblem problem;
+
+    public SenderException(SenderProblem problem, Object... args) {
+        super(String.format(problem.message(), args));
+        this.problem = problem;
+    }
+
+    public SenderException(SenderProblem problem, Throwable cause) {
+        super(problem.message(), cause);
+        this.problem = problem;
+    }
+
+    public SenderProblem problem() {
+        return problem;
+    }
+}

@@ -25,13 +25,10 @@ import com.visura.ui.theme.TextGray
 import com.visura.ui.theme.clickableNoRipple
 import kotlinx.coroutines.launch
 
-// Conta de teste fixa, só para validar a navegação enquanto não há backend.
-private const val EMAIL_TESTE = "teste@teste.com"
-private const val SENHA_TESTE = "123456"
-
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit = {},
+    // Recebe e-mail e senha; o NavGraph chama a API e trata sucesso e erro.
+    onLoginClick: (email: String, senha: String) -> Unit = { _, _ -> },
     onForgotPasswordClick: () -> Unit = {},
     onCreateAccountClick: () -> Unit = {},
     onGoogleClick: () -> Unit = {}
@@ -43,12 +40,10 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
 
     fun tentarLogin() {
-        if (email == EMAIL_TESTE && senha == SENHA_TESTE) {
-            onLoginSuccess()
+        if (email.isBlank() || senha.isBlank()) {
+            scope.launch { snackbarHostState.showSnackbar("Informe o e-mail e a senha") }
         } else {
-            scope.launch {
-                snackbarHostState.showSnackbar("E-mail ou senha incorretos")
-            }
+            onLoginClick(email.trim(), senha)
         }
     }
 

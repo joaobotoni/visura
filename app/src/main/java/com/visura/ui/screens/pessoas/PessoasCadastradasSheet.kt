@@ -15,22 +15,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.visura.ui.screens.imoveis.PapelPessoa
 import com.visura.ui.screens.imoveis.PessoaVinculada
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
 
-// SIMULAÇÃO — será substituída pelas pessoas realmente cadastradas pelo vistoriador.
-private val pessoasCadastradasDeExemplo = listOf(
-    PessoaVinculada("Carla Souza Lima", PapelPessoa.PROPRIETARIO, "CPF 022.884.610-91"),
-    PessoaVinculada("Rafael Nunes Costa", PapelPessoa.INQUILINO, "CPF 509.221.360-77"),
-    PessoaVinculada("Beatriz Lima", PapelPessoa.PROPRIETARIO, "CPF 344.902.150-22"),
-    PessoaVinculada("Empresa Delta", PapelPessoa.PROPRIETARIO, "CNPJ 19.204.885/0001-30")
-)
-
 @Composable
 fun PessoasCadastradasSheet(
+    cadastradas: List<PessoaVinculada>,
     jaVinculadas: List<PessoaVinculada>,
     onClose: () -> Unit,
     onPessoaClick: (PessoaVinculada) -> Unit,
@@ -39,10 +31,10 @@ fun PessoasCadastradasSheet(
     var busca by remember { mutableStateOf("") }
 
     // Quem já está na vistoria não aparece de novo; a busca olha nome e documento
-    val resultados = remember(busca, jaVinculadas) {
-        val nomesVinculados = jaVinculadas.map { it.nome }.toSet()
-        pessoasCadastradasDeExemplo
-            .filter { it.nome !in nomesVinculados }
+    val resultados = remember(busca, jaVinculadas, cadastradas) {
+        val idsVinculados = jaVinculadas.map { it.id }.toSet()
+        cadastradas
+            .filter { it.id !in idsVinculados }
             .filter {
                 busca.isBlank() ||
                         it.nome.contains(busca.trim(), ignoreCase = true) ||

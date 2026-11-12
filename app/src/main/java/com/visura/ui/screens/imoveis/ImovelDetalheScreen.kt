@@ -1,6 +1,7 @@
 package com.visura.ui.screens.imoveis
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,7 +35,8 @@ import com.visura.ui.theme.TipoSaidaText
 fun ImovelDetalheScreen(
     imovel: Imovel,
     onBackClick: () -> Unit = {},
-    onNovaVistoriaClick: () -> Unit = {}
+    onNovaVistoriaClick: () -> Unit = {},
+    onVistoriaClick: (VistoriaHistorico) -> Unit = {}
 ) {
     Scaffold(
         containerColor = Color.White,
@@ -146,7 +148,7 @@ fun ImovelDetalheScreen(
             }
 
             items(imovel.historico) { vistoria ->
-                HistoricoCard(vistoria)
+                HistoricoCard(vistoria, onClick = { onVistoriaClick(vistoria) })
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
@@ -171,7 +173,7 @@ private fun Chip(texto: String, fundo: Color, cor: Color) {
 }
 
 @Composable
-private fun HistoricoCard(vistoria: VistoriaHistorico) {
+private fun HistoricoCard(vistoria: VistoriaHistorico, onClick: () -> Unit) {
     val (textoTipo, bgTipo, corTipo) = when (vistoria.tipo) {
         TipoVistoria.ENTRADA -> Triple("Vistoria de entrada", LightBlueBg, NavyBlue)
         TipoVistoria.SAIDA -> Triple("Vistoria de saída", TipoSaidaBg, TipoSaidaText)
@@ -186,6 +188,7 @@ private fun HistoricoCard(vistoria: VistoriaHistorico) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFFF9FAFC))
+            .clickable { onClick() }
             .padding(14.dp)
     ) {
         Row(

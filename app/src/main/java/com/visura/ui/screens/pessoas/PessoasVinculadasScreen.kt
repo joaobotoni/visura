@@ -35,6 +35,10 @@ import com.visura.ui.theme.NavyBlue
 @Composable
 fun PessoasVinculadasScreen(
     pessoasIniciais: List<PessoaVinculada> = emptyList(),
+    pessoasCadastradas: List<PessoaVinculada> = emptyList(),
+    // Cadastra a pessoa na API e devolve a pessoa criada (com id) pelo último parâmetro
+    onCadastrarPessoa: (PessoaVinculada, String, String, (PessoaVinculada) -> Unit) -> Unit =
+        { pessoa, _, _, onCriada -> onCriada(pessoa) },
     onBackClick: () -> Unit = {},
     onContinueClick: (pessoas: List<PessoaVinculada>) -> Unit = {}
 ) {
@@ -148,6 +152,7 @@ fun PessoasVinculadasScreen(
 
         if (mostrarCadastradas && papelFaltando != null) {
             PessoasCadastradasSheet(
+                cadastradas = pessoasCadastradas,
                 jaVinculadas = pessoas,
                 onClose = { mostrarCadastradas = false },
                 // A pessoa escolhida entra no papel que está faltando, como no cadastro manual
@@ -166,9 +171,11 @@ fun PessoasVinculadasScreen(
             AdicionarPessoaSheet(
                 papel = papelFaltando,
                 onClose = { mostrarAdicionar = false },
-                onSave = { pessoa ->
-                    pessoas = pessoas + pessoa
-                    mostrarAdicionar = false
+                onSave = { pessoa, cpf, cnpj ->
+                    onCadastrarPessoa(pessoa, cpf, cnpj) { criada ->
+                        pessoas = pessoas + criada.copy(papel = pessoa.papel)
+                        mostrarAdicionar = false
+                    }
                 }
             )
         }

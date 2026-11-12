@@ -43,11 +43,11 @@ private fun saudacaoPorHorario(): String {
 
 @Composable
 fun HomeScreen(
-    nomeUsuario: String = "Marcos Andrade",
-    email: String = "marcos.andrade@vistoriapro.com",
-    cpf: String = "385.201.740-06",
-    cnpj: String = "28.114.902/0001-45",
-    vistorias: List<Vistoria> = vistoriasExemplo,
+    nomeUsuario: String = "",
+    email: String = "",
+    cpf: String = "",
+    cnpj: String = "",
+    vistorias: List<Vistoria> = emptyList(),
     onNovoImovelClick: () -> Unit = {},
     onVistoriaClick: (Vistoria) -> Unit = {},
     onLogoutClick: () -> Unit = {}
