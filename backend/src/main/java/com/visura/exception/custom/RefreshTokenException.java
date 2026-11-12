@@ -1,0 +1,22 @@
+package com.visura.exception.custom;
+
+import com.visura.exception.enums.problem.RefreshTokenProblem;
+
+public final class RefreshTokenException extends RuntimeException {
+
+    private final RefreshTokenProblem problem;
+
+    public RefreshTokenException(RefreshTokenProblem problem, Object... args) {
+        super(String.format(problem.message(), args));
+        this.problem = problem;
+    }
+
+    public RefreshTokenException(RefreshTokenProblem problem, Throwable cause) {
+        super(problem.message(), cause);
+        this.problem = problem;
+    }
+
+    public RefreshTokenProblem problem() {
+        return problem;
+    }
+}

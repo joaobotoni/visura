@@ -11,7 +11,7 @@ Visura é um app Android de módulo único (`:app`) para vistoria imobiliária, 
 O repositório é um monorepo:
 
 - **App Android**: fica na raiz (`app/`, Gradle). É o assunto do restante deste arquivo.
-- **API REST**: fica em `backend/`. É a API em Spring Boot 4 (Java 17, Maven, PostgreSQL com `pg_cron`, Flyway e JWT) que veio do repositório `vsr`. Ela entrou com o histórico completo via `git subtree`, e o pacote ainda é `com.botoni.vsr`. O app ainda não consome a API.
+- **API REST**: fica em `backend/`. É a API em Spring Boot 4 (Java 17, Maven, PostgreSQL com `pg_cron`, Flyway e JWT) que veio do repositório `vsr`. Ela entrou com o histórico completo via `git subtree`, e o pacote é `com.visura`, o mesmo do app. O app ainda não consome a API.
 
 Os dois têm builds independentes. A documentação da API, com regras de negócio, endpoints, variáveis de ambiente e testes, está em `backend/README.md`, e o padrão de código está em `backend/docs/PADRAO.md`. Antes de mexer em `backend/`, leia esses dois arquivos.
 

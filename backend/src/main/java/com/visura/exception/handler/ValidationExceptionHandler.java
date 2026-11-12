@@ -1,0 +1,33 @@
+package com.visura.exception.handler;
+
+import com.visura.exception.enums.problem.ValidationProblem;
+import com.visura.exception.lib.problem.Problems;
+
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
+@RestControllerAdvice
+public class ValidationExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ProblemDetail invalid(MethodArgumentNotValidException exception) {
+        return Problems.of(ValidationProblem.INVALID_DATA).errors(exception.getFieldErrors()).build();
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ProblemDetail unreadable() {
+        return Problems.of(ValidationProblem.UNREADABLE_BODY).build();
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ProblemDetail mismatch(MethodArgumentTypeMismatchException exception) {
+        return Problems.of(ValidationProblem.INVALID_PARAMETER).args(exception.getName()).build();
+    }
+}
