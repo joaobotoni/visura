@@ -1,0 +1,637 @@
+# vsr
+
+API REST para gestão de **vistorias de imóveis**: cadastro de pessoas e empresas, imóveis e seus proprietários, e o registro de vistorias de entrada e saída, organizadas em ambientes, itens e evidências fotográficas.
+
+Estão implementados na API: **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha), **imóveis** com proprietários, **catálogo** (leitura), **pessoas** (cadastro privado de cada usuário) e **vistorias** com ambientes, itens, evidências fotográficas e pessoas vinculadas. Também estão expostos **empresas** com membros (imóveis e vistorias compartilhados pela equipe), o **catálogo personalizado** e a lista de **estados**.
+
+---
+
+## Sumário
+
+- [Tecnologias](#tecnologias)
+- [Banco de dados](#banco-de-dados)
+- [Regras de negócio](#regras-de-negócio)
+  - [Cadastro](#cadastro)
+  - [Login, dispositivos e sessões](#login-dispositivos-e-sessões)
+  - [Tokens](#tokens)
+  - [Logout e troca de senha](#logout-e-troca-de-senha)
+  - [Validação de dados](#validação-de-dados)
+  - [Limite de requisições](#limite-de-requisições)
+  - [Envio de e-mail](#envio-de-e-mail)
+  - [Domínio de vistorias](#domínio-de-vistorias)
+- [API](#api)
+- [Segurança](#segurança)
+- [Configuração e execução](#configuração-e-execução)
+- [Testes](#testes)
+
+---
+
+## Tecnologias
+
+| Camada | Tecnologia | Versão |
+|---|---|---|
+| Linguagem | Java | 17 |
+| Framework | Spring Boot (Web MVC, Security, Data JPA, Validation, Mail) | 4.1.1 |
+| Banco de dados | PostgreSQL com a extensão `pg_cron` | 17 |
+| Migrations | Flyway | gerenciado pelo Spring Boot |
+| ORM | Hibernate | 7 (via Spring Boot) |
+| Access token | JWT HS256 com `com.auth0:java-jwt` | 4.6.1 |
+| Hash de senha | Argon2id com BouncyCastle (`bcprov-jdk18on`) | 1.84 |
+| Mapeamento | MapStruct e Lombok | 1.6.3 |
+| Testes | JUnit, Mockito, MockMvc, Spring Security Test, PostgreSQL embutido (`io.zonky.test:embedded-postgres`) | zonky 2.1.0 |
+| Build | Maven (wrapper incluso) | |
+
+### Spring Boot e Spring Web MVC
+
+Servidor HTTP e camada REST. O **versionamento da API** usa o suporte nativo do Spring: todas as rotas ficam sob `/api/{versao}`, e a versão também pode ser negociada por um cabeçalho configurável. As respostas de erro seguem a **RFC 9457** (`ProblemDetail`).
+
+### Spring Security
+
+Configurado como **stateless**: não há sessão HTTP nem cookie, e o CSRF fica desligado, porque a API só aceita tokens no cabeçalho `Authorization`. A autenticação de e-mail e senha usa o `DaoAuthenticationProvider` do Spring, que já protege contra a descoberta de contas pelo tempo de resposta: quando o e-mail não existe, ele calcula um hash falso para gastar o mesmo tempo.
+
+A cadeia tem quatro filtros próprios, nesta ordem:
+
+1. **Tratamento de exceções:** converte erros lançados nos filtros em `ProblemDetail`.
+2. **Limite de requisições:** aplica o limite da rota pela rede do cliente.
+3. **Tamanho do corpo:** recusa corpos grandes antes de qualquer leitura.
+4. **Autenticação:** valida o JWT e confirma que a sessão do token está ativa e pertence ao usuário.
+
+### PostgreSQL e pg_cron
+
+O banco concentra as regras que precisam de garantia mesmo sob concorrência:
+- **Constraints** de validação (CPF, CNPJ, e-mail, tamanhos), com funções reutilizáveis.
+- **Procedures** para as escritas que vão além do CRUD (sessões, refresh tokens, troca de senha).
+- **Regras com o prefixo `rn_`:** quando uma procedure detecta uma violação (por exemplo, uma sessão inativa), ela lança um erro com o nome da regra. A API converte esse nome no status HTTP correspondente.
+- **`pg_cron`** agenda as rotinas de manutenção dentro do próprio banco, sem depender de um agendador na aplicação.
+
+### Flyway e Hibernate
+
+O **Flyway** é o dono do schema: aplica as migrations na subida da aplicação. O Hibernate roda com `ddl-auto: validate`, então só confere se as entidades batem com o banco e nunca altera tabelas.
+
+O `open-in-view` está **desligado**: a conexão com o banco fica presa só durante as transações, e não durante toda a requisição. Isso é importante porque o hash de senha (Argon2) é lento e roda fora de transação, então nenhuma requisição de login segura uma conexão do pool enquanto calcula o hash.
+
+### JWT (java-jwt)
+
+O access token é um JWT assinado com **HMAC-SHA-256**. A chave precisa ter no mínimo 32 bytes, senão a aplicação não inicia. A verificação confere a assinatura, o emissor (`iss`), a presença de `sid`, `exp` e `iat` (token sem qualquer um deles é recusado) e a expiração, com tolerância de 30 segundos para diferenças de relógio. O JWT sozinho não basta: a cada requisição a sessão referenciada também é conferida no banco, por isso revogar uma sessão invalida o token na hora.
+
+### Refresh token opaco com HMAC
+
+O refresh token **não é um JWT**: são 32 bytes aleatórios (`SecureRandom`) codificados em Base64 URL. O banco guarda só o **HMAC-SHA-256** do token, calculado com uma chave que fica fora do banco. Assim, um vazamento do banco não permite usar nem reconstruir os tokens.
+
+### Argon2id (BouncyCastle)
+
+As senhas são guardadas com **Argon2id**, o algoritmo recomendado pela OWASP, com 19 MiB de memória, 2 iterações, paralelismo 1, salt de 16 bytes e hash de 32 bytes. O BouncyCastle fornece a implementação usada pelo `Argon2PasswordEncoder` do Spring Security. O banco só aceita hashes `$argon2id$`. Se os parâmetros forem aumentados, o hash de cada usuário é recalculado e gravado no próximo login correto; se uma troca de senha gravar antes, vale a troca.
+
+### MapStruct e Lombok
+
+O **MapStruct** gera em tempo de compilação a conversão entre entidades e respostas da API, sem reflexão em tempo de execução. O **Lombok** elimina o código repetitivo (construtores, getters e builders) das entidades e dos componentes.
+
+### Jakarta Mail
+
+Envio de e-mail por SMTP com **STARTTLS obrigatório**, em texto simples ou com anexos. Ainda não é usado por nenhum fluxo; está pronto para a confirmação de e-mail e a recuperação de senha.
+
+### Tempo
+
+Toda data e hora gerada pela aplicação (expiração de sessão, emissão do JWT, cabeçalhos de limite de requisições) vem de um `java.time.Clock` único, em UTC. Isso permite testar regras de expiração com um relógio fixo.
+
+### Dependência reservada
+
+`google-api-client` está declarada para o futuro **login com Google**: o banco já tem a tabela `credencial_social` com o provedor `google`. Ainda não é usada pelo código.
+
+---
+
+## Banco de dados
+
+O banco é dividido em schemas por contexto:
+
+| Schema | Conteúdo |
+|---|---|
+| `documento` | Funções de validação usadas pelas constraints (CPF, CNPJ, CEP, UF, telefone, e-mail, texto) |
+| `pessoas` | Pessoa (física ou jurídica), contato e titularidade |
+| `usuarios` | Usuário, credencial local, credencial social, dispositivo, sessão, refresh token e histórico de refresh tokens usados |
+| `vinculos` | Vínculo entre pessoa física e empresa |
+| `enderecos` | Estado, cidade, bairro, logradouro e endereço |
+| `imoveis` | Imóvel e seus proprietários |
+| `catalogo` | Tipos de ambiente e de item, padrões do sistema ou personalizados |
+| `vistorias` | Vistoria, pessoas vinculadas, ambiente, item e evidência |
+| `rotinas` | Procedures de apoio e de manutenção |
+
+### Migrations
+
+Ficam em `src/main/resources/db/migration`:
+
+| Migration | Conteúdo |
+|---|---|
+| `V1__schema.sql` | Extensão `pg_cron` e schemas |
+| `V2__functions.sql` | Funções de validação e de `updated_at` |
+| `V3__ddl.sql` | Tipos, tabelas, constraints, índices e a view `usuarios.sessao_ativa` |
+| `V4__procedures.sql` | Procedures de erro de regra, dispositivo, sessão, refresh token, troca de senha e limpeza, e a função `usuarios.dispositivo_conhecido` |
+| `V5__triggers.sql` | Triggers de `updated_at` |
+| `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
+| `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
+| `V8__imoveis.sql` | `uuid` em `pessoa`, `tipo_ambiente` e `tipo_item`; remoção lógica do imóvel (`removido_em`), com o único de endereço por titular valendo só entre imóveis ativos; função `enderecos.registrar_endereco` e procedure `imoveis.remover_imovel` |
+| `V13__regras_integridade_auditoria.sql` | Regras `rn_vistoria_responsavel`, `rn_catalogo_uso` e `rn_empresa_cadastro`; SHA-256 das evidências; coluna `versao` para controle de concorrência; schema `auditoria` com o histórico de imóveis, vistorias e vínculos |
+| `V12__empresas_catalogo_enderecos.sql` | Nomes de cidade, bairro e logradouro comparados sem acento (`documento.sem_acento`); regras do catálogo personalizado; vínculos de empresa desfeitos logicamente, a empresa nunca fica sem administrador; a vistoria herda a empresa do imóvel; proprietários e pessoas da vistoria aceitam o cadastro de membros da empresa |
+| `V11__pessoas.sql` | Cadastro privado de pessoas por usuário (`id_usuario_titular`): CPF e CNPJ únicos entre as contas e dentro de cada cadastro; contato com telefone ou e-mail; vínculos de proprietário e de pessoa da vistoria desfeitos logicamente; triggers de titular |
+| `V10__evidencias.sql` | Remoção lógica da evidência |
+| `V9__vistorias.sql` | Remoção lógica de vistoria, ambiente e item; nomes únicos só entre ativos; uma vistoria em andamento por imóvel e uma saída por entrada; triggers das regras de vistoria; procedure `vistorias.copiar_vistoria` |
+
+### Procedures
+
+| Procedure | Efeito |
+|---|---|
+| `rotinas.violar` | Lança o erro de uma regra `rn_` num formato único, usado por todas as outras procedures |
+| `registrar_dispositivo` | Cria o dispositivo pelo par (usuário, identificador) e só o atualiza se algum dado mudou |
+| `registrar_acesso_sessao` | Confere se a sessão está ativa (`rn_sessao_ativa`) e grava o último acesso no máximo a cada 5 minutos |
+| `revogar_sessao` | Revoga uma sessão |
+| `revogar_sessoes_dispositivo` | Revoga as sessões ativas de um dispositivo |
+| `revogar_sessoes_usuario` | Revoga as sessões ativas de um usuário, exceto a sessão informada; sem sessão informada, revoga todas |
+| `emitir_refresh_token` | Confere se a sessão está ativa (`rn_sessao_ativa`) e grava o hash do primeiro refresh token, com a validade da sessão |
+| `renovar_refresh_token` | Confere se a sessão e o token estão válidos (`rn_sessao_ativa`), troca o hash atual pelo novo só se o atual ainda for o apresentado (`rn_refresh_token_renovado`) e guarda o antigo no histórico |
+| `trocar_senha` | Grava o novo hash só se o hash atual ainda for o lido pela aplicação (`rn_senha_alterada`) |
+| `enderecos.registrar_endereco` | Função: localiza o endereço pela cadeia estado, cidade, bairro, logradouro (com CEP) e endereço, criando o que faltar, e devolve o id. Nomes comparados sem diferenciar maiúsculas de minúsculas. Estado inexistente: `rn_estado_existente` |
+| `imoveis.remover_imovel` | Remove o imóvel logicamente (`removido_em`). Recusa se houver vistoria em andamento (`rn_imovel_vistoria_andamento`) |
+| `vistorias.copiar_vistoria` | Copia para a vistoria de saída os ambientes e itens ativos da vistoria de entrada, ligando cada cópia à origem; estado e observações ficam em branco para a nova avaliação |
+| Triggers `tg_*_regras` (vistoria, ambiente, item, evidência, pessoa da vistoria) | Vistoria finalizada ou removida não muda mais, nem os filhos (`rn_vistoria_em_andamento`); vistoria só em imóvel ativo (`rn_imovel_ativo`); a entrada referenciada é de entrada e finalizada (`rn_vistoria_entrada`); a origem do ambiente é da vistoria de entrada (`rn_ambiente_origem`) e a do item, do ambiente de origem (`rn_item_origem`) |
+| `rotinas.limpar_sessoes_expiradas` | Apaga as sessões vencidas, junto com seus refresh tokens e histórico. Roda todo dia às 03:00 (UTC) pelo job `limpar-sessoes-expiradas` |
+
+A view `usuarios.sessao_ativa` define num lugar só o que é uma sessão ativa: não revogada e não expirada.
+
+---
+
+## Regras de negócio
+
+### Cadastro
+
+- O cadastro cria, em uma única transação, a **pessoa física**, o **usuário** e a **credencial local**, registra o dispositivo, abre a primeira sessão e emite os tokens. Se qualquer etapa falhar, nada fica gravado.
+- O hash da senha é calculado **antes** de abrir a transação.
+- E-mail e CPF são **únicos** no sistema. Cada pessoa física tem no máximo um usuário.
+- A resposta já traz os tokens: o usuário sai do cadastro autenticado. Ainda não há confirmação de e-mail.
+- Somente pessoas físicas podem ser usuários. Empresas se relacionam com usuários por meio de vínculos.
+- Cada usuário recebe um **UUID público**, gerado pelo banco, que é o identificador exposto pela API.
+
+### Login, dispositivos e sessões
+
+- O login exige e-mail, senha e os dados do dispositivo.
+- E-mail inexistente e senha incorreta produzem **a mesma resposta** (`E-mail ou senha incorretos.`).
+- Antes de conferir a senha, a API **gasta uma tentativa** da conta naquela rede (`RATE_LIMIT_ACCOUNT_*`) e do teto da conta (`RATE_LIMIT_CEILING_*`). Toda tentativa conta, certa ou errada. Como a tentativa é gasta antes, requisições paralelas não furam o limite.
+- A conferência da senha roda **fora de transação**.
+- O dispositivo é identificado pelo par **(usuário, identificador UUID)**. Se já existir e os dados (plataforma, fabricante, modelo, versão do sistema) mudaram, eles são atualizados.
+- Cada dispositivo tem **no máximo uma sessão ativa**: um novo login revoga as sessões anteriores daquele dispositivo.
+- Cada usuário tem **no máximo 10 sessões ativas** (`security.session.max`): ao abrir a 11ª, a mais antiga é revogada.
+- Uma sessão dura **30 dias** a partir do login, sem renovação, e registra o IP de origem.
+- Uma sessão sem nenhum acesso por **7 dias** expira por inatividade, mesmo dentro dos 30 dias.
+- Toda requisição autenticada e toda renovação confirmam que a sessão **não foi revogada, não expirou nem ficou ociosa** e que **pertence ao usuário do token**. O último acesso é gravado no máximo a cada 5 minutos.
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant API
+    participant Banco
+
+    App->>API: POST /auth/login (e-mail, senha, dispositivo)
+    API->>API: confere o limite de falhas da conta
+    API->>Banco: busca a credencial
+    API->>API: confere a senha (Argon2id, fora de transação)
+    API->>Banco: busca o usuário com a pessoa
+    Note over API,Banco: transação
+    API->>Banco: registrar_dispositivo
+    API->>Banco: revogar_sessoes_dispositivo + cria a sessão (30 dias)
+    API->>Banco: emitir_refresh_token
+    API-->>App: usuário + accessToken + refreshToken
+
+    App->>API: GET /users/me (Bearer accessToken)
+    API->>Banco: busca a sessão do token + registrar_acesso_sessao
+    API-->>App: dados do usuário
+
+    App->>API: POST /auth/refresh (refreshToken)
+    API->>Banco: busca pelo HMAC (atual ou já usado)
+    API->>Banco: retoma a sessão + registrar_acesso_sessao
+    API->>Banco: renovar_refresh_token
+    API-->>App: novo accessToken + novo refreshToken
+```
+
+### Tokens
+
+| | Access token | Refresh token |
+|---|---|---|
+| Formato | JWT HS256 | 32 bytes aleatórios em Base64 URL |
+| Conteúdo | `sub` (UUID público do usuário), `sid` (sessão), `iss`, `iat`, `exp` | Opaco |
+| Validade | `JWT_EXPIRATION_TIME` | A mesma da sessão |
+| Armazenamento | Não é armazenado | Somente o HMAC-SHA-256 |
+| Uso | Cabeçalho `Authorization: Bearer` | Corpo de `POST /auth/refresh` |
+
+Regras do refresh token:
+
+- **Rotação obrigatória:** cada renovação invalida o token usado e emite outro. O hash do token substituído vai para o histórico.
+- **Detecção de reuso:** apresentar um token já substituído, de qualquer geração e mesmo vencido, indica vazamento. A sessão inteira é revogada.
+- **Concorrência:** se duas renovações com o mesmo token chegarem ao mesmo tempo, só uma vence. A outra é tratada como reuso: a sessão inteira é revogada e a resposta é o `401` genérico.
+- A renovação exige que a **sessão** e o próprio token continuem válidos.
+- Recusas de sessão e de refresh token respondem o mesmo `401` genérico. O motivo real vai só para o log.
+
+### Logout e troca de senha
+
+- O **logout** revoga a sessão do token apresentado.
+- A **troca de senha** exige a senha atual (`422` se estiver errada) e recusa uma nova senha igual à atual (`422`). Cada troca gasta o mesmo limite por conta (`RATE_LIMIT_ACCOUNT_*`, chave `password:<usuário>`), de qualquer IP; ao exceder, responde `429` sem conferir a senha.
+- As conferências e o novo hash são calculados **fora de transação**. Depois, numa transação curta:
+  1. a sessão atual é validada e **todas as sessões do usuário são revogadas, inclusive a atual**;
+  2. o novo hash é gravado;
+  3. uma **sessão nova** é aberta no mesmo dispositivo, e a resposta (`200`) traz o novo `accessToken` e `refreshToken`.
+- Assim, quem tiver copiado os tokens da sessão usada na troca também perde o acesso.
+- Se outra troca de senha da mesma conta tiver acontecido no meio, a requisição recebe `409` (`rn_senha_alterada`) e nada é alterado.
+
+### Validação de dados
+
+As regras abaixo são aplicadas na entrada da API e, quando aplicável, repetidas por constraints no banco.
+
+| Campo | Regras |
+|---|---|
+| Senha nova (cadastro e `newPassword`) | De 8 caracteres a 72 bytes; ao menos uma letra maiúscula, uma minúscula, um dígito e um caractere especial; sem espaços |
+| Senha existente (login e `currentPassword`) | Só obrigatória e até 72 bytes: uma regra de criação nova nunca tranca quem criou a senha antes dela |
+| E-mail | Espaços nas pontas removidos e convertido para minúsculas; até 254 caracteres; parte local até 64 caracteres em `[a-z0-9._-]`, sem ponto no início, no fim ou seguido (`+` e `%` são recusados); domínio em rótulos de 1 a 63 caracteres `[a-z0-9-]`, sem hífen nas pontas do rótulo, com extensão de 2 a 63 letras. A mesma regra vale no banco (`documento.email_valido`) |
+| CPF | Máscara (`.`, `-`, `/`, espaços) removida; 11 dígitos; os dígitos não podem ser todos iguais; dígitos verificadores pelo módulo 11 |
+| CNPJ | Formato alfanumérico: 12 caracteres `[0-9A-Z]` seguidos de 2 dígitos verificadores numéricos pelo módulo 11 |
+| Nome | Só letras, com ou sem acento, e espaços; cada palavra começa com letra e cada letra leva no máximo dois acentos combinados (hífen e apóstrofo são recusados); espaços nas pontas removidos e repetidos reduzidos a um; acentos guardados na forma composta (NFC); até 200 caracteres |
+| Dispositivo | Identificador UUID; plataforma `android` ou `ios`; fabricante e modelo até 64 caracteres, sem caracteres de controle, de formatação invisível nem `<` e `>`; versão do sistema até 16 caracteres em `[0-9A-Za-z._- ]`; espaços nas pontas removidos |
+
+No banco, textos livres não podem ter espaços nas extremidades e respeitam limites de tamanho por coluna.
+
+### Limite de requisições
+
+O limite usa o algoritmo **token bucket** e tem duas camadas.
+
+**Por rede e rota.** A chave é o IP do cliente; endereços IPv6 são agrupados pelo bloco `/56`, o tamanho comum entregue por provedores domésticos, para que um único cliente não escape do limite trocando de endereço dentro da própria rede.
+
+| Rota | Variáveis |
+|---|---|
+| `POST /auth/login` | `RATE_LIMIT_LOGIN_*` |
+| `POST /auth/register` | `RATE_LIMIT_REGISTER_*` |
+| `POST /auth/refresh` | `RATE_LIMIT_REFRESH_*` |
+| `POST /rooms/{id}/evidences` | `RATE_LIMIT_UPLOAD_*` |
+| `POST /companies` e `POST /companies/{id}/members` | `RATE_LIMIT_COMPANY_*` |
+| `PATCH /users/me/password` | `RATE_LIMIT_PASSWORD_RESET_*` (limita a **troca** de senha) |
+| Demais rotas | `RATE_LIMIT_API_*` |
+
+Toda resposta traz `X-RateLimit-Limit`, `X-RateLimit-Remaining` e `X-RateLimit-Reset`. Ao exceder o limite, a resposta é `429` com o cabeçalho `Retry-After`.
+
+**Por conta.** O mesmo algoritmo, com outras chaves. Toda tentativa conta, certa ou errada, e é gasta antes de conferir a senha; ao exceder, responde `429` sem conferir a senha.
+
+| Onde | Chave | Variáveis | Para quê |
+|---|---|---|---|
+| Login | `login:<e-mail>:network:<rede>` | `RATE_LIMIT_ACCOUNT_*` | Quem ataca de uma rede só esgota o saldo dessa rede; a vítima segue entrando da própria rede |
+| Login | `login:<e-mail>` | `RATE_LIMIT_CEILING_*` | Teto da conta somando todas as redes, contra força bruta espalhada; só é gasto quando a rede ainda tem saldo, então uma rede sozinha não esgota o teto |
+| Troca de senha | `password:<usuário>` | `RATE_LIMIT_ACCOUNT_*` | Senha atual chutada com um token roubado |
+
+O algoritmo é um só (`TokenBucket`): uma chave genérica, recarga de `rate` fichas a cada `period`, até `capacity`. Os contadores ficam em memória: valem para uma única instância e zeram quando a aplicação reinicia. Saldos parados pelo tempo de encher do zero são apagados por uma limpeza periódica, numa única thread compartilhada por todos os limites. Cada limite guarda no máximo 200 mil chaves: cheio, apaga os saldos ociosos (no máximo uma vez por segundo) e, se ainda não couber, recusa a chave nova com `429`; as chaves já contadas seguem funcionando. Capacidade, taxa e intervalo precisam ser maiores que zero, senão a aplicação não inicia.
+
+### Envio de e-mail
+
+- O e-mail pode ser enviado em texto simples ou com anexos.
+- Os anexos precisam **existir** e estar **dentro do diretório configurado** em `MAIL_ATTACHMENTS_DIR`. O caminho é resolvido antes da checagem, então `../` e links simbólicos que apontam para fora do diretório são recusados.
+- Assuntos com quebra de linha são recusados, para impedir a injeção de cabeçalhos.
+- Uma falha do servidor de e-mail responde `503`.
+
+### Domínio de vistorias
+
+Regras já garantidas pelo schema, que valem para as próximas funcionalidades da API:
+
+**Pessoas e empresas**
+
+- Cada usuário tem o **próprio cadastro** de pessoas (proprietários, inquilinos). O mesmo CPF ou CNPJ pode existir no cadastro de usuários diferentes, sem que um veja o do outro; dentro de um cadastro, não se repete. A pessoa de uma conta (o próprio usuário) não tem titular, e o CPF dela continua único entre as contas.
+- Só pessoas do cadastro do próprio usuário entram como proprietárias dos imóveis dele ou como pessoas das vistorias dele.
+- O contato tem telefone, e-mail ou os dois.
+- Uma pessoa é física (`pf`) ou jurídica (`pj`), e o subtipo precisa corresponder ao tipo.
+- O vínculo entre pessoa física e empresa pode ser `socio`, `representante`, `mei` ou `funcionario`, e é único por par.
+- A titularidade de uma pessoa pertence a exatamente um titular: um usuário ou uma empresa.
+
+**Integridade e auditoria**
+
+- O banco confere, mesmo fora da API: o responsável pela vistoria é o dono do imóvel ou membro da empresa dele; o tipo do catálogo usado num ambiente ou item é padrão ou de quem participa da vistoria; vínculos e imóveis de empresa só aceitam empresas da plataforma.
+- Toda inclusão, alteração e exclusão em imóveis, proprietários, vistorias, ambientes, itens, evidências, pessoas da vistoria e vínculos de empresa vai para `auditoria.registro`, com o valor antigo, o novo, a data e o usuário autenticado (informado pela aplicação em cada transação de escrita). A role da aplicação não lê nem altera esse histórico.
+- Cada foto guarda o SHA-256 do arquivo; o download recusa (`500`, `StorageProblem.INTEGRITY`) um arquivo trocado no disco.
+- Imóvel, vistoria, ambiente, item e pessoa têm versão: duas alterações simultâneas do mesmo registro, a segunda recebe `409` (`RequestProblem.CONCURRENT_UPDATE`).
+
+**Empresas**
+
+- A empresa é um cadastro compartilhado da plataforma (CNPJ único). Quem cadastra entra como administrador.
+- Sócio, representante e MEI administram (incluem e removem membros); funcionário opera. A empresa nunca fica sem administrador ativo.
+- Imóveis da empresa e as vistorias deles valem para todos os membros ativos. Quem sai da empresa perde o acesso, inclusive às vistorias em que foi responsável.
+
+**Endereços**
+
+- Hierarquia: estado, cidade, bairro, logradouro (com CEP de 8 dígitos) e endereço (número e complemento).
+- Nomes são únicos dentro do nível superior, sem diferenciar maiúsculas, minúsculas e acentos ("Sao Paulo" e "SÃO PAULO" são a mesma cidade).
+- Os 27 estados brasileiros são carregados pela migration.
+
+**Imóveis**
+
+- Tipo: `apartamento`, `casa`, `sala_comercial`, `galpao` ou `outro`. Categoria: `residencial`, `comercial` ou `alto_padrao`.
+- Cada imóvel tem exatamente um titular (usuário ou empresa), e um titular não pode cadastrar dois imóveis no mesmo endereço.
+- Um imóvel pode ter vários proprietários. Uma pessoa que é proprietária não pode ser excluída.
+
+**Catálogo**
+
+- Tipos de ambiente e de item podem ser padrões do sistema ou personalizados por um usuário ou uma empresa.
+- A migration carrega os ambientes Sala, Cozinha, Quarto, Banheiro e Área de serviço, cada um com seus itens típicos (piso, paredes, portas, tomadas, pia, chuveiro, entre outros).
+
+**Vistorias**
+
+- Tipo: `entrada` ou `saida`. Status: `em_andamento` ou `finalizada`.
+- Uma vistoria de saída pode referenciar uma vistoria **do mesmo imóvel**, que precisa ser de entrada e estar finalizada. Vistorias de entrada não referenciam outras. Cada entrada tem no máximo uma saída ativa, e cada imóvel, no máximo uma vistoria em andamento.
+- Vistoria finalizada ou removida não muda mais: nem ela, nem seus ambientes, itens, evidências e pessoas.
+- Vistoria, ambiente e item são removidos logicamente (`removido_em`); só a vistoria em andamento pode ser removida.
+- Uma vistoria está finalizada se, e somente se, tem data de finalização, que não pode ser anterior ao início.
+- Pessoas vinculadas à vistoria participam como `proprietario` ou `inquilino`.
+- Ambientes e itens têm nomes únicos dentro da vistoria e do ambiente, respectivamente. Podem apontar para o ambiente ou item de origem (por exemplo, o correspondente da vistoria de entrada), mas nunca para si mesmos.
+- Estado do item: `novo`, `excelente`, `bom`, `regular`, `ruim` ou `danificado`.
+- Evidências são imagens **JPEG ou PNG de até 50 MB**, ligadas a um ambiente e, opcionalmente, a um item **desse mesmo ambiente**. O caminho do arquivo é único.
+
+---
+
+## API
+
+Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pelo cabeçalho definido em `VERSION_HEADER`; sem ele, vale `VERSION_DEFAULT`. A versão atual é `1`.
+
+| Método | Rota | Autenticação | Descrição | Sucesso |
+|---|---|---|---|---|
+| `POST` | `/api/1/auth/register` | Pública | Cadastra o usuário e abre a sessão | `201` |
+| `POST` | `/api/1/auth/login` | Pública | Autentica e abre a sessão no dispositivo | `200` |
+| `POST` | `/api/1/auth/refresh` | Pública | Rotaciona o refresh token e emite um novo access token | `200` |
+| `POST` | `/api/1/auth/logout` | Bearer | Revoga a sessão atual | `204` |
+| `GET` | `/api/1/users/me` | Bearer | Retorna o usuário autenticado | `200` |
+| `PATCH` | `/api/1/users/me/password` | Bearer | Troca a senha, revoga todas as sessões e devolve os tokens de uma sessão nova | `200` |
+| `POST` | `/api/1/properties` | Bearer | Cadastra um imóvel do usuário, ou da empresa com `company`, com o endereço | `201` |
+| `GET` | `/api/1/properties?page=0&size=20` | Bearer | Lista os imóveis do usuário, do mais novo ao mais antigo (`size` até 50) | `200` |
+| `GET` | `/api/1/properties/{id}` | Bearer | Detalha um imóvel do usuário | `200` |
+| `PATCH` | `/api/1/properties/{id}` | Bearer | Altera descrição, tipo e categoria; campo ausente fica como está | `200` |
+| `DELETE` | `/api/1/properties/{id}` | Bearer | Remove o imóvel logicamente; recusa com `409` se houver vistoria em andamento | `204` |
+| `GET` | `/api/1/properties/{id}/owners` | Bearer | Proprietários do imóvel | `200` |
+| `POST` | `/api/1/properties/{id}/owners` | Bearer | Vincula um proprietário `{ person }` do cadastro do usuário | `204` |
+| `DELETE` | `/api/1/properties/{id}/owners/{person}` | Bearer | Desvincula o proprietário | `204` |
+| `POST` | `/api/1/people/individuals` | Bearer | Cadastra pessoa física `{ name, cpf, phone?, email? }` | `201` |
+| `POST` | `/api/1/people/companies` | Bearer | Cadastra pessoa jurídica `{ name (razão social), tradeName, cnpj, phone?, email? }` | `201` |
+| `GET` | `/api/1/people?page=&size=` | Bearer | Lista o cadastro de pessoas do usuário, por nome | `200` |
+| `GET` | `/api/1/people/{id}` | Bearer | Detalha a pessoa, com o contato | `200` |
+| `PATCH` | `/api/1/people/{id}` | Bearer | Altera nome, nome fantasia (só jurídica), telefone e e-mail | `200` |
+| `GET` | `/api/1/catalog/rooms` | Bearer | Tipos de ambiente (padrão e do usuário), com os itens típicos | `200` |
+| `GET` | `/api/1/catalog/items` | Bearer | Tipos de item (padrão e do usuário) | `200` |
+| `POST` | `/api/1/catalog/rooms` | Bearer | Cria tipo de ambiente personalizado `{ name, items? }` (itens padrão ou do usuário) | `201` |
+| `POST` | `/api/1/catalog/items` | Bearer | Cria tipo de item personalizado `{ name }` | `201` |
+| `GET` | `/api/1/states` | Bearer | Os 27 estados (sigla e nome); cacheável por um dia | `200` |
+| `POST` | `/api/1/companies` | Bearer | Cadastra a empresa `{ name, tradeName, cnpj, role }`; `role` de administrador | `201` |
+| `GET` | `/api/1/companies` | Bearer | Empresas de que o usuário é membro, com o papel dele | `200` |
+| `GET` | `/api/1/companies/{id}` | Bearer | Detalha a empresa (só membros) | `200` |
+| `GET` | `/api/1/companies/{id}/members` | Bearer | Membros da empresa | `200` |
+| `POST` | `/api/1/companies/{id}/members` | Bearer | Inclui membro `{ email, role }` (só administradores); responde igual exista a conta ou não | `204` |
+| `DELETE` | `/api/1/companies/{id}/members/{user}` | Bearer | Remove o membro (administrador) ou sai da empresa (o próprio) | `204` |
+| `POST` | `/api/1/inspections` | Bearer | Inicia a vistoria: `{ property, type, entry?, notes? }`; a saída com `entry` copia ambientes e itens da entrada | `201` |
+| `GET` | `/api/1/inspections?property=&status=&page=&size=` | Bearer | Lista as vistorias do usuário; `status` é `em_andamento` ou `finalizada` | `200` |
+| `GET` | `/api/1/inspections/{id}` | Bearer | Detalha a vistoria com ambientes e itens | `200` |
+| `PATCH` | `/api/1/inspections/{id}` | Bearer | Altera as observações | `200` |
+| `POST` | `/api/1/inspections/{id}/finish` | Bearer | Finaliza; a partir daí nada muda (`409`) | `200` |
+| `DELETE` | `/api/1/inspections/{id}` | Bearer | Remove logicamente a vistoria em andamento | `204` |
+| `GET` | `/api/1/inspections/{id}/people` | Bearer | Pessoas da vistoria, com o papel | `200` |
+| `POST` | `/api/1/inspections/{id}/people` | Bearer | Vincula `{ person, role }` (`proprietario` ou `inquilino`); vincular de novo troca o papel | `204` |
+| `DELETE` | `/api/1/inspections/{id}/people/{person}` | Bearer | Desvincula a pessoa da vistoria em andamento | `204` |
+| `POST` | `/api/1/inspections/{id}/rooms` | Bearer | Adiciona um ambiente `{ name, type?, notes? }`; com `type`, já cria os itens típicos | `201` |
+| `PATCH` | `/api/1/rooms/{id}` | Bearer | Altera nome e observações do ambiente | `200` |
+| `DELETE` | `/api/1/rooms/{id}` | Bearer | Remove logicamente o ambiente | `204` |
+| `POST` | `/api/1/rooms/{id}/items` | Bearer | Adiciona um item `{ name, type?, description?, condition?, material?, notes? }` | `201` |
+| `PATCH` | `/api/1/items/{id}` | Bearer | Altera o item; `condition`: `novo`, `excelente`, `bom`, `regular`, `ruim` ou `danificado` | `200` |
+| `DELETE` | `/api/1/items/{id}` | Bearer | Remove logicamente o item | `204` |
+| `POST` | `/api/1/rooms/{id}/evidences` | Bearer | Envia uma foto em `multipart/form-data`: `file` (JPEG ou PNG, até 10 MB), `item?` (do mesmo ambiente), `description?` | `201` |
+| `GET` | `/api/1/evidences/{id}` | Bearer | Baixa a foto, com o tipo conferido no envio e sem cache compartilhado | `200` |
+| `DELETE` | `/api/1/evidences/{id}` | Bearer | Remove logicamente a evidência | `204` |
+
+**Exemplo de cadastro**
+
+```http
+POST /api/1/auth/register
+Content-Type: application/json
+
+{
+  "name": "Ana Souza",
+  "cpf": "529.982.247-25",
+  "email": "ana@exemplo.com",
+  "password": "minha casa fica perto do rio",
+  "device": {
+    "identifier": "7f1c2a8e-3b4d-4c5e-8f90-112233445566",
+    "platform": "android",
+    "manufacturer": "Samsung",
+    "model": "S23",
+    "osVersion": "14"
+  }
+}
+```
+
+```json
+{
+  "user": {
+    "id": "3f2b1c9e-8a47-4d1e-9b6a-5c0d2e7f8a91",
+    "name": "Ana Souza",
+    "email": "ana@exemplo.com"
+  },
+  "token": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "q3V0n6sB1o9...",
+    "expiresIn": 900
+  }
+}
+```
+
+O login usa o mesmo formato, sem `name` e `cpf`, e devolve a mesma resposta. A renovação recebe `{ "refreshToken": "..." }` e devolve o objeto `token`. A troca de senha recebe `{ "currentPassword": "...", "newPassword": "..." }`.
+
+**Exemplo de imóvel**
+
+```http
+POST /api/1/properties
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+Content-Type: application/json
+
+{
+  "description": "Apartamento de frente",
+  "type": "apartamento",
+  "category": "residencial",
+  "address": {
+    "cep": "01310-100",
+    "state": "SP",
+    "city": "São Paulo",
+    "district": "Bela Vista",
+    "street": "Avenida Paulista",
+    "number": "1000",
+    "complement": "Apto 12"
+  }
+}
+```
+
+A resposta traz o `id` (UUID) do imóvel e o endereço com o CEP sem máscara. `type`: `apartamento`, `casa`, `sala_comercial`, `galpao` ou `outro`; `category`: `residencial`, `comercial` ou `alto_padrao`. As listagens respondem `{ "items": [...], "page": 0, "size": 20, "total": 1 }`.
+
+Imóvel, vistoria, ambiente ou item de outro usuário, ou já removido, responde `404`, como se não existisse. Vincular o que já está vinculado e desvincular o que não está respondem `204` sem mudar nada (operações idempotentes). As listas curtas (membros, proprietários, pessoas da vistoria, catálogo, empresas) não são paginadas e trazem no máximo 200 itens. Nas edições (`PATCH`), campo ausente fica como está. As observações aceitam quebra de linha; os demais textos são de uma linha. O mesmo titular não cadastra dois imóveis ativos no mesmo endereço (`409`).
+
+### Formato de erro
+
+Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adicional `code` no formato `<Catálogo>.<Problema>`. Erros de validação de campos trazem a lista `errors`.
+
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Os dados informados são inválidos.",
+  "code": "ValidationProblem.INVALID_DATA",
+  "errors": [
+    { "field": "device.model", "message": "O modelo é obrigatório." }
+  ]
+}
+```
+
+| Status | Situação |
+|---|---|
+| `400` | Corpo inválido, dado reprovado na validação ou endereço de origem que não é um IP |
+| `401` | Credenciais inválidas; token ausente, inválido ou expirado; sessão ou refresh token recusados |
+| `403` | Acesso negado |
+| `404` | Recurso inexistente |
+| `409` | Cadastro com CPF ou e-mail já existente (mesma resposta para os dois), renovação concorrente de refresh token ou troca de senha concorrente |
+| `411` | Corpo enviado em partes (`chunked`), sem `Content-Length` |
+| `413` | Corpo acima de 16 KB |
+| `422` | Violação de regra no banco, senha atual incorreta ou nova senha igual à atual |
+| `429` | Limite de requisições ou de falhas de login da conta excedido |
+| `500` | Erro inesperado, com mensagem genérica |
+| `503` | Falha no envio de e-mail |
+
+---
+
+## Segurança
+
+| Ameaça | Proteção |
+|---|---|
+| Força bruta e credential stuffing | Limite por rede e rota, com IPv6 agrupado por `/56`; no login, limite por conta e rede mais um teto da conta somando as redes; na troca de senha, limite por usuário |
+| Descoberta de contas no login | Mesma resposta e mesmo tempo para e-mail inexistente e senha errada |
+| Vazamento do banco | Senhas em Argon2id; refresh tokens em HMAC-SHA-256 com chave fora do banco |
+| Roubo de refresh token | Rotação a cada uso, detecção de reuso de qualquer geração e revogação da sessão |
+| Sessão revogada com token ainda válido | A sessão é conferida em toda requisição; a revogação vale na hora |
+| Token apontando para a sessão de outro usuário | A sessão é buscada pelo id **e** pelo usuário do token |
+| Escritas concorrentes | Renovação de token e troca de senha só gravam se o valor atual ainda for o lido |
+| Exposição de ids internos | A API expõe o UUID público do usuário e do imóvel, nunca o id sequencial; o JWT também não carrega o e-mail |
+| Acesso a dados de outro usuário | Imóveis, vistorias, ambientes e itens são sempre buscados pelo UUID **e** pelo dono (o responsável pela vistoria); o recurso alheio responde `404`, sem revelar que existe |
+| Arquivo malicioso no upload | O formato vem dos primeiros bytes (JPEG ou PNG), não do nome nem do `Content-Type` do cliente: HTML, SVG e scripts disfarçados de imagem são recusados (`415`). O nome no disco é gerado (UUID); o download sai com o tipo conferido, `nosniff` e `Content-Disposition: inline` |
+| Arquivo fora do diretório | A leitura confere o caminho real dentro de `EVIDENCE_DIR` e não segue link simbólico |
+| Arquivo órfão | Se o registro da evidência for recusado (vistoria finalizada, item de outro ambiente), o arquivo já gravado é apagado; uma limpeza diária (03:30) apaga arquivos sem registro com mais de 1 hora |
+| Arquivo trocado no disco | SHA-256 gravado no envio e conferido em cada download |
+| Alteração sem rastro | Histórico de auditoria gravado por trigger, com o usuário da transação, inacessível à role da aplicação |
+| Upload gigante | Limite próprio da rota de upload (10 MB, pelo `Content-Length`, antes da leitura) e do multipart; o resto da API segue com 16 KB |
+| Acesso residual de ex-membro | Imóveis e vistorias de empresa valem só para membros ativos, conferido em cada consulta |
+| Descoberta de contas pela inclusão de membro | A inclusão por e-mail responde `204` exista a conta ou não |
+| Catálogo padrão adulterado | A role da aplicação só insere no catálogo, e o trigger recusa tipo padrão ou sem dono |
+| Descoberta de CPF ou CNPJ de terceiros | O cadastro de pessoas é privado por usuário: cadastrar um CPF que outro usuário já tem não dá conflito nem revela o nome gravado por ele |
+| Adulteração de vistoria finalizada | Triggers no banco recusam qualquer alteração na vistoria finalizada e nos seus ambientes, itens, evidências e pessoas, mesmo fora da API |
+| Vazamento de detalhes internos | Erros `500` com mensagem genérica; o detalhe vai só para o log |
+| Inundação do log | Erros do cliente (`4xx`) geram uma linha `WARN` sem stack trace; só erros reais geram `ERROR` |
+| Rebaixamento para HTTP | `Strict-Transport-Security` (1 ano, com subdomínios) em toda resposta, inclusive atrás de proxy que termina o TLS |
+| Conteúdo malicioso em texto livre | Nome aceita só letras, acentos e espaços; fabricante e modelo do dispositivo recusam HTML e caracteres invisíveis |
+| Corpo de requisição gigante | Recusado pelo `Content-Length` antes da leitura (`413`); corpo em partes recusado (`411`); corpo sem tamanho declarado é lido no filtro até um byte além do limite e recusado (`413`) antes de chegar ao Jackson |
+| Anexos de e-mail | Só do diretório configurado, com caminho resolvido (sem `../` nem link simbólico para fora); o arquivo é lido uma vez, pelo caminho já conferido e sem seguir link, então trocá-lo depois da conferência não muda o que é enviado |
+| Conexões do banco esgotadas | O Argon2 roda fora de transação e o `open-in-view` está desligado |
+
+**Pendências conhecidas**
+
+- **Autorização:** não existe modelo de permissões; só autenticação. Os imóveis já filtram pelo dono; cada endpoint futuro (vistorias, pessoas, catálogo) precisa fazer o mesmo. Imóveis de empresa (`id_pessoa_juridica`) ainda não são expostos: dependem dos vínculos.
+- **Pessoas:** ainda não há remoção de pessoa do cadastro, nem a escolha da própria conta como proprietária. A tabela `pessoa_titularidade` não é usada (a titularidade está em `pessoa.id_usuario_titular`).
+- **Catálogo personalizado:** tipos criados não são editados nem removidos.
+- **Metadados das fotos:** o arquivo é guardado como veio, com o EXIF (inclusive a localização GPS, se o aparelho gravou). Isso pode servir de prova, mas é dado pessoal; remover ou não é decisão pendente.
+- **Arquivos de evidências removidas** ficam no disco (a remoção é lógica, como no banco).
+- **Auditoria:** ainda não há endpoint para consultar o histórico; a consulta é feita no banco, com o usuário dono das migrations.
+- **Concorrência:** a versão protege contra alterações simultâneas no servidor, mas a API ainda não recebe `If-Match`; um cliente com dados antigos sobrescreve se não houver outra alteração no meio.
+- **Edição parcial:** um `PATCH` não limpa campos opcionais (enviar `null` mantém o valor atual).
+- **Empresas:** não há verificação de que quem cadastra o CNPJ representa mesmo a empresa; o primeiro a cadastrar vira administrador.
+- **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
+- **Recuperação de senha:** ainda não existe.
+- **Limite por conta:** uma rede sozinha não tranca a vítima, mas quem ataca de várias redes ao mesmo tempo ainda pode esgotar o teto da conta (`RATE_LIMIT_CEILING_*`) e bloquear temporariamente novos logins dessa pessoa até a recarga. Sessões já abertas não são afetadas, porque a renovação por refresh token não passa por esse limite.
+- **Chaves em memória:** com 200 mil chaves por limite, quem cria chaves novas mais rápido do que elas ficam ociosas (muitos IPs ou e-mails inventados) pode encher um limite e fazer chaves novas receberem `429` até a limpeza.
+- **Limites em memória:** a aplicação roda em uma única instância; os contadores não sobrevivem a um reinício.
+- **Hashes de senha simultâneos:** não há limite de quantos hashes Argon2 (cerca de 19 MiB cada) rodam ao mesmo tempo; uma rajada de logins ou cadastros vindos de muitos IPs pode esgotar a memória. A proteção será reimplementada.
+- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis, vistorias, vinculos, catalogo to vsr_app;`, `grant insert on all tables in schema catalogo to vsr_app;`, `grant usage, select on all sequences in schema catalogo to vsr_app;` e os `alter default privileges` equivalentes de `docs/db/app-role.sql`. O schema `auditoria` não recebe nenhum grant, de propósito.
+
+**Riscos aceitos**
+
+| Risco | Consequência | Por que foi aceito |
+|---|---|---|
+| Não há bloqueio de conta | Uma conta comprometida só pode ser contida revogando as sessões | Revogar sessões e trocar a senha cobre os casos atuais |
+| Resposta perdida na renovação | Se a resposta do `/auth/refresh` se perde e o app reenvia o token antigo, isso conta como reuso e a sessão é revogada | Preferido a abrir uma janela de tolerância para o token anterior |
+
+---
+
+## Configuração e execução
+
+**Pré-requisitos:** JDK 17 e PostgreSQL 17 com a extensão `pg_cron`. O `pg_cron` exige, no `postgresql.conf`, `shared_preload_libraries = 'pg_cron'` e `cron.database_name` apontando para o banco da aplicação (reinicie o PostgreSQL depois). O usuário que aplica as migrations precisa de permissão para criar a extensão.
+
+```bash
+./mvnw clean package -DskipTests
+```
+
+```bash
+java -jar target/vsr-0.0.1-SNAPSHOT.jar
+```
+
+Na primeira execução, o Flyway aplica as migrations. Depois que um ambiente executou as migrations, os arquivos existentes não podem mais ser alterados; mudanças novas entram em migrations novas.
+
+A configuração é feita **por variáveis de ambiente**:
+
+| Grupo | Variáveis |
+|---|---|
+| Aplicação | `APP_NAME`, `VERSION_HEADER`, `VERSION_SUPPORTED`, `VERSION_DEFAULT` |
+| Banco | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FLYWAY_USERNAME` e `FLYWAY_PASSWORD` (dono das migrations; sem eles, o Flyway usa `DB_USERNAME`), `DB_DRIVER`, `DB_POOL_NAME`, `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_POOL_CONNECTION_TIMEOUT`, `DB_POOL_IDLE_TIMEOUT`, `DB_POOL_MAX_LIFETIME`, `JPA_DIALECT`, `JPA_BATCH_SIZE` |
+| Segurança | `JWT_SECRET_KEY` e `REFRESH_TOKEN_SECRET_KEY` (Base64, mínimo de 32 bytes, diferentes entre si), `JWT_ISSUER`, `JWT_EXPIRATION_TIME` (ex.: `15m`; maior que zero, senão a aplicação não inicia) |
+| E-mail | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_ATTACHMENTS_DIR` |
+| Evidências | `EVIDENCE_DIR`: diretório dos arquivos das fotos (criado se não existir; faça backup junto com o banco) |
+| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (tentativas por conta e rede no login; por usuário na troca de senha), `CEILING` (teto da conta somando as redes; deve ser maior que `ACCOUNT`), `PASSWORD_RESET`, `UPLOAD` (envio de evidências) e `COMPANY` (cadastro de empresa e inclusão de membro) |
+| Proxy | `TRUSTED_PROXIES`: regex dos IPs dos proxies confiáveis (ex.: `10\.0\.0\.5`). Vazio quando a aplicação fica exposta direto: o `X-Forwarded-For` é ignorado. Use o IP exato do proxy, nunca uma faixa ampla como `.*` ou `10\..*`, senão qualquer conexão dela consegue forjar o IP |
+
+Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As chaves podem ser geradas com `openssl rand -base64 32`.
+
+**Valores sugeridos para produção.** No 4G, as operadoras usam CGNAT: milhares de clientes saem pelo mesmo IPv4. Por isso, o limite por IP é só contra flood e fica folgado; quem segura força bruta é o limite por conta (`ACCOUNT`) e o teto (`CEILING`), que não sofrem com o CGNAT.
+
+| Grupo | Capacidade | Recarga | Intervalo | Por quê |
+|---|---|---|---|---|
+| `API` | 300 | 300 | `1m` | Rotas gerais, por IP; folgado para CGNAT |
+| `LOGIN` | 60 | 60 | `1m` | Por IP, só contra flood; a senha é protegida pelo `ACCOUNT` |
+| `REGISTER` | 30 | 30 | `10m` | Por IP; cadastro é raro, mas vários aparelhos podem dividir o IP |
+| `REFRESH` | 120 | 120 | `1m` | Por IP; cada app renova sozinho em segundo plano |
+| `PASSWORD_RESET` | 30 | 30 | `1m` | Por IP, contra flood na troca de senha |
+| `UPLOAD` | 60 | 60 | `1m` | Por IP; uma vistoria envia várias fotos seguidas, mas cada uma pesa até 10 MB |
+| `COMPANY` | 10 | 10 | `10m` | Por IP; contra cadastro de CNPJ em massa e varredura de e-mails pela inclusão de membro |
+| `ACCOUNT` | 10 | 10 | `15m` | Tentativas por conta e rede; como a senha certa também conta, fica um pouco acima de 5 para não incomodar quem entra várias vezes |
+| `CEILING` | 50 | 50 | `1h` | Teto da conta somando as redes; maior que `ACCOUNT` |
+
+Os valores são ponto de partida: acompanhe os `429` no log (`Limite de requisições excedido`) e ajuste o limite por IP se aparecerem clientes legítimos.
+
+Valores fixos nos arquivos de configuração:
+
+| Propriedade | Valor | Motivo |
+|---|---|---|
+| `spring.jpa.hibernate.ddl-auto` | `validate` | O schema pertence ao Flyway |
+| `spring.jpa.open-in-view` | `false` | A conexão fica presa só durante as transações |
+| `security.session.ttl` | `30d` | Validade da sessão e do refresh token |
+| `security.session.idle` | `7d` | Tempo máximo sem acesso antes de a sessão expirar por inatividade; precisa ser maior que zero e menor que `ttl`, senão a aplicação não inicia |
+| `security.session.max` | `10` | Máximo de sessões ativas por usuário; a mais antiga é revogada |
+| `vsr.request.max-body-size` | `16KB` | Limite do corpo das requisições |
+| `vsr.request.max-upload-size` e `spring.servlet.multipart.*` | `10MB` | Limite do upload de evidências |
+| `server.forward-headers-strategy` | `native` | O Tomcat troca o IP da conexão pelo `X-Forwarded-For` só quando ela vem de um proxy em `TRUSTED_PROXIES` |
+
+Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens recusados e limites excedidos são registrados em `WARN` com o IP de origem; erros inesperados, em `ERROR` com o stack trace.
+
+---
+
+## Testes
+
+```bash
+./mvnw test
+```
+
+São **612 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+
+As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
+
+O `PropertyFlowTest`, o `InspectionFlowTest`, o `EvidenceFlowTest`, o `PersonFlowTest` e o `CompanyFlowTest` (base `support/ApplicationTest`, com um diretório temporário para as fotos) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
+
+O teste que recusa anexos por link simbólico é pulado no Windows, porque criar links simbólicos exige permissão de administrador; ele roda normalmente em Linux.
