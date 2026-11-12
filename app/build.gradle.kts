@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.visura.prototipo"
+        applicationId = "com.visura"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
