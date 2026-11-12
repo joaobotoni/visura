@@ -6,7 +6,14 @@ Este arquivo orienta o Claude Code (claude.ai/code) ao trabalhar com o código d
 
 Visura é um app Android de módulo único (`:app`) para vistoria imobiliária, escrito em Kotlin com Jetpack Compose. Os textos exibidos ao usuário e os identificadores de conceitos do domínio estão em português (pt-BR): `Imovel`, `Vistoria`, `NovoImovelScreen`, `abaSelecionada`.
 
-**O app é, por enquanto, um protótipo só de interface.** Não tem Hilt, Firebase, Supabase, ViewModels nem camadas de dados e domínio. O pacote, o namespace e o `applicationId` são todos `com.visura`, e o projeto raiz do Gradle se chama `Visura`. A versão anterior da `main`, com Hilt e Firebase, foi substituída por estas telas e continua só no histórico do git. A `feature/banco-supa` tem outra arquitetura, então não suponha que ela vale aqui.
+**O app é, por enquanto, um protótipo só de interface.** Não tem Hilt, Firebase, Supabase, ViewModels nem camadas de dados e domínio. O pacote, o namespace e o `applicationId` são todos `com.visura`, e o projeto raiz do Gradle se chama `Visura`. A versão anterior da `main`, com Hilt e Firebase, foi substituída por estas telas e está guardada nas branches `backup/backend-firebase-hilt` e `backup/backend-supabase`. Não use essa arquitetura como referência.
+
+O repositório é um monorepo:
+
+- **App Android**: fica na raiz (`app/`, Gradle). É o assunto do restante deste arquivo.
+- **API REST**: fica em `backend/`. É a API em Spring Boot 4 (Java 17, Maven, PostgreSQL com `pg_cron`, Flyway e JWT) que veio do repositório `vsr`. Ela entrou com o histórico completo via `git subtree`, e o pacote ainda é `com.botoni.vsr`. O app ainda não consome a API.
+
+Os dois têm builds independentes. A documentação da API, com regras de negócio, endpoints, variáveis de ambiente e testes, está em `backend/README.md`, e o padrão de código está em `backend/docs/PADRAO.md`. Antes de mexer em `backend/`, leia esses dois arquivos.
 
 ## Comandos
 
@@ -23,6 +30,13 @@ Use `./gradlew` (Git Bash) ou `.\gradlew.bat` (PowerShell).
 ```
 
 Não é preciso configurar chaves no `local.properties` nem ter `google-services.json`. O build usa o AGP `9.3.0-alpha09`, então exige um Android Studio recente e compatível. Também usa compileSdk/targetSdk 37 e minSdk 24, com JVM target 11. As versões ficam em `gradle/libs.versions.toml`. Os únicos testes são os exemplos gerados pelo template.
+
+Para a API, rode os comandos dentro de `backend/`:
+
+```bash
+./mvnw -DskipTests package         # compila e gera o jar
+./mvnw test                        # testes unitários (não precisam de banco)
+```
 
 ## Arquitetura
 
