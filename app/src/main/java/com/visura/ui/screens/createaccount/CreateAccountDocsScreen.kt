@@ -25,13 +25,24 @@ import com.visura.ui.theme.TextGray
 
 enum class TipoPessoa { FISICA, JURIDICA }
 
+// Dados da segunda etapa do cadastro. Os campos da empresa só valem para pessoa jurídica.
+data class DocumentosCadastro(
+    val nome: String,
+    val cpf: String,
+    val tipoPessoa: TipoPessoa,
+    val razaoSocial: String,
+    val nomeFantasia: String,
+    val cnpj: String
+)
+
 @Composable
 fun CreateAccountDocsScreen(
+    nomeInicial: String = "",
     onBackClick: () -> Unit = {},
-    onFinishClick: () -> Unit = {}
+    onFinishClick: (DocumentosCadastro) -> Unit = {}
 ) {
     var tipoPessoa by remember { mutableStateOf(TipoPessoa.FISICA) }
-    var nomeCompleto by remember { mutableStateOf("") }
+    var nomeCompleto by remember { mutableStateOf(nomeInicial) }
     var cpf by remember { mutableStateOf("") }
     var razaoSocial by remember { mutableStateOf("") }
     var nomeFantasia by remember { mutableStateOf("") }
@@ -150,7 +161,18 @@ fun CreateAccountDocsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = onFinishClick,
+            onClick = {
+                onFinishClick(
+                    DocumentosCadastro(
+                        nome = nomeCompleto.trim(),
+                        cpf = cpf.filter { it.isDigit() },
+                        tipoPessoa = tipoPessoa,
+                        razaoSocial = razaoSocial.trim(),
+                        nomeFantasia = nomeFantasia.trim(),
+                        cnpj = cnpj.filter { it.isDigit() }
+                    )
+                )
+            },
             enabled = podeConcluir,
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(containerColor = NavyBlue),

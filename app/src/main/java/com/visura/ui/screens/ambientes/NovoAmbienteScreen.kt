@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.visura.data.TipoDeAmbiente
 import com.visura.ui.screens.createaccount.LabeledField
 import com.visura.ui.theme.TextGray
 
@@ -20,12 +21,18 @@ import com.visura.ui.theme.TextGray
 @Composable
 fun NovoAmbienteScreen(
     ambientesExistentes: List<Ambiente>,
+    tiposDeAmbiente: List<TipoDeAmbiente> = emptyList(),
     onBackClick: () -> Unit = {},
-    onAdicionarClick: (Ambiente) -> Unit = {}
+    // tipo é o tipo do catálogo escolhido (null para ambiente personalizado)
+    onAdicionarClick: (nome: String, tipo: TipoDeAmbiente?, observacoes: String, duplicarDe: Ambiente?) -> Unit =
+        { _, _, _, _ -> }
 ) {
     var nome by remember { mutableStateOf("") }
     var observacoes by remember { mutableStateOf("") }
     var duplicarDe by remember { mutableStateOf<Ambiente?>(null) }
+
+    // O tipo vale enquanto o nome for igual ao do chip escolhido
+    val tipoEscolhido = tiposDeAmbiente.firstOrNull { it.nome.equals(nome.trim(), ignoreCase = true) }
 
     // Só faz sentido copiar de um ambiente que tem itens
     val ambientesParaDuplicar = ambientesExistentes.filter { it.itens.isNotEmpty() }
@@ -38,10 +45,8 @@ fun NovoAmbienteScreen(
                 texto = "Adicionar ambiente",
                 enabled = nome.isNotBlank(),
                 onClick = {
-                    // Ao duplicar, os itens e estados vêm do ambiente escolhido (com ids novos)
-                    val itens = duplicarDe?.itens?.map { it.copy(id = java.util.UUID.randomUUID().toString()) }
-                        ?: itensPadrao()
-                    onAdicionarClick(Ambiente(nome = nome.trim(), itens = itens, observacoes = observacoes.trim()))
+                    // Ao duplicar, os itens e estados vêm do ambiente escolhido
+                    onAdicionarClick(nome.trim(), tipoEscolhido, observacoes.trim(), duplicarDe)
                 }
             )
         }
@@ -72,19 +77,25 @@ fun NovoAmbienteScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            Rotulo("Tipos comuns")
-            Spacer(modifier = Modifier.height(8.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                tiposDeAmbienteComuns.forEach { tipo ->
-                    ChipSelecionavel(
-                        texto = tipo,
-                        selecionado = nome.trim().equals(tipo, ignoreCase = true),
-                        onClick = { nome = tipo },
-                        icone = { IconeAmbiente(tipo) }
-                    )
+            if (tiposDeAmbiente.isNotEmpty()) {
+                Rotulo("Tipos comuns")
+                Spacer(modifier = Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    tiposDeAmbiente.forEach { tipo ->
+                        ChipSelecionavel(
+                            texto = tipo.nome,
+                            selecionado = tipo == tipoEscolhido,
+                            onClick = { nome = tipo.nome },
+                            icone = { IconeAmbiente(tipo.nome) }
+                        )
+                    }
+                }
+                if (tipoEscolhido != null && duplicarDe == null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Os itens típicos deste ambiente serão criados automaticamente.", fontSize = 12.sp, color = TextGray)
                 }
             }
 
