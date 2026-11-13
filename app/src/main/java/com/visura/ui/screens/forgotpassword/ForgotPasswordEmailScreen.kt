@@ -21,9 +21,10 @@ import com.visura.ui.theme.TextGray
 @Composable
 fun ForgotPasswordEmailScreen(
     onBackClick: () -> Unit = {},
-    onCodeSent: () -> Unit = {}
+    emailInicial: String = "",
+    onCodeSent: (String) -> Unit = {}
 ) {
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf(emailInicial) }
 
     Column(
         modifier = Modifier
@@ -74,8 +75,8 @@ fun ForgotPasswordEmailScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = onCodeSent,
-            enabled = email.isNotBlank(),
+            onClick = { onCodeSent(email.trim()) },
+            enabled = email.contains('@'),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(containerColor = NavyBlue),
             modifier = Modifier

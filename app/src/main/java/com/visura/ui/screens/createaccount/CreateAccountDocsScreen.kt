@@ -2,8 +2,10 @@ package com.visura.ui.screens.createaccount
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Business
@@ -25,6 +27,14 @@ import com.visura.ui.theme.TextGray
 
 enum class TipoPessoa { FISICA, JURIDICA }
 
+// Papel de quem cadastra a empresa. A API só aceita papéis de administrador nesse cadastro
+// (funcionário entra depois, convidado por um administrador). valorApi é o "role" da API.
+enum class PapelNaEmpresa(val rotulo: String, val valorApi: String) {
+    SOCIO("Sócio", "socio"),
+    REPRESENTANTE("Representante legal", "representante"),
+    MEI("Titular MEI", "mei")
+}
+
 // Dados da segunda etapa do cadastro. Os campos da empresa só valem para pessoa jurídica.
 data class DocumentosCadastro(
     val nome: String,
@@ -32,7 +42,8 @@ data class DocumentosCadastro(
     val tipoPessoa: TipoPessoa,
     val razaoSocial: String,
     val nomeFantasia: String,
-    val cnpj: String
+    val cnpj: String,
+    val papel: PapelNaEmpresa?
 )
 
 @Composable
@@ -47,6 +58,7 @@ fun CreateAccountDocsScreen(
     var razaoSocial by remember { mutableStateOf("") }
     var nomeFantasia by remember { mutableStateOf("") }
     var cnpj by remember { mutableStateOf("") }
+    var papel by remember { mutableStateOf<PapelNaEmpresa?>(null) }
 
     val cpfCompleto = cpf.count { it.isDigit() } == 11
     val cnpjCompleto = cnpj.count { it.isDigit() } == 14
@@ -55,7 +67,7 @@ fun CreateAccountDocsScreen(
         nomeCompleto.isNotBlank() && cpfCompleto
     } else {
         nomeCompleto.isNotBlank() && cpfCompleto &&
-                razaoSocial.isNotBlank() && nomeFantasia.isNotBlank() && cnpjCompleto
+                razaoSocial.isNotBlank() && nomeFantasia.isNotBlank() && cnpjCompleto && papel != null
     }
 
     Column(
@@ -63,6 +75,7 @@ fun CreateAccountDocsScreen(
             .fillMaxSize()
             .background(Color.White)
             .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
         IconButton(onClick = onBackClick, modifier = Modifier.padding(bottom = 4.dp)) {
@@ -156,6 +169,30 @@ fun CreateAccountDocsScreen(
                 keyboardType = KeyboardType.Number,
                 showCheck = cnpjCompleto
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("SEU PAPEL NA EMPRESA *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextGray)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PapelNaEmpresa.entries.forEach { opcao ->
+                    FilterChip(
+                        selected = papel == opcao,
+                        onClick = { papel = opcao },
+                        label = { Text(opcao.rotulo, fontSize = 13.sp) },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NavyBlue,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Você será administrador da empresa e poderá convidar outros membros.",
+                fontSize = 12.sp,
+                color = TextGray
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -169,7 +206,8 @@ fun CreateAccountDocsScreen(
                         tipoPessoa = tipoPessoa,
                         razaoSocial = razaoSocial.trim(),
                         nomeFantasia = nomeFantasia.trim(),
-                        cnpj = cnpj.filter { it.isDigit() }
+                        cnpj = cnpj.filter { it.isDigit() },
+                        papel = papel.takeIf { tipoPessoa == TipoPessoa.JURIDICA }
                     )
                 )
             },

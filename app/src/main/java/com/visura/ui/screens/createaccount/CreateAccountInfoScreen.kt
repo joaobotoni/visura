@@ -1,6 +1,8 @@
 package com.visura.ui.screens.createaccount
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,11 +27,14 @@ import com.visura.ui.theme.TextGray
 
 @Composable
 fun CreateAccountInfoScreen(
+    // Preenchidos quando o cadastro vem do "Continuar com Google" sem conta no Visura
+    nomeInicial: String = "",
+    emailInicial: String = "",
     onBackClick: () -> Unit = {},
     onContinueClick: (nome: String, email: String, senha: String) -> Unit = { _, _, _ -> }
 ) {
-    var nome by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var nome by remember { mutableStateOf(nomeInicial) }
+    var email by remember { mutableStateOf(emailInicial) }
     var senha by remember { mutableStateOf("") }
     var confirmarSenha by remember { mutableStateOf("") }
     var senhaVisivel by remember { mutableStateOf(false) }
@@ -46,6 +51,7 @@ fun CreateAccountInfoScreen(
             .fillMaxSize()
             .background(Color.White)
             .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
         IconButton(onClick = onBackClick, modifier = Modifier.padding(bottom = 4.dp)) {
@@ -90,7 +96,7 @@ fun CreateAccountInfoScreen(
             onToggleVisibility = { senhaVisivel = !senhaVisivel }
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = { onContinueClick(nome.trim(), email.trim(), senha) },
@@ -109,7 +115,7 @@ fun CreateAccountInfoScreen(
 }
 
 // Mesmas regras da senha nova na API (backend/.../vo/NewPassword.java)
-private fun problemaDaSenha(senha: String): String? = when {
+internal fun problemaDaSenha(senha: String): String? = when {
     senha.length < 8 -> "A senha deve ter no mínimo 8 caracteres."
     senha.none { it.isUpperCase() } -> "A senha deve ter ao menos uma letra maiúscula."
     senha.none { it.isLowerCase() } -> "A senha deve ter ao menos uma letra minúscula."

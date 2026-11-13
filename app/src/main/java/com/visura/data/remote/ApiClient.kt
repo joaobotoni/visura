@@ -48,7 +48,8 @@ object ApiClient {
 
     private fun ehRotaDeAutenticacao(request: Request): Boolean {
         val caminho = request.url.encodedPath
-        return caminho.endsWith("/auth/login") || caminho.endsWith("/auth/register") || caminho.endsWith("/auth/refresh")
+        return caminho.endsWith("/auth/login") || caminho.endsWith("/auth/register") || caminho.endsWith("/auth/refresh") ||
+            caminho.endsWith("/auth/google") || caminho.contains("/auth/password/")
     }
 
     private class TokenInterceptor(private val sessao: Sessao) : Interceptor {

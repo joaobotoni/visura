@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.visura.data.ApiErro
+import kotlinx.coroutines.delay
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
@@ -37,40 +39,47 @@ data class EnderecoSugerido(
     val uf: String,
     val cep: String
 ) {
-    val titulo: String get() = "$rua, $numero"
+    val titulo: String get() = if (numero.isBlank()) rua.ifBlank { "CEP $cep" } else "$rua, $numero"
     val subtitulo: String get() = "$bairro, $cidade/$uf — $cep"
 }
 
-// SIMULAÇÃO — será substituída pela busca real (mapa / serviço de endereços).
-private val enderecosDeExemplo = listOf(
-    EnderecoSugerido("Rua das Palmeiras", "210", "Água Verde", "Curitiba", "PR", "82010-330"),
-    EnderecoSugerido("Rua das Palmeiras", "340", "Água Verde", "Curitiba", "PR", "82010-330"),
-    EnderecoSugerido("Alameda das Palmeiras", "12", "Batel", "Curitiba", "PR", "80420-000")
-)
-
-private val CorMapaProvisoria = Color(0xFF8E9196)
+// A busca procura pelo CEP (8 dígitos) ou por "rua, cidade, UF". Os resultados não trazem o número:
+// o usuário completa no formulário.
+private fun buscaCompleta(texto: String): Boolean {
+    val digitos = texto.filter { it.isDigit() }
+    return (digitos.length == 8 && texto.none { it.isLetter() }) || texto.count { it == ',' } >= 2
+}
 
 @Composable
 fun BuscarEnderecoOverlay(
     onClose: () -> Unit,
-    onConfirm: (EnderecoSugerido) -> Unit
+    onConfirm: (EnderecoSugerido) -> Unit,
+    buscar: suspend (String) -> List<EnderecoSugerido>
 ) {
     var busca by rememberSaveable { mutableStateOf("") }
     var selecionado by remember { mutableStateOf<EnderecoSugerido?>(null) }
+    var resultados by remember { mutableStateOf(emptyList<EnderecoSugerido>()) }
+    var buscando by remember { mutableStateOf(false) }
+    var erro by remember { mutableStateOf<String?>(null) }
 
     BackHandler(onBack = onClose)
 
-    // Simulação: procura qualquer palavra (4+ letras) da busca na rua ou no bairro
-    val resultados = remember(busca) {
-        val palavras = busca.trim().split(" ").filter { it.length >= 4 }
-        if (palavras.isEmpty()) {
-            emptyList()
-        } else {
-            enderecosDeExemplo.filter { e ->
-                palavras.any { p ->
-                    e.rua.contains(p, ignoreCase = true) || e.bairro.contains(p, ignoreCase = true)
-                }
-            }
+    // Espera o usuário parar de digitar antes de consultar o serviço de endereços
+    LaunchedEffect(busca) {
+        erro = null
+        if (!buscaCompleta(busca)) {
+            resultados = emptyList()
+            return@LaunchedEffect
+        }
+        delay(600)
+        buscando = true
+        try {
+            resultados = buscar(busca)
+        } catch (e: ApiErro) {
+            resultados = emptyList()
+            erro = e.message
+        } finally {
+            buscando = false
         }
     }
 
@@ -81,19 +90,27 @@ fun BuscarEnderecoOverlay(
             .fillMaxSize()
             .clickableNoRipple { } // impede que toques atravessem para a tela de baixo
     ) {
-        // Área do mapa (provisória)
+        // Área superior escurecida, com a explicação da busca
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(CorMapaProvisoria)
+                .background(Color.Black.copy(alpha = 0.45f))
         ) {
-            Text(
-                "Mapa",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 14.sp,
-                modifier = Modifier.align(Alignment.Center)
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(32.dp)
+            ) {
+                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Endereços dos Correios, consultados no ViaCEP",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+            }
 
             IconButton(
                 onClick = onClose,
@@ -138,7 +155,7 @@ fun BuscarEnderecoOverlay(
             OutlinedTextField(
                 value = busca,
                 onValueChange = { busca = it },
-                placeholder = { Text("Buscar rua, bairro ou cidade") },
+                placeholder = { Text("CEP ou rua, cidade, UF") },
                 leadingIcon = {
                     Icon(Icons.Filled.Search, contentDescription = null, tint = TextGray)
                 },
@@ -156,8 +173,22 @@ fun BuscarEnderecoOverlay(
             Spacer(modifier = Modifier.height(12.dp))
 
             when {
-                busca.isBlank() -> Text(
-                    "Digite o nome da rua para buscar.",
+                buscando -> LinearProgressIndicator(
+                    color = NavyBlue,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp)
+                )
+
+                erro != null -> Text(
+                    erro.orEmpty(),
+                    fontSize = 13.sp,
+                    color = TextGray,
+                    modifier = Modifier.padding(vertical = 16.dp)
+                )
+
+                !buscaCompleta(busca) -> Text(
+                    "Digite o CEP ou o endereço no formato: rua, cidade, UF.\nEx.: Avenida Paulista, São Paulo, SP",
                     fontSize = 13.sp,
                     color = TextGray,
                     modifier = Modifier.padding(vertical = 16.dp)

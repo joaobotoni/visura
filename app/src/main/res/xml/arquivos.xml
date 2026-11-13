@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pastas que o FileProvider expõe: fotos tiradas pela câmera e laudos em PDF para compartilhar. -->
+<paths>
+    <cache-path name="fotos" path="fotos/" />
+    <cache-path name="laudos" path="laudos/" />
+</paths>

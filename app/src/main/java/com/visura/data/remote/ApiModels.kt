@@ -25,7 +25,16 @@ data class RegisterRequest(
 
 data class RefreshRequest(val refreshToken: String)
 
-data class UserResponse(val id: String?, val name: String?, val email: String?)
+data class GoogleLoginRequest(val idToken: String, val device: DeviceRequest)
+
+// Recuperação de senha: o código de 6 dígitos vai para o e-mail da conta
+data class RecoveryRequest(val email: String)
+
+data class RecoveryCodeRequest(val email: String, val code: String)
+
+data class ResetPasswordRequest(val email: String, val code: String, val newPassword: String)
+
+data class UserResponse(val id: String?, val name: String?, val email: String?, val cpf: String?)
 
 data class TokenResponse(val accessToken: String?, val refreshToken: String?, val expiresIn: Long?)
 
@@ -109,20 +118,28 @@ data class PersonSummaryResponse(val id: String?, val type: String?, val name: S
 
 data class InspectionRequest(val property: String, val type: String, val entry: String?, val notes: String?)
 
+data class ResponsibleResponse(val id: String?, val name: String?)
+
+// Andamento calculado pela API: ambientes, os concluídos (todos os itens avaliados), itens e os avaliados
+data class ProgressResponse(val rooms: Int?, val completed: Int?, val items: Int?, val evaluated: Int?)
+
 data class InspectionResponse(
     val id: String?,
     val property: String?,
+    val responsible: ResponsibleResponse?,
     val type: String?,
     val status: String?,
     val entry: String?,
     val notes: String?,
     val startedAt: String?,
-    val finishedAt: String?
+    val finishedAt: String?,
+    val progress: ProgressResponse?
 )
 
 data class InspectionDetailResponse(
     val id: String?,
     val property: String?,
+    val responsible: ResponsibleResponse?,
     val type: String?,
     val status: String?,
     val entry: String?,
@@ -156,6 +173,7 @@ data class ItemRequest(
     val description: String? = null,
     val condition: String? = null,
     val material: String? = null,
+    val color: String? = null,
     val notes: String? = null
 )
 
@@ -166,6 +184,7 @@ data class ItemResponse(
     val description: String?,
     val condition: String?,
     val material: String?,
+    val color: String?,
     val notes: String?,
     val origin: String?
 )

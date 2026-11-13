@@ -6,6 +6,10 @@ import com.visura.data.remote.AddressResponse
 import com.visura.data.remote.AuthenticationResponse
 import com.visura.data.remote.CompanyAccountRequest
 import com.visura.data.remote.DeviceRequest
+import com.visura.data.remote.GoogleLoginRequest
+import com.visura.data.remote.RecoveryCodeRequest
+import com.visura.data.remote.RecoveryRequest
+import com.visura.data.remote.ResetPasswordRequest
 import com.visura.data.remote.IndividualRequest
 import com.visura.data.remote.InspectionDetailResponse
 import com.visura.data.remote.InspectionRequest
@@ -14,6 +18,7 @@ import com.visura.data.remote.ItemRequest
 import com.visura.data.remote.ItemResponse
 import com.visura.data.remote.LoginRequest
 import com.visura.data.remote.OwnerRequest
+import com.visura.data.remote.PageResponse
 import com.visura.data.remote.ParticipantRequest
 import com.visura.data.remote.PersonCompanyRequest
 import com.visura.data.remote.PersonResponse
@@ -39,13 +44,13 @@ import com.visura.ui.screens.imoveis.TipoImovel
 import com.visura.ui.screens.imoveis.VistoriaHistorico
 import com.visura.ui.screens.vistoria.TipoVistoria
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 data class Perfil(val nome: String, val email: String, val cpf: String, val cnpj: String)
 
@@ -57,7 +62,12 @@ data class VistoriaCompleta(
     val imovel: Imovel?,
     val pessoas: List<PessoaVinculada>,
     val ambientes: List<Ambiente>,
-    val finalizada: Boolean
+    val finalizada: Boolean,
+    val tipo: TipoVistoria = TipoVistoria.ENTRADA,
+    val responsavel: String = "",
+    val iniciadaEm: String = "",
+    val finalizadaEm: String = "",
+    val observacoes: String = ""
 )
 
 // Ponte entre as telas e a API: chama os endpoints e converte as respostas nos modelos que as telas já usam.
@@ -70,14 +80,34 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
         abrirSessao(api.entrar(LoginRequest(email.trim(), senha, dispositivo())))
     }
 
+    // Login com Google: a API confere o ID token e entra na conta que usa o mesmo e-mail.
+    suspend fun entrarComGoogle(idToken: String) = chamar {
+        abrirSessao(api.entrarComGoogle(GoogleLoginRequest(idToken, dispositivo())))
+    }
+
+    // Recuperação de senha: a API responde igual exista a conta ou não.
+    suspend fun pedirCodigo(email: String) = chamar {
+        api.pedirCodigo(RecoveryRequest(email.trim())).exigirSucesso()
+    }
+
+    suspend fun conferirCodigo(email: String, codigo: String) = chamar {
+        api.conferirCodigo(RecoveryCodeRequest(email.trim(), codigo)).exigirSucesso()
+    }
+
+    // Grava a nova senha. A API encerra todas as sessões; quem chama entra em seguida com a senha nova.
+    suspend fun redefinirSenha(email: String, codigo: String, senha: String) = chamar {
+        api.redefinirSenha(ResetPasswordRequest(email.trim(), codigo, senha)).exigirSucesso()
+    }
+
     suspend fun registrar(nome: String, cpf: String, email: String, senha: String) = chamar {
         abrirSessao(api.registrar(RegisterRequest(nome.trim(), cpf, email.trim(), senha, dispositivo())))
         sessao.cpf = cpf
     }
 
-    // Cadastro como pessoa jurídica: depois de criar o usuário, cria a empresa com ele como sócio.
-    suspend fun cadastrarEmpresa(razaoSocial: String, nomeFantasia: String, cnpj: String) = chamar {
-        api.cadastrarEmpresa(CompanyAccountRequest(razaoSocial.trim(), nomeFantasia.trim(), cnpj, PAPEL_SOCIO))
+    // Cadastro como pessoa jurídica: depois de criar o usuário, cria a empresa com o papel escolhido
+    // (sócio, representante ou MEI, os papéis de administrador).
+    suspend fun cadastrarEmpresa(razaoSocial: String, nomeFantasia: String, cnpj: String, papel: String) = chamar {
+        api.cadastrarEmpresa(CompanyAccountRequest(razaoSocial.trim(), nomeFantasia.trim(), cnpj, papel))
         Unit
     }
 
@@ -118,39 +148,35 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
             Perfil(
                 nome = u.name.orEmpty(),
                 email = u.email.orEmpty(),
-                cpf = sessao.cpf?.let(::formatarCpf).orEmpty(),
+                cpf = (u.cpf ?: sessao.cpf)?.let(::formatarCpf).orEmpty(),
                 cnpj = empresas.await().firstOrNull()?.cnpj?.let(::formatarCnpj).orEmpty()
             )
         }
     }
 
-    // Vistorias do usuário para a Home, com o imóvel e o progresso dos ambientes de cada uma.
+    // Vistorias do usuário para a Home. A API já devolve o andamento e o responsável de cada uma
+    // (numa empresa, pode ser outro membro), então bastam duas chamadas.
     suspend fun vistoriasDaHome(): List<Vistoria> = chamar {
         coroutineScope {
-            val vistorias = async { api.vistorias().items.orEmpty() }
-            val imoveis = async { api.imoveis().items.orEmpty().associateBy { it.id } }
+            val vistorias = async { todasAsPaginas { api.vistorias(page = it) } }
+            val imoveis = async { todasAsPaginas { api.imoveis(page = it) }.associateBy { it.id } }
             val lista = vistorias.await()
             val porId = imoveis.await()
-            val responsavel = sessao.usuario?.nome.orEmpty()
 
             lista.map { v ->
-                async {
-                    val detalhe = api.vistoria(v.id.orEmpty())
-                    val imovel = porId[v.property] ?: v.property?.let { api.imovel(it) }
-                    val ambientes = detalhe.rooms.orEmpty().map { it.paraAmbiente() }
-                    Vistoria(
-                        id = v.id.orEmpty(),
-                        imovelId = v.property.orEmpty(),
-                        titulo = imovel?.let(::nomeDoImovel) ?: "Imóvel",
-                        endereco = imovel?.address?.let(::enderecoCurto).orEmpty(),
-                        status = statusDe(v.status),
-                        data = formatarData(v.startedAt),
-                        ambientesFeitos = ambientes.count { it.itens.isNotEmpty() && it.itensAvaliados == it.itens.size },
-                        ambientesTotais = ambientes.size,
-                        responsavel = responsavel
-                    )
-                }
-            }.awaitAll()
+                val imovel = porId[v.property]
+                Vistoria(
+                    id = v.id.orEmpty(),
+                    imovelId = v.property.orEmpty(),
+                    titulo = imovel?.let(::nomeDoImovel) ?: "Imóvel",
+                    endereco = imovel?.address?.let(::enderecoCurto).orEmpty(),
+                    status = statusDe(v.status),
+                    data = formatarData(v.startedAt),
+                    ambientesFeitos = v.progress?.completed ?: 0,
+                    ambientesTotais = v.progress?.rooms ?: 0,
+                    responsavel = v.responsible?.name ?: sessao.usuario?.nome.orEmpty()
+                )
+            }
         }
     }
 
@@ -160,7 +186,7 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
         coroutineScope {
             val imovel = async { api.imovel(id) }
             val donos = async { api.proprietarios(id) }
-            val vistorias = async { api.vistorias(imovel = id).items.orEmpty() }
+            val vistorias = async { todasAsPaginas { api.vistorias(imovel = id, page = it) } }
             montarImovel(imovel.await(), donos.await(), vistorias.await())
         }
     }
@@ -209,7 +235,7 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
     // ---------------- Pessoas ----------------
 
     suspend fun pessoasCadastradas(): List<PessoaVinculada> = chamar {
-        api.pessoas().items.orEmpty().map { it.paraPessoa(PapelPessoa.PROPRIETARIO) }
+        todasAsPaginas { api.pessoas(page = it) }.map { it.paraPessoa(PapelPessoa.PROPRIETARIO) }
     }
 
     suspend fun proprietariosDoImovel(imovelId: String): List<PessoaVinculada> = chamar {
@@ -233,7 +259,7 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
     // Na saída, a API exige a última vistoria de entrada finalizada do imóvel e copia os ambientes dela.
     suspend fun iniciarVistoria(imovelId: String, tipo: TipoVistoria, observacoes: String): String = chamar {
         val entrada = if (tipo == TipoVistoria.SAIDA) {
-            api.vistorias(imovel = imovelId, status = STATUS_FINALIZADA).items.orEmpty()
+            todasAsPaginas { api.vistorias(imovel = imovelId, status = STATUS_FINALIZADA, page = it) }
                 .filter { it.type == TIPO_ENTRADA }
                 .maxByOrNull { it.finishedAt.orEmpty() }
                 ?.id
@@ -282,7 +308,12 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
                 imovel = imovel?.await(),
                 pessoas = pessoas.await(),
                 ambientes = detalhe.rooms.orEmpty().map { it.paraAmbiente() },
-                finalizada = detalhe.status == STATUS_FINALIZADA
+                finalizada = detalhe.status == STATUS_FINALIZADA,
+                tipo = tipoVistoriaDe(detalhe.type),
+                responsavel = detalhe.responsible?.name.orEmpty(),
+                iniciadaEm = formatarDataHora(detalhe.startedAt),
+                finalizadaEm = formatarDataHora(detalhe.finishedAt),
+                observacoes = detalhe.notes.orEmpty()
             )
         }
     }
@@ -326,48 +357,73 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
     // Item sem id da API (ou com id local) é criado; com id, é alterado.
     suspend fun salvarItem(ambienteId: String, item: ItemAmbiente, novo: Boolean): ItemAmbiente = chamar {
         val resposta = if (novo) api.adicionarItem(ambienteId, item.paraRequest())
-        else api.alterarItem(item.id, item.paraRequest())
-        resposta.paraItem(item.fotos)
+        else api.alterarItem(item.id, item.paraEdicao())
+        resposta.paraItem(item.fotos).copy(fotosIds = item.fotosIds)
+    }
+
+    suspend fun removerAmbiente(ambienteId: String) = chamar {
+        api.removerAmbiente(ambienteId).exigirSucesso()
     }
 
     suspend fun removerItem(itemId: String) = chamar {
         api.removerItem(itemId).exigirSucesso()
     }
 
-    // Envia uma foto (JPEG) como evidência do item.
-    suspend fun enviarFoto(ambienteId: String, itemId: String, jpeg: ByteArray) = chamar {
+    // Envia uma foto (JPEG) como evidência do item e devolve o id da evidência.
+    suspend fun enviarFoto(ambienteId: String, itemId: String, jpeg: ByteArray): String = chamar {
         val arquivo = MultipartBody.Part.createFormData(
             "file", "foto.jpg", jpeg.toRequestBody("image/jpeg".toMediaType())
         )
-        api.enviarEvidencia(ambienteId, arquivo, itemId.toRequestBody("text/plain".toMediaType()))
-        Unit
+        api.enviarEvidencia(ambienteId, arquivo, itemId.toRequestBody("text/plain".toMediaType())).id.orEmpty()
+    }
+
+    // Baixa a foto de uma evidência (para o laudo em PDF).
+    suspend fun baixarFoto(evidenciaId: String): ByteArray = chamar {
+        api.evidencia(evidenciaId).use { it.bytes() }
     }
 
     // ---------------- Conversões ----------------
+
+    // A API devolve no máximo 50 registros por página: junta as páginas até completar o total.
+    private suspend fun <T> todasAsPaginas(pagina: suspend (Int) -> PageResponse<T>): List<T> {
+        val todos = mutableListOf<T>()
+        var numero = 0
+        while (numero < LIMITE_DE_PAGINAS) {
+            val atual = pagina(numero)
+            val itens = atual.items.orEmpty()
+            todos += itens
+            if (itens.isEmpty() || todos.size >= (atual.total ?: 0L)) break
+            numero++
+        }
+        return todos
+    }
 
     private fun retrofit2.Response<Unit>.exigirSucesso() {
         if (!isSuccessful) throw retrofit2.HttpException(this)
     }
 
     private fun RoomResponse.paraAmbiente(): Ambiente {
-        val fotosPorItem = evidences.orEmpty().groupingBy { it.item }.eachCount()
+        val fotosPorItem = evidences.orEmpty().filter { it.id != null }.groupBy({ it.item }, { it.id.orEmpty() })
         return Ambiente(
             id = id.orEmpty(),
             nome = name.orEmpty(),
-            itens = items.orEmpty().map { it.paraItem(fotosPorItem[it.id] ?: 0) },
+            itens = items.orEmpty().map { it.paraItem(fotosPorItem[it.id].orEmpty()) },
             observacoes = notes.orEmpty()
         )
     }
 
+    private fun ItemResponse.paraItem(fotos: List<String>): ItemAmbiente = paraItem(fotos.size).copy(fotosIds = fotos)
+
     private fun ItemResponse.paraItem(fotos: Int): ItemAmbiente {
-        val (cor, obs) = separarCor(notes.orEmpty())
+        // Itens gravados antes do campo de cor na API guardavam a cor na primeira linha das observações
+        val (corAntiga, obs) = if (color.isNullOrBlank()) separarCor(notes.orEmpty()) else "" to notes.orEmpty()
         return ItemAmbiente(
             id = id.orEmpty(),
             nome = name.orEmpty(),
             estado = EstadoItem.entries.firstOrNull { it.valorApi == condition },
             descricao = description.orEmpty(),
             material = material.orEmpty(),
-            cor = cor,
+            cor = color?.takeIf { it.isNotBlank() } ?: corAntiga,
             observacoes = obs,
             fotos = fotos
         )
@@ -378,7 +434,18 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
         description = descricao.trim().ifBlank { null },
         condition = estado?.valorApi,
         material = material.trim().ifBlank { null },
-        notes = juntarCor(cor.trim(), observacoes.trim()).ifBlank { null }
+        color = cor.trim().ifBlank { null },
+        notes = observacoes.trim().ifBlank { null }
+    )
+
+    // Na edição (PATCH), null é "não mexer": o campo que o usuário apagou vai como texto vazio, que a API apaga.
+    private fun ItemAmbiente.paraEdicao() = ItemRequest(
+        name = nome.trim(),
+        description = descricao.trim(),
+        condition = estado?.valorApi,
+        material = material.trim(),
+        color = cor.trim(),
+        notes = observacoes.trim()
     )
 
     private fun PersonSummaryResponse.paraPessoa(papel: PapelPessoa) = PessoaVinculada(
@@ -398,23 +465,21 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
     )
 
     private companion object {
-        const val PAPEL_SOCIO = "socio"
         const val PAPEL_PROPRIETARIO = "proprietario"
         const val PAPEL_INQUILINO = "inquilino"
         const val TIPO_ENTRADA = "entrada"
         const val TIPO_SAIDA = "saida"
         const val STATUS_FINALIZADA = "finalizada"
         const val PESSOA_JURIDICA = "pj"
+        const val LIMITE_DE_PAGINAS = 40
     }
 }
 
 // ---------------- Formatação ----------------
 
-// A API não tem campo de cor no item: guardamos como primeira linha das observações ("Cor: Branco").
+// Antes de a API ter o campo de cor, o app gravava a cor na primeira linha das observações ("Cor: Branco").
+// Só a leitura continua, para os itens antigos.
 private const val PREFIXO_COR = "Cor: "
-
-internal fun juntarCor(cor: String, observacoes: String): String =
-    if (cor.isBlank()) observacoes else listOf(PREFIXO_COR + cor, observacoes).filter { it.isNotBlank() }.joinToString("\n")
 
 internal fun separarCor(notas: String): Pair<String, String> {
     if (!notas.startsWith(PREFIXO_COR)) return "" to notas
@@ -441,12 +506,21 @@ private fun enderecoCurto(a: AddressResponse) = "${a.street.orEmpty()}, ${a.numb
 private fun enderecoCompleto(a: AddressResponse) =
     "${a.street.orEmpty()}, ${a.number.orEmpty()} — ${a.district.orEmpty()}, ${a.city.orEmpty()}/${a.state.orEmpty()}"
 
-// "2026-07-18T13:45:00Z" -> "18 jul 2026"
-internal fun formatarData(instante: String?): String {
-    if (instante.isNullOrBlank() || instante.length < 10) return ""
+// "2026-07-18T13:45:00Z" -> "18 jul 2026" (no fuso do aparelho: 23h em Brasília ainda é o mesmo dia)
+internal fun formatarData(instante: String?, fuso: TimeZone = TimeZone.getDefault()): String =
+    formatarInstante(instante, "dd MMM yyyy", fuso).replace(".", "")
+
+// "2026-07-18T13:45:00Z" -> "18/07/2026 10:45" (no fuso do aparelho)
+internal fun formatarDataHora(instante: String?, fuso: TimeZone = TimeZone.getDefault()): String =
+    formatarInstante(instante, "dd/MM/yyyy HH:mm", fuso)
+
+// A API devolve instantes em UTC (ISO 8601, terminados em Z). Lê até os segundos e formata no fuso pedido.
+private fun formatarInstante(instante: String?, padrao: String, fuso: TimeZone): String {
+    if (instante.isNullOrBlank() || instante.length < 19) return ""
     return try {
-        val data = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).parse(instante.substring(0, 10)) ?: return ""
-        SimpleDateFormat("dd MMM yyyy", Locale.forLanguageTag("pt-BR")).format(data).replace(".", "")
+        val entrada = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        val data = entrada.parse(instante.take(19)) ?: return ""
+        SimpleDateFormat(padrao, Locale.forLanguageTag("pt-BR")).apply { timeZone = fuso }.format(data)
     } catch (_: Exception) {
         ""
     }

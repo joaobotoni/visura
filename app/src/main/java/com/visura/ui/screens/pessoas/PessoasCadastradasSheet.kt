@@ -31,14 +31,17 @@ fun PessoasCadastradasSheet(
     var busca by remember { mutableStateOf("") }
 
     // Quem já está na vistoria não aparece de novo; a busca olha nome e documento
+    // O documento vem formatado ("CPF 123.456.789-09"): a busca por número compara só os dígitos
     val resultados = remember(busca, jaVinculadas, cadastradas) {
         val idsVinculados = jaVinculadas.map { it.id }.toSet()
+        val termo = busca.trim()
+        val digitos = termo.filter { it.isDigit() }
         cadastradas
             .filter { it.id !in idsVinculados }
             .filter {
-                busca.isBlank() ||
-                        it.nome.contains(busca.trim(), ignoreCase = true) ||
-                        it.documento.contains(busca.trim())
+                termo.isEmpty() ||
+                        it.nome.contains(termo, ignoreCase = true) ||
+                        (digitos.isNotEmpty() && it.documento.filter { c -> c.isDigit() }.contains(digitos))
             }
     }
 

@@ -1,18 +1,26 @@
 package com.visura.ui.screens.ambientes
 
+import android.content.ActivityNotFoundException
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import com.visura.data.novaFotoDaCamera
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,23 +45,77 @@ fun ItemScreen(
     nomeDoAmbiente: String,
     itemInicial: ItemAmbiente = ItemAmbiente(nome = ""),
     onBackClick: () -> Unit = {},
-    onSaveClick: (ItemAmbiente) -> Unit = {},
-    // Recebe a foto escolhida e avisa pelo segundo parâmetro quando o envio deu certo.
-    // null quando o item ainda não existe na API (modo NOVO): as fotos ficam para depois de salvar.
+    // O segundo parâmetro são as fotos tiradas antes de o item existir na API (modo NOVO):
+    // o NavGraph cria o item e depois envia cada uma.
+    onSaveClick: (ItemAmbiente, List<Uri>) -> Unit = { _, _ -> },
+    // Item que já existe na API: recebe a foto e avisa pelo segundo parâmetro quando o envio deu certo.
+    // null no modo NOVO: as fotos ficam guardadas na tela até salvar.
     onFotoEscolhida: ((Uri, () -> Unit) -> Unit)? = null
 ) {
-    var nome by remember { mutableStateOf(itemInicial.nome) }
-    var descricao by remember { mutableStateOf(itemInicial.descricao) }
-    var material by remember { mutableStateOf(itemInicial.material) }
-    var cor by remember { mutableStateOf(itemInicial.cor) }
-    var estado by remember { mutableStateOf(itemInicial.estado) }
-    var observacoes by remember { mutableStateOf(itemInicial.observacoes) }
-    var fotos by remember { mutableIntStateOf(itemInicial.fotos) }
+    // rememberSaveable: abrir a câmera pode fazer o Android recriar a tela, e o que foi digitado não pode se perder
+    var nome by rememberSaveable { mutableStateOf(itemInicial.nome) }
+    var descricao by rememberSaveable { mutableStateOf(itemInicial.descricao) }
+    var material by rememberSaveable { mutableStateOf(itemInicial.material) }
+    var cor by rememberSaveable { mutableStateOf(itemInicial.cor) }
+    var estado by rememberSaveable { mutableStateOf(itemInicial.estado) }
+    var observacoes by rememberSaveable { mutableStateOf(itemInicial.observacoes) }
+    var fotos by rememberSaveable { mutableIntStateOf(itemInicial.fotos) }
+    var fotosPendentes by rememberSaveable { mutableStateOf(listOf<Uri>()) }
+    var escolhendoOrigem by remember { mutableStateOf(false) }
+    var fotoDaCamera by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
 
     val editaNome = modo != ModoItem.AVALIAR
 
+    // Foto nova: envia já (item salvo) ou guarda até salvar (item novo)
+    fun usarFoto(uri: Uri) {
+        val enviar = onFotoEscolhida
+        if (enviar != null) enviar(uri) { fotos++ } else fotosPendentes = fotosPendentes + uri
+    }
+
     val escolherFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) onFotoEscolhida?.invoke(uri) { fotos++ }
+        if (uri != null) usarFoto(uri)
+    }
+    val tirarFoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { tirada ->
+        val uri = fotoDaCamera
+        if (tirada && uri != null) usarFoto(uri)
+        fotoDaCamera = null
+    }
+
+    if (escolhendoOrigem) {
+        AlertDialog(
+            onDismissRequest = { escolhendoOrigem = false },
+            title = { Text("Adicionar foto") },
+            text = {
+                Column {
+                    ListItem(
+                        headlineContent = { Text("Tirar foto") },
+                        leadingContent = { Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = NavyBlue) },
+                        modifier = Modifier.clickableOpcao {
+                            escolhendoOrigem = false
+                            val uri = novaFotoDaCamera(context)
+                            fotoDaCamera = uri
+                            try {
+                                tirarFoto.launch(uri)
+                            } catch (_: ActivityNotFoundException) {
+                                fotoDaCamera = null
+                                Toast.makeText(context, "Nenhum app de câmera neste aparelho. Escolha da galeria.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    )
+                    ListItem(
+                        headlineContent = { Text("Escolher da galeria") },
+                        leadingContent = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null, tint = NavyBlue) },
+                        modifier = Modifier.clickableOpcao {
+                            escolhendoOrigem = false
+                            escolherFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { escolhendoOrigem = false }) { Text("Cancelar") } }
+        )
     }
 
     val (titulo, textoBotao) = when (modo) {
@@ -79,7 +141,8 @@ fun ItemScreen(
                             estado = estado,
                             observacoes = observacoes.trim(),
                             fotos = fotos
-                        )
+                        ),
+                        fotosPendentes
                     )
                 }
             )
@@ -132,15 +195,17 @@ fun ItemScreen(
 
             Rotulo("Evidências fotográficas")
             Spacer(modifier = Modifier.height(8.dp))
-            if (onFotoEscolhida != null) {
-                EvidenciasGrid(
-                    fotos = fotos,
-                    onAdicionarFoto = {
-                        escolherFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }
+            EvidenciasGrid(
+                fotos = fotos + fotosPendentes.size,
+                onAdicionarFoto = { escolhendoOrigem = true }
+            )
+            if (fotosPendentes.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "As fotos serão enviadas quando você salvar o item.",
+                    fontSize = 12.sp,
+                    color = TextGray
                 )
-            } else {
-                Text("Salve o item para poder adicionar fotos.", fontSize = 13.sp, color = TextGray)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -191,3 +256,6 @@ private fun CampoNomeDoItem(nome: String, onNomeChange: (String) -> Unit) {
         )
     }
 }
+
+private fun Modifier.clickableOpcao(onClick: () -> Unit): Modifier =
+    clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick)

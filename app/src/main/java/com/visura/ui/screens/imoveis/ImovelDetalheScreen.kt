@@ -200,6 +200,7 @@ private fun HistoricoCard(vistoria: VistoriaHistorico, onClick: () -> Unit) {
             Chip(textoStatus, bgStatus, corStatus)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(vistoria.data, fontSize = 13.sp, color = TextGray)
+        val acao = if (vistoria.status == StatusVistoria.CONCLUIDA) "toque para gerar o laudo em PDF" else "toque para continuar"
+        Text("${vistoria.data} · $acao", fontSize = 13.sp, color = TextGray)
     }
 }

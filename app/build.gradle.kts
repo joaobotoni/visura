@@ -29,6 +29,11 @@ android {
         }
         val apiUrl = localProperties.getProperty("visura.api.url", "http://10.0.2.2:8080/api/1/")
         buildConfigField("String", "API_BASE_URL", "\"$apiUrl\"")
+
+        // Login com Google: o client ID do tipo "Web application" do projeto no Google Cloud, o mesmo
+        // configurado na API (GOOGLE_CLIENT_ID). Vazio desliga o botão.
+        val googleClientId = localProperties.getProperty("visura.google.client.id", "")
+        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"$googleClientId\"")
     }
 
     buildTypes {
@@ -69,4 +74,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
+    implementation(libs.androidx.exifinterface)
 }

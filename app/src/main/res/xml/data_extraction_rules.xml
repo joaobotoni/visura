@@ -4,16 +4,11 @@
    for details.
 -->
 <data-extraction-rules>
+    <!-- Tokens de sessão e o id do dispositivo não saem do aparelho (backup na nuvem nem transferência). -->
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="visura_sessao.xml"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="visura_sessao.xml"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

@@ -27,7 +27,8 @@ data class ItemAmbiente(
     val material: String = "",
     val cor: String = "",
     val observacoes: String = "",
-    val fotos: Int = 0 // SIMULAÇÃO — por enquanto só conta as fotos; a câmera ainda não existe
+    val fotos: Int = 0,
+    val fotosIds: List<String> = emptyList() // ids das evidências na API, usados no laudo em PDF
 )
 
 data class Ambiente(
