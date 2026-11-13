@@ -30,7 +30,7 @@ Para o app, use `./gradlew` (Git Bash) ou `.\gradlew.bat` (PowerShell), na raiz:
 
 O build usa o AGP `9.3.0-alpha09`, então exige um Android Studio recente e compatível. Também usa compileSdk/targetSdk 37 e minSdk 24, com JVM target 11. As versões ficam em `gradle/libs.versions.toml`. O app não tem testes além dos exemplos do template.
 
-O endereço da API vem de `visura.api.url` no `local.properties` e vira `BuildConfig.API_BASE_URL`. Ele precisa terminar em `/api/1/`. O padrão é `http://10.0.2.2:8080/api/1/`, que é o localhost do computador visto pelo emulador. Num aparelho físico, use o IP do computador na rede. O HTTP sem TLS só é liberado no build de debug (`app/src/debug/AndroidManifest.xml`).
+O endereço da API vem de `visura.api.url` no `local.properties` e vira `BuildConfig.API_BASE_URL`. O client ID do login com Google vem de `visura.google.client.id` e vira `BuildConfig.GOOGLE_CLIENT_ID`. Vazio, o botão do Google só avisa que não está configurado. Ele precisa terminar em `/api/1/`. O padrão é `http://10.0.2.2:8080/api/1/`, que é o localhost do computador visto pelo emulador. Num aparelho físico, use o IP do computador na rede. O HTTP sem TLS só é liberado no build de debug (`app/src/debug/AndroidManifest.xml`).
 
 Para a API, rode os comandos dentro de `backend/`:
 
@@ -39,7 +39,7 @@ Para a API, rode os comandos dentro de `backend/`:
 ./mvnw test                        # testes (os de fluxo sobem um PostgreSQL embutido; não precisam de banco instalado)
 ```
 
-Para subir a API de verdade, é preciso um PostgreSQL 17 com `pg_cron` e as variáveis de ambiente listadas em `backend/README.md`.
+Para subir a API de verdade, é preciso um PostgreSQL 17 com `pg_cron` e as variáveis de ambiente listadas em `backend/README.md`. O `backend/compose.yaml` sobe esse PostgreSQL e o Mailpit, que recebe os e-mails da recuperação de senha. O `README.md` da raiz mostra como rodar tudo.
 
 ## Arquitetura do app
 
@@ -49,15 +49,20 @@ O código fica em `app/src/main/java/com/visura/`. Não há Hilt nem ViewModels.
   - `remote/`: `VisuraApi` é a interface Retrofit com os endpoints. `ApiModels.kt` traz os DTOs JSON, com campos em inglês iguais aos do Spring e anuláveis, porque o Gson ignora a nulabilidade do Kotlin. O `ApiClient` põe o access token em cada chamada e, num 401, troca o refresh token e repete a chamada uma vez. Se a API recusar o refresh, limpa a sessão e liga `Sessao.expirou`, e o `NavGraph` volta ao login. Falha de rede não derruba a sessão.
   - `Sessao` guarda tokens, nome, e-mail, CPF e o id do dispositivo no SharedPreferences. A API não devolve o CPF do usuário, então o app guarda o que foi digitado no cadastro.
   - `VisuraRepositorio` chama a API e converte as respostas nos modelos das telas. Toda falha vira `ApiErro`, já com a mensagem para o usuário. `chamar { }` (em `ApiErro.kt`) faz essa conversão e usa o `errors[].message` ou o `detail` do erro RFC 9457 da API.
-  - A API não tem campo de cor no item. A cor é gravada como primeira linha das observações (`Cor: Bege`) e separada de novo na leitura (`juntarCor`/`separarCor`).
-  - `prepararFoto` (`Fotos.kt`) converte a foto da galeria em JPEG de até 2048 px antes do upload.
+  - A cor do item vai no campo `color` da API. Itens antigos guardavam a cor na primeira linha das observações (`Cor: Bege`); a leitura ainda separa esse formato (`separarCor`) quando `color` vem vazio.
+  - `prepararFoto` (`Fotos.kt`) converte a foto da câmera ou da galeria em JPEG de até 2048 px antes do upload. `novaFotoDaCamera` cria o arquivo temporário que a câmera grava, exposto pelo `FileProvider` (`${applicationId}.arquivos`, `res/xml/arquivos.xml`), que também entrega o laudo em PDF ao compartilhar.
+  - `BuscaDeEndereco` consulta o ViaCEP (`remote/ViaCepApi.kt`, fora da API do Visura), pelo CEP ou por "rua, cidade, UF".
+  - `gerarLaudo` (`Laudo.kt`) monta o laudo em PDF no aparelho, com `PdfDocument`, a partir da `VistoriaCompleta` e das fotos baixadas de `GET evidences/{id}`.
+  - `pedirContaGoogle` (`LoginGoogle.kt`) abre o seletor do Credential Manager e devolve o ID token, que vai para `POST auth/google`. Se a API responder 404 (não há conta com o e-mail), o `NavGraph` abre o cadastro com nome e e-mail preenchidos.
 - **Navegação** (`ui/navigation/`): as rotas são constantes string no objeto `Routes`, com funções que montam o caminho. Os ids nas rotas são os UUIDs da API. `VisuraNavGraph` é o único `NavHost`. O destino inicial é `HOME` quando há sessão salva e `LOGIN` quando não há. As telas nunca recebem o `NavController` nem o repositório: elas expõem callbacks com os dados digitados, e o `NavGraph.kt` chama a API e navega.
   - `executar { }` roda uma ação da API. Enquanto ela roda, a tela fica bloqueada e aparece uma barra de progresso. Um erro aparece num snackbar global.
   - `Carregar(chaves, carregar = { ... }) { dados, recarregar -> }` (`ui/components/Carregamento.kt`) busca os dados de uma tela e mostra o progresso ou o erro com "Tentar de novo".
   - Os ambientes da vistoria aberta ficam no estado `ambientes`, acima do `NavHost`, e são recarregados da API toda vez que a lista de ambientes abre. As telas de ambiente e item leem desse estado e o atualizam com a resposta de cada chamada.
   - Fluxo da vistoria: `NOVA_VISTORIA` cria a vistoria na API e é tirada da pilha, depois `PESSOAS_VINCULADAS` (`{imovelId}/{vistoriaId}`), `AMBIENTES`, `REVISAO` (que finaliza na API) e `CONCLUSAO`. Tocar numa vistoria em andamento no detalhe do imóvel retoma a partir das pessoas.
-- **Telas** (`ui/screens/<funcionalidade>/`): o estado de formulário é local do Compose. Os modelos do domínio são `data class`es simples, definidos junto às telas: `Imovel` e `PessoaVinculada` em `imoveis/Imovel.kt`, `Vistoria` em `home/Vistoria.kt`, `Ambiente`, `ItemAmbiente` e `EstadoItem` em `ambientes/Ambiente.kt`, e `TipoVistoria` em `vistoria/`. Os enums que vão para a API têm `valorApi`: `TipoImovel`, `CategoriaImovel` e `EstadoItem`. Eles só podem ter os valores que a API aceita.
-- **O que ainda é simulado**, porque a API não tem endpoint para isso: a recuperação de senha (as três telas só navegam), o login com Google (o botão mostra um aviso, e a `GoogleAccountPickerScreen` não está no grafo), a busca de endereço (`enderecosDeExemplo` em `BuscarEnderecoOverlay.kt`) e o laudo em PDF (a conclusão compartilha um resumo em texto).
+- **Telas** (`ui/screens/<funcionalidade>/`): o estado de formulário é local do Compose. Os modelos do domínio são `data class`es simples, definidos junto às telas: `Imovel` e `PessoaVinculada` em `imoveis/Imovel.kt`, `Vistoria` em `home/Vistoria.kt`, `Ambiente`, `ItemAmbiente` e `EstadoItem` em `ambientes/Ambiente.kt`, e `TipoVistoria` em `vistoria/`. Os enums que vão para a API têm `valorApi`: `TipoImovel`, `CategoriaImovel`, `EstadoItem` e `PapelNaEmpresa` (o papel de quem cadastra a empresa no cadastro de pessoa jurídica). Eles só podem ter os valores que a API aceita.
+  - Recuperação de senha: e-mail (`auth/password/forgot`), código (`auth/password/verify`) e nova senha (`auth/password/reset`). O e-mail e o código ficam no estado do `NavGraph` entre as etapas, e no fim o app entra com a senha nova.
+  - Item novo: as fotos tiradas antes de salvar ficam na tela e são enviadas pelo `NavGraph` logo depois de criar o item. No item já salvo, cada foto é enviada na hora.
+  - Home: a lista de vistorias da API já traz `progress` (ambientes concluídos e itens avaliados) e `responsible`. Bastam duas chamadas, sem buscar o detalhe de cada vistoria.
 - **Tema** (`ui/theme/`): `VisuraTheme` envolve o app no `MainActivity`, que também ativa o edge-to-edge com barras de sistema transparentes e claras. As telas usam principalmente as cores nomeadas de `Color.kt` (`NavyBlue`, `BorderGray`, `StatusOrangeBg`, …) direto, e não `MaterialTheme.colorScheme`. Os helpers compartilhados são `Modifier.clickableNoRipple` (`theme/Modifiers.kt`), além de `Modifier.cardBorder()` e `StatCard` (`screens/home/HomeShared.kt`, `internal`).
 
 ## Fluxo de Git

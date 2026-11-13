@@ -1,68 +1,82 @@
-# Visura: Plataforma de Vistoria Imobiliária - Android
+# Visura
 
-Bem-vindo ao repositório do aplicativo Android **Visura**, uma plataforma dedicada à vistoria imobiliária. Este documento apresenta as principais tecnologias e técnicas utilizadas no desenvolvimento deste projeto.
+Sistema de vistoria imobiliária: o app Android registra vistorias de entrada e saída, ambiente por ambiente e item por item, com fotos, e gera o laudo em PDF. Os dados ficam numa API REST própria.
 
-##  Visão Geral do Projeto
+O repositório é um monorepo com duas partes de build independente:
 
-O Visura é um aplicativo Android desenvolvido em Kotlin, criado para simplificar o processo de vistoria de imóveis. Ele foi construído usando uma abordagem moderna e organizada para garantir que seja fácil de usar e manter.
+| Pasta | O que é | Tecnologias |
+|---|---|---|
+| raiz (`app/`) | App Android | Kotlin, Jetpack Compose, Navigation Compose, Retrofit, OkHttp, Credential Manager |
+| `backend/` | API REST | Java 17, Spring Boot 4, PostgreSQL 17 com `pg_cron`, Flyway, JWT |
 
-## Como o Aplicativo é Construído (Arquitetura)
+A documentação completa da API (regras de negócio, endpoints, segurança e variáveis de ambiente) está em [backend/README.md](backend/README.md).
 
-O projeto Visura segue um modelo de construção chamado **MVVM (Model-View-ViewModel)**. Pense nele como uma forma de organizar o código para que diferentes partes do aplicativo cuidem de tarefas específicas:
+## O que o app faz
 
--   **View (Tela)**: É o que você vê e interage no aplicativo.
--   **ViewModel (Lógica da Tela)**: Prepara os dados para a tela e lida com as ações que você faz.
--   **Model (Dados e Regras)**: É onde os dados são guardados e as regras de negócio funcionam.
+- **Conta:** cadastro com e-mail e senha, como pessoa física ou jurídica (a empresa é criada com o papel escolhido: sócio, representante legal ou titular MEI), login, login com Google e recuperação de senha por código enviado ao e-mail.
+- **Imóveis:** cadastro com endereço, preenchido pelo CEP ou buscado por "rua, cidade, UF" no ViaCEP.
+- **Vistorias:** entrada ou saída (a saída copia os ambientes da entrada), proprietário e inquilino, ambientes do catálogo ou personalizados e itens com estado, material, cor, observações e fotos da câmera ou da galeria.
+- **Laudo:** ao concluir, o app monta um PDF com os dados, as fotos e as linhas de assinatura e abre o compartilhamento.
+- **Home:** as vistorias com o andamento e o responsável, calculados pela API.
 
-Além disso, usamos um sistema de **Fluxo de Dados Unidirecional**, o que significa que as informações se movem de forma clara e organizada, sempre em uma direção, tornando o aplicativo mais previsível e fácil de entender.
+## Arquitetura do app
 
-### Estrutura do Código
+O código fica em `app/src/main/java/com/visura/`. Não há ViewModels nem injeção de dependência: a arquitetura é propositalmente enxuta.
 
-O código é dividido em partes para facilitar o trabalho:
+- `data/`: `VisuraRepositorio` chama a API pela interface Retrofit `VisuraApi` e converte as respostas nos modelos das telas. Toda falha vira `ApiErro`, já com a mensagem para o usuário. `Sessao` guarda os tokens e o `ApiClient` renova o access token sozinho. Também ficam aqui a busca de endereço (`BuscaDeEndereco`, ViaCEP), o laudo em PDF (`Laudo.kt`), o preparo das fotos (`Fotos.kt`) e o login com Google (`LoginGoogle.kt`).
+- `ui/navigation/`: `VisuraNavGraph` é o único `NavHost`. Ele chama o repositório e navega. As telas só recebem dados e callbacks.
+- `ui/screens/`: uma pasta por funcionalidade, com o estado de formulário local do Compose.
 
--   **Interface do Usuário (UI)**: Tudo que aparece na tela e como você interage com o aplicativo.
--   **Lógica de Negócio (Domínio)**: As regras e operações principais do aplicativo.
--   **Acesso a Dados (Dados)**: Como o aplicativo busca e guarda informações.
+Os detalhes estão em [CLAUDE.md](CLAUDE.md).
 
-## Tecnologias e Técnicas Usadas
+## Como rodar
 
-O Visura é construído com ferramentas e técnicas modernas do universo Android:
+### 1. API
 
-| Tecnologia/Técnica | O que é e para que usamos |
-| :--- | :--- |
-| **Kotlin** | A linguagem de programação moderna e oficial para criar aplicativos Android. Usamos para escrever todo o código do aplicativo. |
-| **Jetpack Compose** | Uma forma nova e fácil de criar a interface do usuário do aplicativo, tudo de forma visual e interativa. |
-| **Kotlin Coroutines** | Permite que o aplicativo faça várias coisas ao mesmo tempo sem travar, como carregar dados da internet enquanto você usa a tela. |
-| **Kotlin Flow** | Ajuda o aplicativo a lidar com informações que mudam com o tempo, como atualizações de dados em tempo real. |
-| **Hilt (Injeção de Dependência)** | Uma ferramenta que facilita a conexão entre as diferentes partes do aplicativo, tornando-o mais flexível e fácil de testar. |
-| **Firebase Authentication** | Um sistema do Google que gerencia o login e cadastro de usuários, seja por e-mail e senha ou usando sua conta Google. |
+Pré-requisitos: JDK 17+ e Docker.
 
-## Comandos Úteis para Desenvolvedores
-
-Se você for um desenvolvedor, aqui estão alguns comandos que podem ajudar a trabalhar com o projeto:
-
-### Limpar o Projeto
-Este comando remove todos os arquivos temporários de compilações anteriores, deixando o projeto pronto para uma nova construção limpa.
 ```bash
-./gradlew clean
+cd backend
+docker compose up -d                 # PostgreSQL 17 com pg_cron e Mailpit (e-mails em http://localhost:8025)
+./mvnw -DskipTests package
+java -jar target/visura-api-0.0.1-SNAPSHOT.jar
 ```
 
-### Compilar o Projeto
-Este comando constrói o aplicativo, gerando os arquivos de instalação (APK) que podem ser usados em celulares Android.
+A API lê a configuração de variáveis de ambiente, listadas em [backend/README.md](backend/README.md#configuração-e-execução). Para o ambiente do `compose.yaml`:
+
+- **Banco:** `DB_URL=jdbc:postgresql://localhost:5432/visura`, `DB_USERNAME=visura` e `DB_PASSWORD=visura`.
+- **E-mail:** `MAIL_HOST=localhost` e `MAIL_PORT=1025`, com estes argumentos, porque o Mailpit não usa autenticação nem TLS: `--spring.mail.properties.mail.smtp.auth=false --spring.mail.properties.mail.smtp.starttls.enable=false --spring.mail.properties.mail.smtp.starttls.required=false`.
+
+No Git Bash do Windows, defina `MSYS2_ENV_CONV_EXCL='*'` antes de subir a API. Sem isso, uma chave Base64 que comece com `/` é convertida em caminho do Windows e a API não inicia.
+
+### 2. App
+
+Pré-requisitos: um Android Studio recente (o build usa o AGP `9.3.0-alpha09`) e um emulador ou aparelho.
+
 ```bash
-./gradlew build
+./gradlew installDebug
 ```
 
-### Relatório de Assinatura
-Mostra informações sobre como o aplicativo está assinado digitalmente, o que é importante para publicar na loja de aplicativos.
+Configurações opcionais no `local.properties`:
+
+| Chave | Para quê | Padrão |
+|---|---|---|
+| `visura.api.url` | Endereço da API, terminado em `/api/1/` | `http://10.0.2.2:8080/api/1/` (o computador visto pelo emulador) |
+| `visura.google.client.id` | Client ID "Web application" do Google Cloud, o mesmo de `GOOGLE_CLIENT_ID` na API | vazio: o botão do Google avisa que não está configurado |
+
+### Login com Google
+
+1. No Google Cloud Console, crie um client OAuth do tipo **Web application**. O ID dele vai em `visura.google.client.id` (app) e em `GOOGLE_CLIENT_ID` (API).
+2. Crie também um client do tipo **Android**, com o pacote `com.visura` e o SHA-1 do certificado de debug (`./gradlew signingReport`). O Google exige esse client, mas o app não usa o ID dele.
+3. Entra quem já tem conta no Visura com o mesmo e-mail. No primeiro acesso, a conta do Google fica vinculada. Sem conta, o app abre o cadastro com nome e e-mail já preenchidos, porque o cadastro exige CPF.
+
+## Testes
+
 ```bash
-./gradlew signingReport
+./gradlew testDebugUnitTest lint     # app: testes na JVM e lint
+cd backend && ./mvnw test            # API: testes, inclusive de fluxo contra um PostgreSQL embutido
 ```
 
-## 🤝 Contribuição
+## Contribuição
 
-Sua ajuda é muito bem-vinda! Se tiver ideias, encontrar problemas ou quiser adicionar algo novo, fique à vontade para contribuir.
-
-
-## 🔗 Referências
-[Guia de Arquitetura de Apps Android](https://developer.android.com/topic/architecture)
+Leia o [CONTRIBUTING.md](CONTRIBUTING.md). Em resumo: branches `feature/`, `fix/` ou `docs/`, e commits atômicos com prefixo convencional e mensagem em português (`feat: Adiciona ...`).

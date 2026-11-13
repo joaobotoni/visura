@@ -53,6 +53,20 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `upgrade` | gravar o hash recalculado com os parâmetros atuais do Argon2, depois de um login correto | `LocalCredentialService`, `AuthenticationConfig` |
 | `swap` | `replace` que desiste em silêncio se outra troca de senha gravou primeiro | `LocalCredentialService` |
 
+### Recuperação de senha e login com Google
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `request` | caso de uso do pedido de código: gasta o limite da conta e, se a conta existir, emite e envia o código | `RecoveryService` |
+| `confirm` | caso de uso de conferir o código sem trocar a senha | `RecoveryService` |
+| `reset` | caso de uso da nova senha pelo código / gravar a nova senha de quem recuperou a conta | `RecoveryService`, `LocalCredentialService` |
+| `checked` | a recuperação aberta, depois de gastar uma tentativa e conferir o código | `RecoveryService` |
+| `deliver` | emitir o código para o usuário e enviar o e-mail | `RecoveryService` |
+| `restore` | efetivar, numa transação, a senha nova da recuperação (encerra o código, grava, revoga as sessões) | `PasswordService` |
+| `spend` | gastar uma tentativa do código, só se ainda houver saldo | `RecoveryCodeService`, `PasswordRecoveryRepository` |
+| `redeem` | encerrar o código usado; recusa se outro pedido o usou primeiro | `RecoveryCodeService`, `PasswordRecoveryRepository` |
+| `linked` / `bind` / `link` | a conta já vinculada ao Google / achar a conta pelo e-mail confirmado / gravar o vínculo | `GoogleLoginService` |
+
 ### Tokens
 
 | Verbo | Sentido | Onde |
