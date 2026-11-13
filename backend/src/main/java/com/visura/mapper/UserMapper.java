@@ -19,6 +19,7 @@ public interface UserMapper {
 
     @Mapping(target = "id", source = "uuid")
     @Mapping(target = "name", source = "person.name")
+    @Mapping(target = "cpf", source = "person.cpf")
     UserResponse response(User user);
 
     /** O nome da pessoa da conta, que é sempre pessoa física. */

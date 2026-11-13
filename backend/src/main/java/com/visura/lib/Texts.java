@@ -17,6 +17,9 @@ public final class Texts {
 
     private static final Pattern SPACES = Pattern.compile("\\s+");
     private static final Pattern BREAKS = Pattern.compile("\\r\\n?");
+    /** Na edição parcial, o texto vazio que pede para apagar um campo opcional ({@code null} é "não mexer"). */
+    public static final String ERASE = "";
+
     private static final String SPACE = " ";
     private static final String BREAK = "\n";
 
@@ -37,6 +40,25 @@ public final class Texts {
             return null;
         }
         return blank(BREAKS.matcher(Normalizer.normalize(value, Normalizer.Form.NFC)).replaceAll(BREAK).strip());
+    }
+
+    /** Como {@link #clean}, para a edição parcial: texto em branco vira {@link #ERASE} em vez de {@code null}. */
+    public static String erasable(String value) {
+        return value == null ? null : erase(clean(value));
+    }
+
+    /** Como {@link #note}, para a edição parcial: texto em branco vira {@link #ERASE} em vez de {@code null}. */
+    public static String erasableNote(String value) {
+        return value == null ? null : erase(note(value));
+    }
+
+    /** O valor que vai para o banco: {@link #ERASE} vira {@code null}. */
+    public static String stored(String value) {
+        return ERASE.equals(value) ? null : value;
+    }
+
+    private static String erase(String cleaned) {
+        return cleaned == null ? ERASE : cleaned;
     }
 
     private static String blank(String value) {

@@ -20,6 +20,10 @@ public record ItemEditRequest(
         @Pattern(regexp = Texts.SAFE, message = "O material do item contém caracteres inválidos.")
         String material,
 
+        @Size(max = 50, message = "A cor do item deve conter no máximo {max} caracteres.")
+        @Pattern(regexp = Texts.SAFE, message = "A cor do item contém caracteres inválidos.")
+        String color,
+
         @Size(max = 2000, message = "As observações devem conter no máximo {max} caracteres.")
         @Pattern(regexp = Texts.NOTE, message = "As observações contêm caracteres inválidos.")
         String notes
@@ -27,8 +31,9 @@ public record ItemEditRequest(
 
     public ItemEditRequest {
         name = Texts.clean(name);
-        description = Texts.clean(description);
-        material = Texts.clean(material);
-        notes = Texts.note(notes);
+        description = Texts.erasable(description);
+        material = Texts.erasable(material);
+        color = Texts.erasable(color);
+        notes = Texts.erasableNote(notes);
     }
 }

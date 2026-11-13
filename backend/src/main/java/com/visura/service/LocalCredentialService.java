@@ -52,6 +52,12 @@ public class LocalCredentialService {
         localCredentialRepository.change(credential.getId(), credential.getPasswordHash().value(), hash.value());
     }
 
+    @Transactional
+    public void reset(UUID user, PasswordHash hash) {
+        LocalCredential credential = find(user);
+        replace(credential, hash);
+    }
+
     public void upgrade(UUID user, PasswordHash hash) {
         LocalCredential credential = find(user);
         swap(credential, hash);

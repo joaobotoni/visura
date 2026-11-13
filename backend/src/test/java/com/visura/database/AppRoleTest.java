@@ -25,7 +25,7 @@ class AppRoleTest {
     private static final Path ROLE = Path.of("docs/db/app-role.sql");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
             "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql", "V12__empresas_catalogo_enderecos.sql",
-            "V13__regras_integridade_auditoria.sql");
+            "V13__regras_integridade_auditoria.sql", "V14__recuperacao_senha_cor_item.sql");
     private static final String INSUFFICIENT_PRIVILEGE = "42501";
 
     private static EmbeddedPostgres postgres;

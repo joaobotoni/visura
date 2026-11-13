@@ -3,6 +3,7 @@ package com.visura.service;
 import com.visura.database.entity.Inspection;
 import com.visura.database.entity.Property;
 import com.visura.database.entity.User;
+import com.visura.database.repository.InspectionProgress;
 import com.visura.database.repository.InspectionRepository;
 import com.visura.dto.request.InspectionEditRequest;
 import com.visura.dto.request.InspectionQuery;
@@ -11,6 +12,7 @@ import com.visura.dto.request.PageQuery;
 import com.visura.dto.response.InspectionDetailResponse;
 import com.visura.dto.response.InspectionResponse;
 import com.visura.dto.response.PageResponse;
+import com.visura.dto.response.ProgressResponse;
 import com.visura.exception.custom.InspectionException;
 import com.visura.exception.enums.problem.InspectionProblem;
 import com.visura.mapper.InspectionMapper;
@@ -22,7 +24,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Vistorias do usuário responsável. Vistoria de outro usuário, ou removida, responde 404. As regras de estado
@@ -58,7 +63,8 @@ public class InspectionService {
     @Transactional(readOnly = true)
     public PageResponse<InspectionResponse> list(UUID user, InspectionQuery query, PageQuery page) {
         Page<Inspection> found = page(user, query, page);
-        return results(found);
+        Map<Integer, ProgressResponse> progress = progress(found.getContent());
+        return results(found, progress);
     }
 
     @Transactional
@@ -109,7 +115,11 @@ public class InspectionService {
     }
 
     private InspectionResponse show(Inspection inspection) {
-        return inspectionMapper.response(inspection);
+        return inspectionMapper.response(inspection, measure(inspection));
+    }
+
+    private ProgressResponse measure(Inspection inspection) {
+        return tally(List.of(inspection)).getOrDefault(inspection.getId(), ProgressResponse.NONE);
     }
 
     private InspectionDetailResponse detail(Inspection inspection) {
@@ -124,8 +134,21 @@ public class InspectionService {
         return PageRequest.of(page.page(), page.size(), NEWEST);
     }
 
-    private PageResponse<InspectionResponse> results(Page<Inspection> page) {
-        return PageResponse.of(page.map(inspectionMapper::response));
+    private PageResponse<InspectionResponse> results(Page<Inspection> page, Map<Integer, ProgressResponse> progress) {
+        return PageResponse.of(page.map(inspection -> summary(inspection, progress)));
+    }
+
+    private InspectionResponse summary(Inspection inspection, Map<Integer, ProgressResponse> progress) {
+        return inspectionMapper.response(inspection, progress.getOrDefault(inspection.getId(), ProgressResponse.NONE));
+    }
+
+    private Map<Integer, ProgressResponse> tally(List<Inspection> inspections) {
+        return inspectionRepository.progress(ids(inspections)).stream()
+                .collect(Collectors.toMap(InspectionProgress::getInspection, inspectionMapper::progress));
+    }
+
+    private static List<Integer> ids(List<Inspection> inspections) {
+        return inspections.stream().map(Inspection::getId).toList();
     }
 
     private void amend(Inspection inspection, InspectionEditRequest request) {
@@ -142,6 +165,13 @@ public class InspectionService {
 
     private void discard(Inspection inspection) {
         inspectionRepository.remove(inspection.getId());
+    }
+
+    private Map<Integer, ProgressResponse> progress(List<Inspection> inspections) {
+        if (inspections.isEmpty()) {
+            return Map.of();
+        }
+        return tally(inspections);
     }
 
     private Inspection entry(UUID user, UUID entry) {

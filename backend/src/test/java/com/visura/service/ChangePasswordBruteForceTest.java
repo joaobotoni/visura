@@ -46,7 +46,8 @@ class ChangePasswordBruteForceTest {
             new LocalCredentialService(repository, mock(LocalCredentialMapper.class), encoder, Clock.systemUTC());
     private final ChangePasswordService changePasswordService = new ChangePasswordService(
             new PasswordAttemptService(rateLimitPolicy, localCredentialService), localCredentialService,
-            new PasswordService(localCredentialService, mock(SessionService.class), mock(AccessService.class)));
+            new PasswordService(localCredentialService, mock(SessionService.class), mock(AccessService.class),
+                    mock(RecoveryCodeService.class)));
 
     private final User user = Users.ana();
 

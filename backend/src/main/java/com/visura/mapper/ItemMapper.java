@@ -6,6 +6,8 @@ import com.visura.database.entity.Room;
 import com.visura.dto.request.ItemEditRequest;
 import com.visura.dto.request.ItemRequest;
 import com.visura.dto.response.ItemResponse;
+import com.visura.lib.Texts;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -26,6 +28,7 @@ public interface ItemMapper {
     @Mapping(target = "description", source = "request.description")
     @Mapping(target = "condition", source = "request.condition")
     @Mapping(target = "material", source = "request.material")
+    @Mapping(target = "color", source = "request.color")
     @Mapping(target = "notes", source = "request.notes")
     Item entity(Room room, ItemType type, ItemRequest request);
 
@@ -37,6 +40,7 @@ public interface ItemMapper {
     @Mapping(target = "description", ignore = true)
     @Mapping(target = "condition", ignore = true)
     @Mapping(target = "material", ignore = true)
+    @Mapping(target = "color", ignore = true)
     @Mapping(target = "notes", ignore = true)
     @Mapping(target = "room", source = "room")
     @Mapping(target = "type", source = "type")
@@ -52,6 +56,15 @@ public interface ItemMapper {
     @Mapping(target = "origin", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     void amend(ItemEditRequest request, @MappingTarget Item item);
+
+    /** Na edição, campo opcional enviado vazio é apagado; ausente ({@code null}) fica como estava. */
+    @AfterMapping
+    default void erase(ItemEditRequest request, @MappingTarget Item item) {
+        item.setDescription(Texts.stored(item.getDescription()));
+        item.setMaterial(Texts.stored(item.getMaterial()));
+        item.setColor(Texts.stored(item.getColor()));
+        item.setNotes(Texts.stored(item.getNotes()));
+    }
 
     @Mapping(target = "id", source = "uuid")
     @Mapping(target = "type", source = "type.uuid")

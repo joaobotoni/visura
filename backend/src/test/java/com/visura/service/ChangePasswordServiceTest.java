@@ -59,7 +59,8 @@ class ChangePasswordServiceTest {
     private final PasswordEncoder encoder = spy(new BCryptPasswordEncoder(4));
     private final LocalCredentialService localCredentialService =
             new LocalCredentialService(repository, mock(LocalCredentialMapper.class), encoder, Clock.systemUTC());
-    private final PasswordService passwordService = new PasswordService(localCredentialService, sessionService, accessService);
+    private final PasswordService passwordService = new PasswordService(localCredentialService, sessionService, accessService,
+            mock(RecoveryCodeService.class));
     private final ChangePasswordService changePasswordService =
             new ChangePasswordService(new PasswordAttemptService(rateLimitPolicy, localCredentialService), localCredentialService, passwordService);
 

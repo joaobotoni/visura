@@ -10,6 +10,7 @@ import java.util.UUID;
 public record InspectionDetailResponse(
         UUID id,
         UUID property,
+        ResponsibleResponse responsible,
         InspectionType type,
         InspectionStatus status,
         UUID entry,

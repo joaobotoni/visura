@@ -3,10 +3,13 @@ package com.visura.mapper;
 import com.visura.database.entity.Inspection;
 import com.visura.database.entity.Property;
 import com.visura.database.entity.User;
+import com.visura.database.repository.InspectionProgress;
 import com.visura.dto.request.InspectionEditRequest;
 import com.visura.dto.request.InspectionRequest;
 import com.visura.dto.response.InspectionDetailResponse;
 import com.visura.dto.response.InspectionResponse;
+import com.visura.dto.response.ProgressResponse;
+import com.visura.dto.response.ResponsibleResponse;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -48,13 +51,20 @@ public interface InspectionMapper {
     @Mapping(target = "company", ignore = true)
     void amend(InspectionEditRequest request, @MappingTarget Inspection inspection);
 
-    @Mapping(target = "id", source = "uuid")
-    @Mapping(target = "property", source = "property.uuid")
-    @Mapping(target = "entry", source = "entry.uuid")
-    InspectionResponse response(Inspection inspection);
+    @Mapping(target = "id", source = "inspection.uuid")
+    @Mapping(target = "property", source = "inspection.property.uuid")
+    @Mapping(target = "entry", source = "inspection.entry.uuid")
+    @Mapping(target = "progress", source = "progress")
+    InspectionResponse response(Inspection inspection, ProgressResponse progress);
 
     @Mapping(target = "id", source = "uuid")
     @Mapping(target = "property", source = "property.uuid")
     @Mapping(target = "entry", source = "entry.uuid")
     InspectionDetailResponse detail(Inspection inspection);
+
+    @Mapping(target = "id", source = "uuid")
+    @Mapping(target = "name", source = "person.name")
+    ResponsibleResponse responsible(User user);
+
+    ProgressResponse progress(InspectionProgress progress);
 }

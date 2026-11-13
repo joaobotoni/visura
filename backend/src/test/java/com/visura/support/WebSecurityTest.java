@@ -4,6 +4,8 @@ import com.visura.controller.AuthenticationController;
 import com.visura.controller.UserController;
 import com.visura.mapper.TokenMapper;
 import com.visura.service.ChangePasswordService;
+import com.visura.service.GoogleLoginService;
+import com.visura.service.RecoveryService;
 import com.visura.service.LoginService;
 import com.visura.service.RefreshService;
 import com.visura.service.RegisterService;
@@ -40,6 +42,8 @@ import java.lang.annotation.Target;
         ProfileService.class,
         LogoutService.class,
         ChangePasswordService.class,
+        GoogleLoginService.class,
+        RecoveryService.class,
         UserDetailsService.class,
         TokenMapper.class
 })

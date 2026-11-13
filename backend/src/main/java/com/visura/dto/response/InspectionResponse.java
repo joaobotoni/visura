@@ -9,11 +9,13 @@ import java.util.UUID;
 public record InspectionResponse(
         UUID id,
         UUID property,
+        ResponsibleResponse responsible,
         InspectionType type,
         InspectionStatus status,
         UUID entry,
         String notes,
         Instant startedAt,
-        Instant finishedAt
+        Instant finishedAt,
+        ProgressResponse progress
 ) {
 }
