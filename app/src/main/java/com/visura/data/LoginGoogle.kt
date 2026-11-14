@@ -40,5 +40,5 @@ suspend fun pedirContaGoogle(context: Context): ContaGoogle? {
         throw ApiErro("O Google devolveu uma credencial inesperada.")
     }
     val google = GoogleIdTokenCredential.createFrom(credencial.data)
-    return ContaGoogle(google.idToken, google.id, google.displayName.orEmpty())
+    return ContaGoogle(google.idToken, google.email.orEmpty(), google.displayName.orEmpty())
 }

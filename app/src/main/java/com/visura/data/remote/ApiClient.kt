@@ -113,7 +113,7 @@ object ApiClient {
                 .build()
             cliente.newCall(chamada).execute().use { resposta ->
                 val token = if (resposta.isSuccessful) {
-                    gson.fromJson(resposta.body?.string(), TokenResponse::class.java)
+                    gson.fromJson(resposta.body.string(), TokenResponse::class.java)
                 } else null
                 when {
                     token?.accessToken != null && token.refreshToken != null -> Renovacao.Ok(token.accessToken, token.refreshToken)
