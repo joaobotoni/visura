@@ -1,15 +1,13 @@
+# Cada módulo tem o seu .gitignore (app/.gitignore e backend/.gitignore).
+
+# Android Studio / IntelliJ aberto na raiz do repositório
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
+
+# Saídas de builds antigos feitos na raiz (o build do app agora fica em app/)
 /build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
+/.gradle
+/.kotlin
+/local.properties
+
+.DS_Store

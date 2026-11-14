@@ -22,5 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Visura"
-include(":app")
+// app/ é um build Gradle independente: o projeto raiz é o próprio aplicativo.
+// O nome "app" mantém os nomes de saída (app-debug.apk, app-release.apk).
+rootProject.name = "app"
