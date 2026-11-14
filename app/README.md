@@ -1,0 +1,307 @@
+# Visura — App Android
+
+Aplicativo Android do Visura, escrito em Kotlin e Jetpack Compose. Com ele, o vistoriador:
+
+- cadastra imóveis;
+- registra vistorias de entrada e de saída, ambiente por ambiente e item por item, com fotos;
+- gera o laudo em PDF no próprio aparelho.
+
+Todos os dados ficam na [API do Visura](../backend/README.md). O app só guarda localmente a sessão.
+
+## Sumário
+
+- [Responsabilidades](#responsabilidades)
+- [Arquitetura](#arquitetura)
+- [Estrutura de diretórios](#estrutura-de-diretórios)
+- [Fluxos principais](#fluxos-principais)
+- [Navegação e estado](#navegação-e-estado)
+- [Comunicação com a API](#comunicação-com-a-api)
+- [Sessão e autenticação](#sessão-e-autenticação)
+- [Persistência local](#persistência-local)
+- [Câmera, fotos e laudo](#câmera-fotos-e-laudo)
+- [Tecnologias e versões](#tecnologias-e-versões)
+- [Requisitos](#requisitos)
+- [Configuração](#configuração)
+- [Comandos](#comandos)
+- [Contribuição](#contribuição)
+
+## Responsabilidades
+
+- **Conta:**
+  - cadastro com e-mail e senha, em duas etapas, como pessoa física ou jurídica;
+  - login e login com Google;
+  - recuperação de senha por código enviado por e-mail.
+- **Imóveis:** cadastro com tipo, categoria e endereço. O endereço é preenchido pelo CEP ou buscado por "rua, cidade, UF" no ViaCEP.
+- **Vistorias:**
+  - de entrada ou de saída; a de saída copia os ambientes e itens da entrada;
+  - vínculo do proprietário e do inquilino;
+  - ambientes do catálogo da API ou personalizados;
+  - itens com estado, material, cor, observações e fotos.
+- **Laudo:** PDF gerado no aparelho, com os dados, as fotos e as linhas de assinatura, compartilhado pelo seletor do Android.
+- **Home e perfil:** lista de vistorias com o andamento e o responsável calculados pela API, e os dados da conta.
+
+## Arquitetura
+
+O app segue as camadas recomendadas pelo [guia de arquitetura do Android](https://developer.android.com/topic/architecture) (interface → estado → dados), num formato enxuto:
+
+- um único `VisuraViewModel` para o fluxo inteiro;
+- nenhum framework de injeção de dependência: a `VisuraApplication` cria as dependências uma vez, e o ViewModel é criado pela fábrica `VisuraViewModel.Fabrica`.
+
+```mermaid
+flowchart LR
+    subgraph UI["ui/"]
+        S[Telas Compose<br/>ui/screens] -->|callbacks| N[VisuraNavGraph]
+        N -->|chama métodos| VM[VisuraViewModel]
+        VM -->|StateFlow| N
+        VM -->|Eventos: Aviso, Navegar, Compartilhar| N
+    end
+    subgraph DATA["data/"]
+        R[VisuraRepositorio] --> API[VisuraApi - Retrofit]
+        R --> SES[Sessao - SharedPreferences]
+        BE[BuscaDeEndereco] --> VC[ViaCepApi]
+        L[gerarLaudo - PdfDocument]
+    end
+    M[(model/<br/>Vistoria, Imovel, Ambiente)]
+    VM --> R
+    VM --> BE
+    VM --> L
+    R --> M
+    S --> M
+    API -->|HTTPS /api/1/| B[(API Visura)]
+    VC -->|HTTPS| V[(ViaCEP)]
+```
+
+- **Interface (`ui/`):**
+  - As telas não recebem `NavController`, repositório nem ViewModel; elas expõem callbacks com os dados digitados.
+  - O estado de formulário fica na própria tela, com `rememberSaveable`.
+- **Estado (`VisuraViewModel`):**
+  - O ViewModel guarda o estado que passa de uma tela para outra e roda as chamadas à API no `viewModelScope`. Por isso, girar a tela não cancela uma ação.
+  - Ele não guarda Activity nem NavController. O que depende da tela sai como evento.
+- **Dados (`data/`):**
+  - O repositório converte os DTOs da API nos modelos de `model/`.
+  - Toda falha vira `ApiErro`, já com a mensagem pronta para o usuário.
+  - `data/` nunca importa de `ui/`.
+
+## Estrutura de diretórios
+
+```text
+app/
+├── build.gradle.kts           # build do aplicativo (SDKs, BuildConfig, dependências)
+├── settings.gradle.kts        # repositórios e nome do projeto Gradle
+├── gradle.properties          # opções do Gradle (memória, configuration cache)
+├── gradlew, gradlew.bat       # Gradle Wrapper
+├── gradle/
+│   ├── libs.versions.toml     # catálogo de versões das dependências
+│   ├── gradle-daemon-jvm.properties
+│   └── wrapper/               # gradle-wrapper.jar e .properties (Gradle 9.5.0)
+└── src/
+    ├── main/
+    │   ├── AndroidManifest.xml          # permissão INTERNET, Application, Activity e FileProvider
+    │   ├── keepRules/rules.keep         # regras do R8 para os DTOs lidos pelo Gson
+    │   ├── res/                         # tema, ícones, strings e regras de backup e do FileProvider
+    │   └── java/com/visura/
+    │       ├── VisuraApplication.kt     # cria Sessao, cliente da API e VisuraRepositorio uma única vez
+    │       ├── MainActivity.kt          # edge-to-edge, tema e VisuraNavGraph
+    │       ├── model/                   # modelos de domínio (sem Compose)
+    │       ├── data/
+    │       │   ├── VisuraRepositorio.kt # chamadas à API -> modelos de domínio
+    │       │   ├── ApiErro.kt           # erro único com a mensagem para o usuário; chamar { }
+    │       │   ├── Sessao.kt            # tokens e dados da conta (SharedPreferences)
+    │       │   ├── BuscaDeEndereco.kt   # CEP e "rua, cidade, UF" no ViaCEP
+    │       │   ├── Fotos.kt             # JPEG de até 2048 px, rotação do EXIF, arquivo da câmera
+    │       │   ├── Laudo.kt             # laudo em PDF (PdfDocument)
+    │       │   ├── LoginGoogle.kt       # Credential Manager -> ID token
+    │       │   └── remote/              # VisuraApi, ApiModels (DTOs), ApiClient (OkHttp), ViaCepApi
+    │       └── ui/
+    │           ├── navigation/          # Routes, VisuraNavGraph, VisuraViewModel
+    │           ├── components/          # Carregar (progresso, erro e "Tentar de novo")
+    │           ├── screens/             # login, createaccount, forgotpassword, home, imoveis,
+    │           │                        # vistoria, pessoas, ambientes
+    │           └── theme/               # cores, tipografia, VisuraTheme, modifiers
+    ├── debug/AndroidManifest.xml        # libera HTTP sem TLS só no build de debug
+    ├── test/                            # testes na JVM (model/ e data/)
+    └── androidTest/                     # teste instrumentado de exemplo do template
+```
+
+## Fluxos principais
+
+```mermaid
+flowchart TD
+    LOGIN[Login] -->|Criar conta| CA1[Cadastro: dados] --> CA2[Cadastro: documentos] --> HOME
+    LOGIN -->|Esqueci a senha| FP1[E-mail] --> FP2[Código] --> FP3[Nova senha] --> HOME
+    LOGIN -->|Entrar ou Google| HOME[Home]
+    HOME --> NI[Novo imóvel: tipo] --> NI2[Novo imóvel: endereço] --> ID
+    HOME --> ID[Detalhe do imóvel]
+    ID --> NV[Nova vistoria] --> PV[Pessoas vinculadas] --> AMB[Ambientes]
+    ID -->|vistoria em andamento| PV
+    ID -->|vistoria concluída| PDF[[Laudo em PDF]]
+    AMB --> NA[Novo ambiente]
+    AMB --> AD[Ambiente] --> IT[Item: avaliar, editar, fotos]
+    AMB --> REV[Revisão] -->|POST finish| CON[Conclusão] -->|Finalizar e compartilhar| PDF
+```
+
+- **Nova vistoria:**
+  - A tela `NOVA_VISTORIA` cria a vistoria na API e sai da pilha de navegação.
+  - O fluxo segue para pessoas vinculadas, ambientes, revisão (que finaliza na API) e conclusão.
+  - Tocar numa vistoria em andamento retoma o fluxo a partir das pessoas.
+- **Item novo:** as fotos tiradas antes de salvar o item ficam na tela e são enviadas logo depois que ele é criado. Num item já salvo, cada foto é enviada na hora.
+
+## Navegação e estado
+
+- **Rotas:**
+  - As rotas são strings em `Routes.kt`, e os ids nelas são os UUIDs da API.
+  - `VisuraNavGraph` é o único `NavHost`.
+  - O destino inicial é `HOME` quando há sessão salva, e `LOGIN` quando não há.
+- **Ações:**
+  - Cada ação do usuário passa por `executar { }` no `VisuraViewModel` e roda no `viewModelScope`.
+  - Enquanto a ação roda, o `StateFlow` `ocupado` bloqueia a tela e mostra o progresso.
+- **Eventos:** o ViewModel manda três tipos por um `Channel`:
+  - `Aviso`: mostra um snackbar;
+  - `Navegar`: um comando sobre o `NavHostController`;
+  - `Compartilhar`: o `Intent` do laudo.
+  
+  O `NavGraph` coleta os eventos com `repeatOnLifecycle(STARTED)`. Se um evento chega com o app em segundo plano, ele espera a tela voltar.
+- **Estado entre telas:**
+  - Os ambientes da vistoria aberta ficam em `VisuraViewModel.ambientes`.
+  - O cadastro em duas etapas e a recuperação de senha guardam o e-mail e o código no `SavedStateHandle`.
+  - Se o Android encerrar o processo, as telas de ambiente e item voltam para a lista, que recarrega da API.
+- **Carga de tela:** `Carregar` (`ui/components/Carregamento.kt`) busca os dados de uma tela e mostra o progresso ou o erro.
+- **Formulários:**
+  - Os campos usam `rememberSaveable`; a lista de pessoas da vistoria usa um `Saver` próprio.
+  - As senhas usam `remember` de propósito, para não irem para o estado salvo.
+
+## Comunicação com a API
+
+```mermaid
+sequenceDiagram
+    participant T as Tela
+    participant VM as VisuraViewModel
+    participant R as VisuraRepositorio
+    participant C as ApiClient (OkHttp)
+    participant A as API /api/1/
+    T->>VM: callback (ex.: salvar item)
+    VM->>R: executar { repositorio.salvarItem(...) }
+    R->>C: VisuraApi (Retrofit + Gson)
+    C->>A: PATCH items/{id} com Authorization: Bearer
+    alt 401 com refresh válido
+        C->>A: POST auth/refresh
+        A-->>C: novo par de tokens
+        C->>A: repete a chamada uma vez
+    end
+    A-->>C: 200 JSON ou erro RFC 9457
+    C-->>R: resposta
+    R-->>VM: modelo de domínio ou ApiErro (errors[].message / detail)
+    VM-->>T: StateFlow atualizado ou Evento.Aviso
+```
+
+- `VisuraApi` declara os endpoints usados pelo app. A lista completa de rotas da API está no [README do backend](../backend/README.md#api).
+- Os DTOs de `ApiModels.kt` usam os nomes de campo da API, em inglês. Os campos são anuláveis, porque o Gson ignora a nulabilidade do Kotlin.
+- Os enums que vão para a API (`TipoImovel`, `CategoriaImovel`, `EstadoItem`, `PapelNaEmpresa`) têm `valorApi` e só podem ter os valores que a API aceita.
+- As listas leem todas as páginas da API (`todasAsPaginas`).
+- O endereço base vem de `BuildConfig.API_BASE_URL`. Veja [Configuração](#configuração).
+
+## Sessão e autenticação
+
+- **Login:** o login com e-mail e senha, o cadastro e o login com Google devolvem um access token (JWT) e um refresh token.
+- **Token em cada chamada:** o `ApiClient` coloca o access token em todas as chamadas.
+- **Renovação:**
+  - Num `401`, o `ApiClient` troca o refresh token por um novo par e repete a chamada uma vez.
+  - Se a API recusar o refresh, a sessão é limpa, `Sessao.expirou` dispara e o ViewModel volta ao login com um aviso.
+  - Uma falha de rede não derruba a sessão.
+- **Login com Google:**
+  - `pedirContaGoogle` abre o seletor do Credential Manager. O seletor precisa da Activity, então roda no `NavGraph`, e só o ID token vai ao ViewModel.
+  - Se a API responder `404` (não há conta com esse e-mail), o app abre o cadastro com o nome e o e-mail preenchidos.
+- **Dispositivo:** o app gera um identificador e o envia no login, para a API controlar as sessões por dispositivo.
+
+## Persistência local
+
+O app não tem banco local. A `Sessao` guarda num SharedPreferences privado:
+
+- os tokens;
+- o nome, o e-mail e o CPF da conta;
+- o identificador do dispositivo.
+
+Esse arquivo (`visura_sessao.xml`) fica fora do backup do Android (`backup_rules.xml` e `data_extraction_rules.xml`). O perfil mostra o CPF que vem de `GET users/me`; o CPF salvo na sessão é só uma reserva.
+
+## Câmera, fotos e laudo
+
+- **Câmera:**
+  - O app abre a câmera do sistema por `Intent`, então não pede a permissão `CAMERA`.
+  - A foto é gravada num arquivo temporário exposto pelo `FileProvider` (`${applicationId}.arquivos`, `res/xml/arquivos.xml`).
+  - Também dá para escolher fotos da galeria.
+- **Envio das fotos:** `prepararFoto` converte cada foto em JPEG de até 2048 px e aplica a rotação do EXIF antes do envio (`POST rooms/{id}/evidences`).
+- **Laudo:**
+  - `gerarLaudo` monta o PDF com `PdfDocument`, em `Dispatchers.IO`, com as fotos baixadas de `GET evidences/{id}`.
+  - O compartilhamento usa o mesmo `FileProvider`.
+- **Serviços em segundo plano:** o app não tem nenhum.
+
+## Tecnologias e versões
+
+As versões ficam em [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
+
+| Item | Versão |
+|---|---|
+| Gradle (wrapper) | 9.5.0 |
+| Android Gradle Plugin | 9.3.3 |
+| Kotlin (plugin Compose) | 2.2.10 |
+| JVM do daemon do Gradle | 21 (`gradle/gradle-daemon-jvm.properties`, baixada pelo foojay se não houver) |
+| Java/Kotlin target | 11 |
+| compileSdk / targetSdk / minSdk | 37 / 37 / 24 |
+| Jetpack Compose BOM (Material 3, Material Icons Extended) | 2026.02.01 |
+| Navigation Compose | 2.9.0 |
+| Lifecycle (runtime, ViewModel e runtime para Compose) | 2.11.0 |
+| Activity Compose / Core KTX | 1.13.0 / 1.19.1 |
+| Retrofit + conversor Gson | 2.11.0 |
+| OkHttp (logging interceptor) | 4.12.0 |
+| Credential Manager / Google ID | 1.6.0 / 1.1.1 |
+| ExifInterface | 1.4.2 |
+| Testes | JUnit 4 (JVM); AndroidX Test, Espresso e Compose UI Test declarados para os instrumentados |
+
+O app tem uma única variante de produto, sem flavors, e os build types `debug` e `release`. O release roda sem R8 (`optimization { enable = false }`); o `rules.keep` já está pronto para quando o R8 for ligado.
+
+## Requisitos
+
+- Um Android Studio recente, compatível com o AGP 9.3.
+- O Android SDK com a plataforma 37.
+- Um JDK para rodar o Gradle. O daemon pede a JVM 21 e a baixa sozinho se ela não estiver instalada.
+- Um emulador ou aparelho com Android 7.0 (API 24) ou mais novo.
+- A API rodando. Veja o [README do backend](../backend/README.md#configuração-e-execução).
+
+## Configuração
+
+No Android Studio, abra a pasta **`app/`** (não a raiz do repositório): ela é o projeto Gradle.
+
+O `local.properties` fica em `app/`, não vai para o Git e é criado pelo Android Studio com o `sdk.dir`. As chaves opcionais são:
+
+| Chave | Para quê | Padrão |
+|---|---|---|
+| `visura.api.url` | Endereço da API, terminado em `/api/1/`. Num aparelho físico, use o IP do computador na rede | `http://10.0.2.2:8080/api/1/` (o computador, visto pelo emulador) |
+| `visura.google.client.id` | Client ID do tipo "Web application" do Google Cloud, o mesmo do `GOOGLE_CLIENT_ID` da API | Vazio: o botão do Google só avisa que não está configurado |
+
+O HTTP sem TLS só é liberado no build de debug (`src/debug/AndroidManifest.xml`). O release precisa de uma API com HTTPS.
+
+**Login com Google:**
+
+1. No Google Cloud Console, crie um client OAuth do tipo **Web application**. O ID dele vai em `visura.google.client.id` (no app) e em `GOOGLE_CLIENT_ID` (na API).
+2. Crie também um client do tipo **Android**, com o pacote `com.visura` e o SHA-1 do certificado de debug, que aparece em `./gradlew signingReport`. O Google exige esse client, mas o app não usa o ID dele.
+
+## Comandos
+
+Rode todos os comandos dentro de `app/`. No Git Bash, use `./gradlew`; no PowerShell, use `.\gradlew.bat`.
+
+```bash
+./gradlew assembleDebug               # APK de debug: build/outputs/apk/debug/app-debug.apk
+./gradlew installDebug                # instala no emulador ou aparelho conectado
+./gradlew assembleRelease             # APK de release sem assinatura: build/outputs/apk/release/app-release-unsigned.apk
+./gradlew bundleRelease               # AAB de release: build/outputs/bundle/release/app-release.aab
+./gradlew testDebugUnitTest           # testes unitários na JVM (src/test)
+./gradlew lintDebug                   # lint do Android: build/reports/lint-results-debug.html
+./gradlew connectedDebugAndroidTest   # testes instrumentados (precisa de emulador ou aparelho)
+./gradlew build                       # build completo, com testes e lint
+```
+
+O projeto não tem configuração de assinatura de release. Para publicar, assine o APK ou o AAB com a chave da loja, fora do repositório.
+
+## Contribuição
+
+Leia o [CONTRIBUTING do app](CONTRIBUTING.md) e o [CONTRIBUTING da raiz](../CONTRIBUTING.md).
