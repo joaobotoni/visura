@@ -10,3 +10,7 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+# O Gson lê e grava os DTOs da API por reflexão: com o R8 ligado no release, sem estas regras os campos
+# seriam renomeados ou removidos e o JSON deixaria de bater com a API.
+-keep class com.visura.data.remote.** { *; }
+-keepattributes Signature, *Annotation*
