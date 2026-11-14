@@ -116,7 +116,7 @@ Cada commit deve compilar e conter uma única mudança lógica. Não junte uma d
 - [ ] A branch e os commits seguem os padrões deste guia.
 - [ ] O módulo alterado compila e os testes passam:
   - backend: `./mvnw test`;
-  - app: `./gradlew assembleDebug testDebugUnitTest lintDebug`.
+  - app: `./gradlew assembleDebug testDebugUnitTest lintDebug connectedDebugAndroidTest`.
 - [ ] Há testes para a regra nova ou para o defeito corrigido.
 - [ ] Os erros viram respostas ou avisos claros, sem `catch` genérico que esconda a falha.
 - [ ] Não há segredos, tokens, `local.properties` nem arquivos de build no diff.
@@ -131,7 +131,7 @@ Cada commit deve compilar e conter uma única mudança lógica. Não junte uma d
 | Unitário | Serviços com Mockito; value objects; filtros e segurança com MockMvc | Modelos (`model/`) e utilitários de `data/` na JVM |
 | Banco | Procedures, triggers e permissões contra um PostgreSQL embutido | Não se aplica |
 | Integração / fluxo | `*FlowTest`: a aplicação inteira contra um PostgreSQL embutido, com as migrations | Sem testes automatizados contra a API; os fluxos são testados à mão no emulador, com a API local |
-| Instrumentado (aparelho) | Não se aplica | `src/androidTest/` (por enquanto, só o exemplo do template) |
+| Instrumentado (aparelho) | Não se aplica | `src/androidTest/`: cifra e sessão no Android Keystore real e telas Compose |
 | Estático | `ServicePatternTest` (forma dos serviços) | Lint do Android (`lintDebug`) |
 
 Os testes do backend não precisam de Docker nem de banco instalado. Os do app na JVM não precisam de emulador.

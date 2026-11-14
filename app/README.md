@@ -6,7 +6,7 @@ Aplicativo Android do Visura, escrito em Kotlin e Jetpack Compose. Com ele, o vi
 - registra vistorias de entrada e de saída, ambiente por ambiente e item por item, com fotos;
 - gera o laudo em PDF no próprio aparelho.
 
-Todos os dados ficam na [API do Visura](../backend/README.md). O app só guarda localmente a sessão.
+Todos os dados ficam na [API do Visura](../backend/README.md). O app só guarda localmente a sessão, e cifrada.
 
 ## Sumário
 
@@ -93,7 +93,7 @@ app/
 ├── gradle/
 │   ├── libs.versions.toml     # catálogo de versões das dependências
 │   ├── gradle-daemon-jvm.properties
-│   └── wrapper/               # gradle-wrapper.jar e .properties (Gradle 9.5.0)
+│   └── wrapper/               # gradle-wrapper.jar e .properties (Gradle 9.9.1)
 └── src/
     ├── main/
     │   ├── AndroidManifest.xml          # permissão INTERNET, Application, Activity e FileProvider
@@ -106,7 +106,8 @@ app/
     │       ├── data/
     │       │   ├── VisuraRepositorio.kt # chamadas à API -> modelos de domínio
     │       │   ├── ApiErro.kt           # erro único com a mensagem para o usuário; chamar { }
-    │       │   ├── Sessao.kt            # tokens e dados da conta (SharedPreferences)
+    │       │   ├── Sessao.kt            # tokens e dados da conta (SharedPreferences, valores cifrados)
+    │       │   ├── Cifra.kt             # AES-256-GCM com chave do Android Keystore
     │       │   ├── BuscaDeEndereco.kt   # CEP e "rua, cidade, UF" no ViaCEP
     │       │   ├── Fotos.kt             # JPEG de até 2048 px, rotação do EXIF, arquivo da câmera
     │       │   ├── Laudo.kt             # laudo em PDF (PdfDocument)
@@ -118,9 +119,10 @@ app/
     │           ├── screens/             # login, createaccount, forgotpassword, home, imoveis,
     │           │                        # vistoria, pessoas, ambientes
     │           └── theme/               # cores, tipografia, VisuraTheme, modifiers
-    ├── debug/AndroidManifest.xml        # libera HTTP sem TLS só no build de debug
+    ├── debug/AndroidManifest.xml        # libera HTTP sem TLS no build de debug
+    ├── homologacao/AndroidManifest.xml  # libera HTTP sem TLS no build de homologação
     ├── test/                            # testes na JVM (model/ e data/)
-    └── androidTest/                     # teste instrumentado de exemplo do template
+    └── androidTest/                     # testes instrumentados (cifra, sessão e telas Compose)
 ```
 
 ## Fluxos principais
@@ -215,13 +217,19 @@ sequenceDiagram
 
 ## Persistência local
 
-O app não tem banco local. A `Sessao` guarda num SharedPreferences privado:
+O app não tem banco local. A `Sessao` guarda num SharedPreferences privado (`visura_sessao.xml`):
 
-- os tokens;
-- o nome, o e-mail e o CPF da conta;
-- o identificador do dispositivo.
+- **cifrados:** os tokens, o nome, o e-mail e o CPF da conta;
+- **em texto puro:** o identificador do dispositivo, que não é segredo.
 
-Esse arquivo (`visura_sessao.xml`) fica fora do backup do Android (`backup_rules.xml` e `data_extraction_rules.xml`). O perfil mostra o CPF que vem de `GET users/me`; o CPF salvo na sessão é só uma reserva.
+A cifragem (`Cifra.kt`) funciona assim:
+
+- **Algoritmo:** AES-256-GCM, com a chave gerada e guardada no **Android Keystore**. A chave não sai do aparelho e, quando ele tem hardware seguro, não sai nem do hardware.
+- **Gravação:** cada valor recebe um IV aleatório e uma tag de autenticação, então um valor adulterado é recusado. O formato gravado é `v1:` + Base64(IV + texto cifrado).
+- **Migração:** um valor antigo, em texto puro, é lido uma vez e regravado cifrado. Quem já estava logado continua logado depois de atualizar o app.
+- **Chave perdida:** se um valor não puder ser decifrado (por exemplo, porque os dados foram restaurados em outro aparelho), ele é descartado e o usuário entra de novo, sem o app fechar.
+
+O arquivo também fica fora do backup do Android (`backup_rules.xml` e `data_extraction_rules.xml`). O perfil mostra o CPF que vem de `GET users/me`; o CPF salvo na sessão é só uma reserva.
 
 ## Câmera, fotos e laudo
 
@@ -241,27 +249,35 @@ As versões ficam em [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
 
 | Item | Versão |
 |---|---|
-| Gradle (wrapper) | 9.5.0 |
-| Android Gradle Plugin | 9.3.3 |
-| Kotlin (plugin Compose) | 2.2.10 |
+| Gradle (wrapper) | 9.9.1 |
+| Android Gradle Plugin | 9.5.1 |
+| Kotlin (plugin Compose) | 2.4.21 |
 | JVM do daemon do Gradle | 21 (`gradle/gradle-daemon-jvm.properties`, baixada pelo foojay se não houver) |
 | Java/Kotlin target | 11 |
 | compileSdk / targetSdk / minSdk | 37 / 37 / 24 |
-| Jetpack Compose BOM (Material 3, Material Icons Extended) | 2026.02.01 |
-| Navigation Compose | 2.9.0 |
+| Jetpack Compose BOM (Material 3, Material Icons Extended) | 2026.09.00 |
+| Navigation Compose | 2.10.2 |
 | Lifecycle (runtime, ViewModel e runtime para Compose) | 2.11.0 |
 | Activity Compose / Core KTX | 1.13.0 / 1.19.1 |
-| Retrofit + conversor Gson | 2.11.0 |
-| OkHttp (logging interceptor) | 4.12.0 |
-| Credential Manager / Google ID | 1.6.0 / 1.1.1 |
+| Retrofit + conversor Gson | 3.0.0 |
+| OkHttp (logging interceptor) | 5.5.1 |
+| Credential Manager / Google ID | 1.6.0 / 1.2.1 |
 | ExifInterface | 1.4.2 |
-| Testes | JUnit 4 (JVM); AndroidX Test, Espresso e Compose UI Test declarados para os instrumentados |
+| Testes | JUnit 4 (JVM); AndroidX Test e Compose UI Test (instrumentados) |
 
-O app tem uma única variante de produto, sem flavors, e os build types `debug` e `release`. O release roda sem R8 (`optimization { enable = false }`); o `rules.keep` já está pronto para quando o R8 for ligado.
+O app não tem flavors. Os build types são:
+
+| Build type | R8 | HTTP sem TLS | Assinatura | API | Uso |
+|---|---|---|---|---|---|
+| `debug` | Não | Sim | Chave de debug | `visura.api.url` | Desenvolvimento |
+| `homologacao` | Sim | Sim | Chave de debug | `visura.api.url` | Testar o build otimizado contra a API local antes de publicar |
+| `release` | Sim | Não | Keystore de produção (`visura.release.*`) | `visura.api.url.release` (HTTPS, obrigatório) | Publicação |
+
+O R8 reduz o APK de cerca de 22,8 MB (debug) para 2,4 MB. As regras que mantêm os DTOs lidos pelo Gson ficam em `src/main/keepRules/rules.keep`.
 
 ## Requisitos
 
-- Um Android Studio recente, compatível com o AGP 9.3.
+- Um Android Studio recente, compatível com o AGP 9.5.
 - O Android SDK com a plataforma 37.
 - Um JDK para rodar o Gradle. O daemon pede a JVM 21 e a baixa sozinho se ela não estiver instalada.
 - Um emulador ou aparelho com Android 7.0 (API 24) ou mais novo.
@@ -271,14 +287,25 @@ O app tem uma única variante de produto, sem flavors, e os build types `debug` 
 
 No Android Studio, abra a pasta **`app/`** (não a raiz do repositório): ela é o projeto Gradle.
 
-O `local.properties` fica em `app/`, não vai para o Git e é criado pelo Android Studio com o `sdk.dir`. As chaves opcionais são:
+O `local.properties` fica em `app/`, não vai para o Git e é criado pelo Android Studio com o `sdk.dir`.
+
+Cada chave também pode vir de uma variável de ambiente, útil em CI: troque os pontos por `_` e use maiúsculas. Por exemplo, `visura.api.url.release` vira `VISURA_API_URL_RELEASE`.
 
 | Chave | Para quê | Padrão |
 |---|---|---|
-| `visura.api.url` | Endereço da API, terminado em `/api/1/`. Num aparelho físico, use o IP do computador na rede | `http://10.0.2.2:8080/api/1/` (o computador, visto pelo emulador) |
+| `visura.api.url` | Endereço da API no debug e na homologação, terminado em `/api/1/`. Num aparelho físico, use o IP do computador na rede | `http://10.0.2.2:8080/api/1/` (o computador, visto pelo emulador) |
 | `visura.google.client.id` | Client ID do tipo "Web application" do Google Cloud, o mesmo do `GOOGLE_CLIENT_ID` da API | Vazio: o botão do Google só avisa que não está configurado |
+| `visura.api.url.release` | Endereço de produção da API, com `https://` e terminado em `/api/1/` | Obrigatório para o release: sem ele, o build falha e diz o que configurar |
+| `visura.release.store.file` | Caminho do keystore de produção, fora do repositório | Sem ele, o release sai sem assinatura |
+| `visura.release.store.password`, `visura.release.key.alias`, `visura.release.key.password` | Senha do keystore, alias e senha da chave | — |
 
-O HTTP sem TLS só é liberado no build de debug (`src/debug/AndroidManifest.xml`). O release precisa de uma API com HTTPS.
+O HTTP sem TLS só é liberado no debug e na homologação (`src/debug/` e `src/homologacao/`). O release só fala HTTPS.
+
+**Keystore de produção.** O keystore é criado uma única vez e guardado em local seguro, com backup. Sem ele, não dá para publicar atualizações do app. Para criar:
+
+```bash
+keytool -genkeypair -keystore visura-release.jks -alias visura -keyalg RSA -keysize 4096 -validity 10000
+```
 
 **Login com Google:**
 
@@ -292,15 +319,16 @@ Rode todos os comandos dentro de `app/`. No Git Bash, use `./gradlew`; no PowerS
 ```bash
 ./gradlew assembleDebug               # APK de debug: build/outputs/apk/debug/app-debug.apk
 ./gradlew installDebug                # instala no emulador ou aparelho conectado
-./gradlew assembleRelease             # APK de release sem assinatura: build/outputs/apk/release/app-release-unsigned.apk
-./gradlew bundleRelease               # AAB de release: build/outputs/bundle/release/app-release.aab
+./gradlew installHomologacao          # instala o build otimizado (R8), apontando para visura.api.url
+./gradlew assembleRelease             # APK de release: build/outputs/apk/release/app-release.apk
+./gradlew bundleRelease               # AAB de release (Google Play): build/outputs/bundle/release/app-release.aab
 ./gradlew testDebugUnitTest           # testes unitários na JVM (src/test)
 ./gradlew lintDebug                   # lint do Android: build/reports/lint-results-debug.html
 ./gradlew connectedDebugAndroidTest   # testes instrumentados (precisa de emulador ou aparelho)
-./gradlew build                       # build completo, com testes e lint
+./gradlew build                       # build completo, com testes e lint (inclui o release: exige visura.api.url.release)
 ```
 
-O projeto não tem configuração de assinatura de release. Para publicar, assine o APK ou o AAB com a chave da loja, fora do repositório.
+Os comandos de release exigem `visura.api.url.release`. Com as chaves `visura.release.*` configuradas, o APK e o AAB já saem assinados. Para publicar na Google Play, envie o AAB.
 
 ## Contribuição
 

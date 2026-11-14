@@ -109,7 +109,7 @@ visura/
 - **Interface:** Jetpack Compose, com um único `NavHost` e um `VisuraViewModel` que guarda o estado do fluxo e roda as chamadas à API no `viewModelScope`.
 - **Dados:**
   - A camada de dados (`VisuraRepositorio`) converte as respostas da API nos modelos de domínio (`model/`).
-  - A `Sessao` guarda os tokens num SharedPreferences privado, fora do backup.
+  - A `Sessao` guarda os tokens e os dados da conta cifrados com AES-256-GCM, com a chave no Android Keystore, num SharedPreferences privado fora do backup.
 - **No próprio aparelho:** o app prepara as fotos (JPEG reduzido, com a rotação do EXIF aplicada) e gera o laudo em PDF.
 
 Detalhes no [README do app](app/README.md).
@@ -129,9 +129,9 @@ Detalhes no [README do backend](backend/README.md).
 
 | Módulo | Principais tecnologias |
 |---|---|
-| App | Kotlin 2.2, Jetpack Compose (Material 3), Navigation Compose, Lifecycle ViewModel, Retrofit 2 + Gson, OkHttp 4, Credential Manager, ExifInterface; AGP 9.3.3, Gradle 9.5, minSdk 24, targetSdk 37 |
+| App | Kotlin 2.4, Jetpack Compose (Material 3), Navigation Compose 2.10, Lifecycle ViewModel, Retrofit 3 + Gson, OkHttp 5, Credential Manager, Android Keystore, ExifInterface; AGP 9.5.1, Gradle 9.9.1, R8 no release, minSdk 24, targetSdk 37 |
 | Backend | Java 17, Spring Boot 4.1 (Web MVC, Security, Data JPA, Validation, Mail), PostgreSQL 17 com `pg_cron`, Flyway, Hibernate 7, java-jwt, Argon2id (BouncyCastle), MapStruct, Lombok, Google API Client; Maven |
-| Testes | App: JUnit 4. Backend: JUnit 5, Mockito, MockMvc, Spring Security Test, PostgreSQL embutido (`embedded-postgres`) |
+| Testes | App: JUnit 4 (JVM) e AndroidX Test + Compose UI Test (instrumentados). Backend: JUnit 5, Mockito, MockMvc, Spring Security Test, PostgreSQL embutido (`embedded-postgres`) |
 
 ## Integração entre app e API
 
@@ -170,7 +170,7 @@ sequenceDiagram
 | Para | Precisa de |
 |---|---|
 | Backend | JDK 17 ou mais novo e Docker (para o PostgreSQL com `pg_cron` e o Mailpit do `compose.yaml`). Os testes não precisam de Docker |
-| App | Android Studio compatível com o AGP 9.3, Android SDK 37 e um emulador ou aparelho com Android 7.0 (API 24) ou mais novo |
+| App | Android Studio compatível com o AGP 9.5, Android SDK 37 e um emulador ou aparelho com Android 7.0 (API 24) ou mais novo |
 | Login com Google (opcional) | Um client OAuth "Web application" e um "Android" no Google Cloud |
 
 ## Instalação e execução
@@ -196,11 +196,18 @@ cd app
 ./gradlew installDebug
 ```
 
+**Produção.**
+
+- **API:** precisa de HTTPS, das variáveis de ambiente de produção e da role `vsr_app` no banco. Veja o [README do backend](backend/README.md#configuração-e-execução).
+- **App:** o release exige `visura.api.url.release` (HTTPS) e o keystore de produção (`visura.release.*`). Veja a [configuração do app](app/README.md#configuração).
+- **Google Play:** o arquivo a publicar é o AAB, gerado por `./gradlew bundleRelease`.
+
 ## Testes
 
 ```bash
 cd backend && ./mvnw test                                  # API: unitários e fluxos contra um PostgreSQL embutido
 cd app && ./gradlew testDebugUnitTest lintDebug            # app: testes na JVM e lint
+cd app && ./gradlew connectedDebugAndroidTest              # app: testes instrumentados (emulador ou aparelho)
 ```
 
 A estratégia de testes de cada módulo está no [CONTRIBUTING.md](CONTRIBUTING.md#estratégia-de-testes).

@@ -16,7 +16,7 @@ Este guia vale só para o aplicativo, que fica em `app/`. O fluxo de Git e de Pu
 
 ## Ambiente
 
-1. Instale um Android Studio recente, compatível com o AGP 9.3, e o Android SDK com a plataforma 37.
+1. Instale um Android Studio recente, compatível com o AGP 9.5, e o Android SDK com a plataforma 37.
 2. Abra a pasta **`app/`** no Android Studio: ela é o projeto Gradle. A raiz do repositório não é um projeto Gradle.
 3. Na primeira sincronização, o Android Studio cria o `app/local.properties` com o `sdk.dir`. Esse arquivo não vai para o Git.
 4. Opcional: defina `visura.api.url` e `visura.google.client.id` no `local.properties`. Veja [Configuração](README.md#configuração).
@@ -77,15 +77,15 @@ Num aparelho físico, defina `visura.api.url=http://<IP-do-computador>:8080/api/
 ## Dependências
 
 - Declare toda dependência nova em `gradle/libs.versions.toml` e use-a pelo alias (`libs.*`) no `build.gradle.kts`.
-- Não atualize dependências em massa. As atualizações grandes (Kotlin 2.4, Compose BOM, Navigation 2.10, Retrofit 3 e OkHttp 5), que o lint aponta, mudam APIs e devem ir num PR próprio.
+- Não atualize dependências em massa. Uma atualização que muda APIs (uma versão major, como foi Retrofit 3 e OkHttp 5) vai num PR próprio, com o build, os testes e o teste no emulador.
+- Ao atualizar o Gradle, use `./gradlew wrapper --gradle-version X --gradle-distribution-sha256-sum <sha256>`, com o checksum publicado em services.gradle.org.
 - Se uma dependência nova for usada por reflexão (como o Gson), inclua a regra no `src/main/keepRules/rules.keep`.
 
 ## Lint
 
 O projeto usa só o lint do Android (`./gradlew lintDebug`). Não há ktlint, detekt nem outro formatador configurado.
 
-- O PR não pode introduzir erros de lint.
-- Hoje restam só avisos de versões mais novas disponíveis (`NewerVersionAvailable`, `GradleDependency`, `AndroidGradlePluginVersion`).
+- O PR não pode introduzir erros nem avisos de lint. Hoje o lint não aponta nada.
 - O relatório fica em `build/reports/lint-results-debug.html`.
 
 ## Testes
@@ -101,9 +101,17 @@ O projeto usa só o lint do Android (`./gradlew lintDebug`). Não há ktlint, de
   - `data/BuscaDeEnderecoTest`: interpretação da busca de endereço.
   
   Coloque aqui a lógica pura dos modelos e dos utilitários de `data/`.
-- **Testes instrumentados:** ficam em `src/androidTest/`. Por enquanto, só existe o teste de exemplo do template. As dependências do Compose UI Test e do Espresso já estão declaradas.
+- **Testes instrumentados:** ficam em `src/androidTest/` e rodam num emulador ou aparelho:
+  - `data/CifraKeystoreTest`: cifra no Android Keystore real (ida e volta, IV aleatório, adulteração, chave apagada);
+  - `data/SessaoTest`: nada em texto puro no arquivo, migração do formato antigo, chave perdida e logout;
+  - `ui/LoginScreenTest` e `ui/PessoasVinculadasScreenTest`: telas em Compose, com a lista de pessoas restaurada depois da recriação da tela (`StateRestorationTester`).
+
+  Use `useUnmergedTree = true` para achar o texto dentro de botões e cards.
 - **Testes de integração com a API:** o app não tem. Os fluxos ponta a ponta são testados no backend (`*FlowTest`) e à mão, num emulador com a API local.
-- **Antes do PR:** rode `./gradlew assembleDebug testDebugUnitTest lintDebug` e teste no emulador o fluxo que você mudou. Inclua a rotação de tela no teste quando a mudança tiver estado.
+- **Antes do PR:**
+  - Rode `./gradlew assembleDebug testDebugUnitTest lintDebug connectedDebugAndroidTest` e teste no emulador o fluxo que você mudou.
+  - Inclua a rotação de tela no teste quando a mudança tiver estado.
+  - Se a mudança mexer em DTOs ou no Gson, teste também o `installHomologacao`, que roda com o R8.
 
 ## Git e Pull Requests
 
