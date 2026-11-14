@@ -29,20 +29,6 @@ import com.visura.data.remote.RegisterRequest
 import com.visura.data.remote.RoomRequest
 import com.visura.data.remote.RoomResponse
 import com.visura.data.remote.VisuraApi
-import com.visura.ui.screens.ambientes.Ambiente
-import com.visura.ui.screens.ambientes.EstadoItem
-import com.visura.ui.screens.ambientes.ItemAmbiente
-import com.visura.ui.screens.ambientes.itensPadrao
-import com.visura.ui.screens.home.StatusVistoria
-import com.visura.ui.screens.home.Vistoria
-import com.visura.ui.screens.imoveis.CategoriaImovel
-import com.visura.ui.screens.imoveis.EnderecoImovel
-import com.visura.ui.screens.imoveis.Imovel
-import com.visura.ui.screens.imoveis.PapelPessoa
-import com.visura.ui.screens.imoveis.PessoaVinculada
-import com.visura.ui.screens.imoveis.TipoImovel
-import com.visura.ui.screens.imoveis.VistoriaHistorico
-import com.visura.ui.screens.vistoria.TipoVistoria
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import okhttp3.MediaType.Companion.toMediaType
@@ -51,24 +37,23 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
-
-data class Perfil(val nome: String, val email: String, val cpf: String, val cnpj: String)
-
-data class TipoDeAmbiente(val id: String, val nome: String)
-
-// Tudo que a revisão precisa de uma vistoria
-data class VistoriaCompleta(
-    val id: String,
-    val imovel: Imovel?,
-    val pessoas: List<PessoaVinculada>,
-    val ambientes: List<Ambiente>,
-    val finalizada: Boolean,
-    val tipo: TipoVistoria = TipoVistoria.ENTRADA,
-    val responsavel: String = "",
-    val iniciadaEm: String = "",
-    val finalizadaEm: String = "",
-    val observacoes: String = ""
-)
+import com.visura.model.Ambiente
+import com.visura.model.CategoriaImovel
+import com.visura.model.EnderecoImovel
+import com.visura.model.EstadoItem
+import com.visura.model.Imovel
+import com.visura.model.ItemAmbiente
+import com.visura.model.PapelPessoa
+import com.visura.model.Perfil
+import com.visura.model.PessoaVinculada
+import com.visura.model.StatusVistoria
+import com.visura.model.TipoDeAmbiente
+import com.visura.model.TipoImovel
+import com.visura.model.TipoVistoria
+import com.visura.model.Vistoria
+import com.visura.model.VistoriaCompleta
+import com.visura.model.VistoriaHistorico
+import com.visura.model.itensPadrao
 
 // Ponte entre as telas e a API: chama os endpoints e converte as respostas nos modelos que as telas já usam.
 // Toda função lança ApiErro com uma mensagem pronta para o usuário.

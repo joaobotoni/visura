@@ -6,7 +6,7 @@ import com.visura.data.Sessao
 import com.visura.data.VisuraRepositorio
 import com.visura.data.remote.ApiClient
 
-// Cria uma única vez a sessão, o cliente da API e o repositório que as telas usam.
+// Cria uma única vez a sessão, o cliente da API e o repositório que o VisuraViewModel usa.
 class VisuraApplication : Application() {
 
     lateinit var repositorio: VisuraRepositorio

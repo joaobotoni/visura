@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -52,13 +53,13 @@ fun CreateAccountDocsScreen(
     onBackClick: () -> Unit = {},
     onFinishClick: (DocumentosCadastro) -> Unit = {}
 ) {
-    var tipoPessoa by remember { mutableStateOf(TipoPessoa.FISICA) }
-    var nomeCompleto by remember { mutableStateOf(nomeInicial) }
-    var cpf by remember { mutableStateOf("") }
-    var razaoSocial by remember { mutableStateOf("") }
-    var nomeFantasia by remember { mutableStateOf("") }
-    var cnpj by remember { mutableStateOf("") }
-    var papel by remember { mutableStateOf<PapelNaEmpresa?>(null) }
+    var tipoPessoa by rememberSaveable { mutableStateOf(TipoPessoa.FISICA) }
+    var nomeCompleto by rememberSaveable { mutableStateOf(nomeInicial) }
+    var cpf by rememberSaveable { mutableStateOf("") }
+    var razaoSocial by rememberSaveable { mutableStateOf("") }
+    var nomeFantasia by rememberSaveable { mutableStateOf("") }
+    var cnpj by rememberSaveable { mutableStateOf("") }
+    var papel by rememberSaveable { mutableStateOf<PapelNaEmpresa?>(null) }
 
     val cpfCompleto = cpf.count { it.isDigit() } == 11
     val cnpjCompleto = cnpj.count { it.isDigit() } == 14

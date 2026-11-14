@@ -33,6 +33,8 @@ import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.StatusGreenText
 import com.visura.ui.theme.TextGray
+import com.visura.model.Ambiente
+import com.visura.model.StatusAmbiente
 
 @Composable
 fun AmbientesScreen(

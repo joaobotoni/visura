@@ -32,6 +32,7 @@ import com.visura.ui.theme.BackgroundLavender
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
+import com.visura.model.ItemAmbiente
 
 enum class ModoItem { NOVO, AVALIAR, EDITAR }
 

@@ -13,16 +13,17 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.core.graphics.scale
-import com.visura.ui.screens.ambientes.EstadoItem
-import com.visura.ui.screens.ambientes.ItemAmbiente
-import com.visura.ui.screens.ambientes.StatusAmbiente
-import com.visura.ui.screens.vistoria.TipoVistoria
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.visura.model.EstadoItem
+import com.visura.model.ItemAmbiente
+import com.visura.model.StatusAmbiente
+import com.visura.model.TipoVistoria
+import com.visura.model.VistoriaCompleta
 
 // Laudo da vistoria em PDF (A4), montado no aparelho a partir dos dados da API, com as fotos de cada item.
 // O arquivo fica no cache (pasta "laudos", exposta pelo FileProvider) e é substituído a cada geração.

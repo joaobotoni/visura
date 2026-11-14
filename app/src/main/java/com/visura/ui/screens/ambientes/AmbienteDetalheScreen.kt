@@ -32,6 +32,8 @@ import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
+import com.visura.model.Ambiente
+import com.visura.model.ItemAmbiente
 
 @Composable
 fun AmbienteDetalheScreen(

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -33,8 +34,8 @@ fun CreateAccountInfoScreen(
     onBackClick: () -> Unit = {},
     onContinueClick: (nome: String, email: String, senha: String) -> Unit = { _, _, _ -> }
 ) {
-    var nome by remember { mutableStateOf(nomeInicial) }
-    var email by remember { mutableStateOf(emailInicial) }
+    var nome by rememberSaveable { mutableStateOf(nomeInicial) }
+    var email by rememberSaveable { mutableStateOf(emailInicial) }
     var senha by remember { mutableStateOf("") }
     var confirmarSenha by remember { mutableStateOf("") }
     var senhaVisivel by remember { mutableStateOf(false) }

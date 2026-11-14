@@ -29,6 +29,8 @@ import com.visura.ui.theme.StatusGreenText
 import com.visura.ui.theme.StatusOrangeBg
 import com.visura.ui.theme.StatusOrangeText
 import com.visura.ui.theme.TextGray
+import com.visura.model.EstadoItem
+import com.visura.model.StatusAmbiente
 
 // Estrutura comum das etapas da vistoria: voltar + título, conteúdo e (opcional) botão fixo no rodapé
 @Composable

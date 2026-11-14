@@ -22,21 +22,8 @@ import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
-
-// Só os valores que a API aceita; valorApi é o que vai no JSON
-enum class TipoImovel(val rotulo: String, val valorApi: String) {
-    APARTAMENTO("Apartamento", "apartamento"),
-    CASA("Casa", "casa"),
-    SALA_COMERCIAL("Sala comercial", "sala_comercial"),
-    GALPAO("Galpão", "galpao"),
-    OUTRO("Outro", "outro")
-}
-
-enum class CategoriaImovel(val rotulo: String, val valorApi: String) {
-    RESIDENCIAL("Residencial", "residencial"),
-    COMERCIAL("Comercial", "comercial"),
-    ALTO_PADRAO("Alto padrão", "alto_padrao")
-}
+import com.visura.model.CategoriaImovel
+import com.visura.model.TipoImovel
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

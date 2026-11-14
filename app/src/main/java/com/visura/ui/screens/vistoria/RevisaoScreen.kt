@@ -17,17 +17,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.visura.ui.screens.ambientes.Ambiente
-import com.visura.ui.screens.ambientes.StatusAmbiente
 import com.visura.ui.screens.home.cardBorder
-import com.visura.ui.screens.imoveis.Imovel
-import com.visura.ui.screens.imoveis.PessoaVinculada
 import com.visura.ui.screens.pessoas.PapelChip
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.StatusGreenBg
 import com.visura.ui.theme.StatusGreenText
 import com.visura.ui.theme.TextGray
+import com.visura.model.Ambiente
+import com.visura.model.Imovel
+import com.visura.model.PessoaVinculada
+import com.visura.model.StatusAmbiente
 
 @Composable
 fun RevisaoScreen(

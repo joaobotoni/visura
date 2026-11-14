@@ -9,13 +9,15 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.visura.data.TipoDeAmbiente
 import com.visura.ui.screens.createaccount.LabeledField
 import com.visura.ui.theme.TextGray
+import com.visura.model.Ambiente
+import com.visura.model.TipoDeAmbiente
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -27,9 +29,11 @@ fun NovoAmbienteScreen(
     onAdicionarClick: (nome: String, tipo: TipoDeAmbiente?, observacoes: String, duplicarDe: Ambiente?) -> Unit =
         { _, _, _, _ -> }
 ) {
-    var nome by remember { mutableStateOf("") }
-    var observacoes by remember { mutableStateOf("") }
-    var duplicarDe by remember { mutableStateOf<Ambiente?>(null) }
+    var nome by rememberSaveable { mutableStateOf("") }
+    var observacoes by rememberSaveable { mutableStateOf("") }
+    // Guarda só o id (sobrevive à recriação da tela); o ambiente vem da lista atual
+    var duplicarDeId by rememberSaveable { mutableStateOf<String?>(null) }
+    val duplicarDe = ambientesExistentes.find { it.id == duplicarDeId }
 
     // O tipo vale enquanto o nome for igual ao do chip escolhido
     val tipoEscolhido = tiposDeAmbiente.firstOrNull { it.nome.equals(nome.trim(), ignoreCase = true) }
@@ -113,7 +117,7 @@ fun NovoAmbienteScreen(
                             texto = amb.nome,
                             selecionado = amb == duplicarDe,
                             // tocar de novo no escolhido desfaz a seleção
-                            onClick = { duplicarDe = if (amb == duplicarDe) null else amb },
+                            onClick = { duplicarDeId = if (amb == duplicarDe) null else amb.id },
                             icone = { IconeAmbiente(amb.nome) }
                         )
                     }

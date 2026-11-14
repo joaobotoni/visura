@@ -32,7 +32,7 @@ class Sessao(context: Context) {
             return UsuarioLogado(nome, prefs.getString(EMAIL, "").orEmpty())
         }
 
-    // A API não devolve o CPF do usuário; guardamos o que ele digitou no cadastro para exibir no perfil.
+    // CPF digitado no cadastro. O perfil usa o CPF que vem de GET /users/me; este só cobre uma API antiga, sem o campo.
     var cpf: String?
         get() = prefs.getString(CPF, null)
         set(valor) = prefs.edit { putString(CPF, valor) }

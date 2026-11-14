@@ -25,16 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
-
-data class EnderecoImovel(
-    val cep: String,
-    val rua: String,
-    val numero: String,
-    val complemento: String,
-    val bairro: String,
-    val cidade: String,
-    val uf: String
-)
+import com.visura.model.EnderecoImovel
 
 @Composable
 fun NovoImovelScreen(

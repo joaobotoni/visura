@@ -18,8 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.visura.ui.screens.home.StatusVistoria
-import com.visura.ui.screens.vistoria.TipoVistoria
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
@@ -30,6 +28,11 @@ import com.visura.ui.theme.StatusOrangeText
 import com.visura.ui.theme.TextGray
 import com.visura.ui.theme.TipoSaidaBg
 import com.visura.ui.theme.TipoSaidaText
+import com.visura.model.Imovel
+import com.visura.model.PapelPessoa
+import com.visura.model.StatusVistoria
+import com.visura.model.TipoVistoria
+import com.visura.model.VistoriaHistorico
 
 @Composable
 fun ImovelDetalheScreen(

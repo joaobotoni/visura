@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,16 +25,15 @@ import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
-
-enum class TipoVistoria { ENTRADA, SAIDA }
+import com.visura.model.TipoVistoria
 
 @Composable
 fun NovaVistoriaScreen(
     onBackClick: () -> Unit = {},
     onContinueClick: (tipo: TipoVistoria, observacoes: String) -> Unit = { _, _ -> }
 ) {
-    var tipoSelecionado by remember { mutableStateOf<TipoVistoria?>(null) }
-    var observacoes by remember { mutableStateOf("") }
+    var tipoSelecionado by rememberSaveable { mutableStateOf<TipoVistoria?>(null) }
+    var observacoes by rememberSaveable { mutableStateOf("") }
 
     Scaffold(containerColor = Color.White) { padding ->
         Column(

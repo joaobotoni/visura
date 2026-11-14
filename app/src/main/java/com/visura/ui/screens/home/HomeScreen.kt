@@ -32,6 +32,8 @@ import com.visura.ui.theme.StatusOrangeBg
 import com.visura.ui.theme.StatusOrangeText
 import com.visura.ui.theme.TextGray
 import java.util.Calendar
+import com.visura.model.StatusVistoria
+import com.visura.model.Vistoria
 
 private fun saudacaoPorHorario(): String {
     val hora = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
