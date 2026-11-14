@@ -1,4 +1,4 @@
-# vsr
+# Visura — API (backend)
 
 API REST para gestão de **vistorias de imóveis**: cadastro de pessoas e empresas, imóveis e seus proprietários, e o registro de vistorias de entrada e saída, organizadas em ambientes, itens e evidências fotográficas.
 
@@ -8,8 +8,10 @@ Estão implementados na API: **identidade e acesso** (cadastro, login, login com
 
 ## Sumário
 
+- [Estrutura do projeto](#estrutura-do-projeto)
 - [Tecnologias](#tecnologias)
 - [Banco de dados](#banco-de-dados)
+  - [Modelagem de dados](#modelagem-de-dados)
 - [Regras de negócio](#regras-de-negócio)
   - [Cadastro](#cadastro)
   - [Login, dispositivos e sessões](#login-dispositivos-e-sessões)
@@ -19,10 +21,47 @@ Estão implementados na API: **identidade e acesso** (cadastro, login, login com
   - [Limite de requisições](#limite-de-requisições)
   - [Envio de e-mail](#envio-de-e-mail)
   - [Domínio de vistorias](#domínio-de-vistorias)
+- [Fluxos críticos](#fluxos-críticos)
 - [API](#api)
 - [Segurança](#segurança)
 - [Configuração e execução](#configuração-e-execução)
 - [Testes](#testes)
+- [Contribuição](#contribuição)
+
+---
+
+## Estrutura do projeto
+
+O backend é um projeto Maven independente; todos os comandos rodam dentro de `backend/`. O código segue as camadas do Spring: o controller recebe a requisição validada, o service aplica as regras e abre a transação, e os repositórios (Spring Data JPA) e as procedures do PostgreSQL gravam.
+
+```text
+backend/
+├── pom.xml, mvnw, mvnw.cmd, .mvn/   # build Maven (wrapper incluso)
+├── compose.yaml                     # PostgreSQL 17 + pg_cron e Mailpit para desenvolvimento
+├── docker/postgres/Dockerfile       # imagem do PostgreSQL com pg_cron usada pelo compose
+├── docs/db/app-role.sql             # role vsr_app, com as permissões mínimas da aplicação
+└── src/
+    ├── main/java/com/visura/
+    │   ├── controller/      # endpoints REST (/api/1/...)
+    │   ├── service/         # regras de negócio e transações
+    │   ├── database/        # entity/ (JPA), repository/ (Spring Data), converter/ e enums/ do banco
+    │   ├── dto/             # request/ (entrada validada) e response/ (saída da API)
+    │   ├── mapper/          # conversão entidade -> resposta (MapStruct)
+    │   ├── vo/              # value objects validados (Cpf, Cnpj, Email, Password, Photo...)
+    │   ├── exception/       # exceções de domínio, enums de problema e handlers RFC 9457
+    │   ├── filter/          # filtros de exceção, limite de requisições, tamanho do corpo e autenticação
+    │   ├── ratelimit/       # TokenBucket e as políticas por rota
+    │   ├── token/           # JWT, refresh token opaco e ID token do Google
+    │   ├── network/         # IP e rede do cliente (IPv4, IPv6 agrupado por /56)
+    │   ├── configuration/   # beans do Spring (segurança, JWT, Argon2, relógio, agendamento...)
+    │   ├── properties/      # @ConfigurationProperties lidas das variáveis de ambiente
+    │   ├── principal/       # usuário autenticado da requisição
+    │   └── lib/             # utilitários (módulo 11 de CPF/CNPJ, textos)
+    ├── main/resources/
+    │   ├── application.yaml e demais *.yaml   # configuração por assunto (banco, segurança, e-mail, web, limites)
+    │   └── db/migration/                      # migrations do Flyway (V1 a V14)
+    └── test/java/com/visura/                  # testes por pacote; support/ tem a base dos testes de fluxo
+```
 
 ---
 
@@ -88,7 +127,7 @@ O **MapStruct** gera em tempo de compilação a conversão entre entidades e res
 
 ### Jakarta Mail
 
-Envio de e-mail por SMTP com **STARTTLS obrigatório**, em texto simples ou com anexos. Ainda não é usado por nenhum fluxo; está pronto para a confirmação de e-mail e a recuperação de senha.
+Envio de e-mail por SMTP com **STARTTLS obrigatório**, em texto simples ou com anexos. É usado pela recuperação de senha, que envia o código por e-mail.
 
 ### Tempo
 
@@ -116,6 +155,248 @@ O banco é dividido em schemas por contexto:
 | `vistorias` | Vistoria, pessoas vinculadas, ambiente, item e evidência |
 | `rotinas` | Procedures de apoio e de manutenção |
 
+### Modelagem de dados
+
+O diagrama abaixo mostra as tabelas de negócio. Ele foi montado a partir das migrations: o `V3`, mais as colunas acrescentadas do `V8` ao `V14`.
+
+- Os ids sequenciais (`int`) ficam só no banco. A API expõe o `uuid`.
+- O diagrama omite as colunas de controle presentes em quase todas as tabelas: `created_at`, `updated_at`, `removido_em` (remoção lógica) e `versao` (controle de concorrência).
+- O schema `auditoria` também fica de fora.
+
+```mermaid
+erDiagram
+    PESSOA ||--o| PESSOA_FISICA : "é"
+    PESSOA ||--o| PESSOA_JURIDICA : "é"
+    PESSOA ||--o| PESSOA_CONTATO : "tem"
+    PESSOA_FISICA ||--o| USUARIO : "acessa como"
+    USUARIO ||--o{ PESSOA : "cadastra (titular)"
+    USUARIO ||--o| CREDENCIAL_LOCAL : "tem"
+    USUARIO ||--o{ CREDENCIAL_SOCIAL : "tem"
+    USUARIO ||--o{ DISPOSITIVO : "usa"
+    DISPOSITIVO ||--o{ SESSAO : "abre"
+    SESSAO ||--o| REFRESH_TOKEN : "tem"
+    REFRESH_TOKEN ||--o{ REFRESH_TOKEN_USADO : "guarda"
+    USUARIO ||--o{ RECUPERACAO_SENHA : "pede"
+    PESSOA_FISICA ||--o{ VINCULO_PESSOA_EMPRESA : "participa"
+    PESSOA_JURIDICA ||--o{ VINCULO_PESSOA_EMPRESA : "tem membros"
+    ESTADO ||--o{ CIDADE : "tem"
+    CIDADE ||--o{ BAIRRO : "tem"
+    BAIRRO ||--o{ LOGRADOURO : "tem"
+    LOGRADOURO ||--o{ ENDERECO : "tem"
+    ENDERECO ||--o{ IMOVEL : "localiza"
+    USUARIO ||--o{ IMOVEL : "cadastra"
+    PESSOA_JURIDICA |o--o{ IMOVEL : "é dona"
+    IMOVEL ||--o{ IMOVEL_PROPRIETARIO : "tem"
+    PESSOA ||--o{ IMOVEL_PROPRIETARIO : "é proprietária"
+    IMOVEL ||--o{ VISTORIA : "é vistoriado"
+    USUARIO ||--o{ VISTORIA : "é responsável"
+    VISTORIA |o--o| VISTORIA : "saída referencia a entrada"
+    VISTORIA ||--o{ VISTORIA_PESSOA : "tem"
+    PESSOA ||--o{ VISTORIA_PESSOA : "proprietário ou inquilino"
+    VISTORIA ||--o{ AMBIENTE : "tem"
+    TIPO_AMBIENTE |o--o{ AMBIENTE : "classifica"
+    AMBIENTE ||--o{ ITEM : "tem"
+    TIPO_ITEM |o--o{ ITEM : "classifica"
+    AMBIENTE ||--o{ EVIDENCIA : "tem fotos"
+    ITEM |o--o{ EVIDENCIA : "tem fotos"
+    TIPO_AMBIENTE ||--o{ TIPO_AMBIENTE_ITEM : "sugere"
+    TIPO_ITEM ||--o{ TIPO_AMBIENTE_ITEM : "é sugerido"
+
+    PESSOA {
+        int id_pessoa PK
+        uuid uuid
+        tipo_pessoa tipo "pf ou pj"
+        text nome
+        int id_usuario_titular FK
+    }
+    PESSOA_FISICA {
+        int id_pessoa PK,FK
+        text cpf
+    }
+    PESSOA_JURIDICA {
+        int id_pessoa PK,FK
+        text cnpj
+        text nome_fantasia
+    }
+    PESSOA_CONTATO {
+        int id_pessoa PK,FK
+        text telefone
+        text email
+    }
+    USUARIO {
+        int id_usuario PK
+        uuid uuid
+        int id_pessoa FK
+        text email
+    }
+    CREDENCIAL_LOCAL {
+        int id_usuario PK,FK
+        text senha_hash "Argon2id"
+        timestamptz senha_atualizada_em
+    }
+    CREDENCIAL_SOCIAL {
+        int id_usuario FK
+        provedor_social provedor "google"
+        text identificador_externo
+    }
+    DISPOSITIVO {
+        int id_dispositivo PK
+        int id_usuario FK
+        uuid identificador
+        plataforma_dispositivo plataforma "android ou ios"
+        text fabricante
+        text modelo
+        text versao_so
+    }
+    SESSAO {
+        int id_sessao PK
+        int id_dispositivo FK
+        inet endereco_ip
+        timestamptz ultimo_acesso_em
+        timestamptz expira_em
+        timestamptz revogada_em
+    }
+    REFRESH_TOKEN {
+        int id_sessao PK,FK
+        bytea hash_atual "HMAC-SHA-256"
+        timestamptz expira_em
+        timestamptz renovado_em
+    }
+    REFRESH_TOKEN_USADO {
+        bytea hash PK
+        int id_sessao FK
+        timestamptz usado_em
+    }
+    RECUPERACAO_SENHA {
+        int id_recuperacao PK
+        int id_usuario FK
+        bytea codigo_hash
+        int tentativas
+        timestamptz expira_em
+        timestamptz encerrada_em
+    }
+    VINCULO_PESSOA_EMPRESA {
+        int id_vinculo_pessoa_empresa PK
+        int id_pessoa_fisica FK
+        int id_pessoa_juridica FK
+        tipo_vinculo tipo "socio, representante, mei, funcionario"
+    }
+    ESTADO {
+        int id_estado PK
+        text sigla
+        text nome
+    }
+    CIDADE {
+        int id_cidade PK
+        int id_estado FK
+        text nome
+    }
+    BAIRRO {
+        int id_bairro PK
+        int id_cidade FK
+        text nome
+    }
+    LOGRADOURO {
+        int id_logradouro PK
+        int id_bairro FK
+        text cep
+        text nome
+    }
+    ENDERECO {
+        int id_endereco PK
+        int id_logradouro FK
+        text numero
+        text complemento
+    }
+    IMOVEL {
+        int id_imovel PK
+        uuid uuid
+        int id_endereco FK
+        int id_usuario FK
+        int id_pessoa_juridica FK
+        text descricao
+        tipo_imovel tipo
+        categoria_imovel categoria
+    }
+    IMOVEL_PROPRIETARIO {
+        int id_imovel PK,FK
+        int id_pessoa PK,FK
+    }
+    TIPO_AMBIENTE {
+        int id_tipo_ambiente PK
+        uuid uuid
+        int id_usuario FK
+        int id_pessoa_juridica FK
+        text nome
+        boolean padrao
+    }
+    TIPO_ITEM {
+        int id_tipo_item PK
+        uuid uuid
+        int id_usuario FK
+        int id_pessoa_juridica FK
+        text nome
+        boolean padrao
+    }
+    TIPO_AMBIENTE_ITEM {
+        int id_tipo_ambiente PK,FK
+        int id_tipo_item PK,FK
+    }
+    VISTORIA {
+        int id_vistoria PK
+        uuid uuid
+        int id_usuario_responsavel FK
+        int id_pessoa_juridica FK
+        int id_imovel FK
+        tipo_vistoria tipo "entrada ou saida"
+        status_vistoria status "em_andamento ou finalizada"
+        int id_vistoria_entrada FK
+        text observacoes_iniciais
+        timestamptz iniciada_em
+        timestamptz finalizada_em
+    }
+    VISTORIA_PESSOA {
+        int id_vistoria PK,FK
+        int id_pessoa PK,FK
+        tipo_vinculo_pessoa tipo_vinculo "proprietario ou inquilino"
+    }
+    AMBIENTE {
+        int id_ambiente PK
+        uuid uuid
+        int id_vistoria FK
+        int id_tipo_ambiente FK
+        text nome
+        text observacoes
+        int id_ambiente_origem FK
+    }
+    ITEM {
+        int id_item PK
+        uuid uuid
+        int id_ambiente FK
+        int id_tipo_item FK
+        text nome
+        text descricao
+        estado_item estado "novo, excelente, bom, regular, ruim, danificado"
+        text material
+        text cor
+        text observacoes
+        int id_item_origem FK
+    }
+    EVIDENCIA {
+        int id_evidencia PK
+        uuid uuid
+        int id_ambiente FK
+        int id_item FK
+        text caminho_arquivo
+        text tipo_arquivo
+        int tamanho_bytes
+        bytea hash_sha256
+        timestamptz recebida_em
+    }
+```
+
+O `V3` também cria a tabela `pessoas.pessoa_titularidade`, mas ela não é usada: a titularidade fica em `pessoa.id_usuario_titular`.
+
 ### Migrations
 
 Ficam em `src/main/resources/db/migration`:
@@ -130,12 +411,12 @@ Ficam em `src/main/resources/db/migration`:
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
 | `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
 | `V8__imoveis.sql` | `uuid` em `pessoa`, `tipo_ambiente` e `tipo_item`; remoção lógica do imóvel (`removido_em`), com o único de endereço por titular valendo só entre imóveis ativos; função `enderecos.registrar_endereco` e procedure `imoveis.remover_imovel` |
-| `V13__regras_integridade_auditoria.sql` | Regras `rn_vistoria_responsavel`, `rn_catalogo_uso` e `rn_empresa_cadastro`; SHA-256 das evidências; coluna `versao` para controle de concorrência; schema `auditoria` com o histórico de imóveis, vistorias e vínculos |
-| `V12__empresas_catalogo_enderecos.sql` | Nomes de cidade, bairro e logradouro comparados sem acento (`documento.sem_acento`); regras do catálogo personalizado; vínculos de empresa desfeitos logicamente, a empresa nunca fica sem administrador; a vistoria herda a empresa do imóvel; proprietários e pessoas da vistoria aceitam o cadastro de membros da empresa |
-| `V11__pessoas.sql` | Cadastro privado de pessoas por usuário (`id_usuario_titular`): CPF e CNPJ únicos entre as contas e dentro de cada cadastro; contato com telefone ou e-mail; vínculos de proprietário e de pessoa da vistoria desfeitos logicamente; triggers de titular |
-| `V10__evidencias.sql` | Remoção lógica da evidência |
-| `V14__recuperacao_senha_cor_item.sql` | Tabela `usuarios.recuperacao_senha` (HMAC do código, tentativas, validade e encerramento, uma aberta por usuário); coluna `cor` no item, copiada também pela `copiar_vistoria` |
 | `V9__vistorias.sql` | Remoção lógica de vistoria, ambiente e item; nomes únicos só entre ativos; uma vistoria em andamento por imóvel e uma saída por entrada; triggers das regras de vistoria; procedure `vistorias.copiar_vistoria` |
+| `V10__evidencias.sql` | Remoção lógica da evidência |
+| `V11__pessoas.sql` | Cadastro privado de pessoas por usuário (`id_usuario_titular`): CPF e CNPJ únicos entre as contas e dentro de cada cadastro; contato com telefone ou e-mail; vínculos de proprietário e de pessoa da vistoria desfeitos logicamente; triggers de titular |
+| `V12__empresas_catalogo_enderecos.sql` | Nomes de cidade, bairro e logradouro comparados sem acento (`documento.sem_acento`); regras do catálogo personalizado; vínculos de empresa desfeitos logicamente, a empresa nunca fica sem administrador; a vistoria herda a empresa do imóvel; proprietários e pessoas da vistoria aceitam o cadastro de membros da empresa |
+| `V13__regras_integridade_auditoria.sql` | Regras `rn_vistoria_responsavel`, `rn_catalogo_uso` e `rn_empresa_cadastro`; SHA-256 das evidências; coluna `versao` para controle de concorrência; schema `auditoria` com o histórico de imóveis, vistorias e vínculos |
+| `V14__recuperacao_senha_cor_item.sql` | Tabela `usuarios.recuperacao_senha` (HMAC do código, tentativas, validade e encerramento, uma aberta por usuário); coluna `cor` no item, copiada também pela `copiar_vistoria` |
 
 ### Procedures
 
@@ -365,6 +646,66 @@ Regras já garantidas pelo schema, que valem para as próximas funcionalidades d
 
 ---
 
+## Fluxos críticos
+
+### Login, uso e renovação do token
+
+- O access token é um JWT de validade curta.
+- O refresh token é opaco e troca a cada uso.
+- Se um refresh token de uma geração antiga for usado de novo, a sessão é revogada.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App
+    participant F as Filtros (limite, corpo, JWT)
+    participant API as AuthenticationController e serviços
+    participant DB as PostgreSQL
+    App->>F: POST /api/1/auth/login {email, password, device}
+    F->>API: limite por IP, por conta e teto da conta
+    API->>DB: lê a credencial local (Argon2id calculado fora da transação)
+    API->>DB: registrar_dispositivo, nova sessão, emitir_refresh_token
+    API-->>App: 200 {accessToken, refreshToken}
+    App->>F: GET /api/1/inspections com Authorization: Bearer
+    F->>DB: registrar_acesso_sessao (sessão ativa e do mesmo usuário)
+    F-->>App: 200, ou 401 se a sessão não vale
+    App->>API: POST /api/1/auth/refresh {refreshToken}
+    API->>DB: renovar_refresh_token (troca o hash só se ainda for o atual)
+    alt token atual
+        API-->>App: 200 com novo par de tokens
+    else token já usado (reuso)
+        API->>DB: revoga a sessão
+        API-->>App: 401 e o app volta ao login
+    end
+```
+
+### Ciclo de vida da vistoria
+
+As regras ficam em triggers no banco, então valem também fora da API.
+
+```mermaid
+stateDiagram-v2
+    [*] --> em_andamento: POST /inspections (uma em andamento por imóvel)
+    em_andamento --> em_andamento: pessoas, ambientes, itens e evidências
+    em_andamento --> finalizada: POST /inspections/{id}/finish
+    em_andamento --> removida: DELETE /inspections/{id}
+    finalizada --> [*]
+    removida --> [*]
+    note right of finalizada
+        Imutável (rn_vistoria_em_andamento).
+        A saída referencia uma entrada finalizada e
+        recebe uma cópia dos ambientes e itens (copiar_vistoria).
+    end note
+```
+
+### Recuperação de senha
+
+1. `forgot`: a API envia um código de 6 dígitos para o e-mail da conta. A resposta é sempre `204`, exista a conta ou não.
+2. `verify`: a API confere o código. O código fica guardado como HMAC, vale por 15 minutos e aceita 5 tentativas.
+3. `reset`: a API grava a senha nova e revoga todas as sessões da conta.
+
+---
+
 ## API
 
 Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pelo cabeçalho definido em `VERSION_HEADER`; sem ele, vale `VERSION_DEFAULT`. A versão atual é `1`.
@@ -556,7 +897,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 **Pendências conhecidas**
 
-- **Autorização:** não existe modelo de permissões; só autenticação. Os imóveis já filtram pelo dono; cada endpoint futuro (vistorias, pessoas, catálogo) precisa fazer o mesmo. Imóveis de empresa (`id_pessoa_juridica`) ainda não são expostos: dependem dos vínculos.
+- **Autorização:** não há papéis nem permissões granulares. O acesso é decidido pelo dono do recurso (o responsável pela vistoria) e pela participação ativa na empresa dona do imóvel; recurso alheio responde `404`.
 - **Pessoas:** ainda não há remoção de pessoa do cadastro, nem a escolha da própria conta como proprietária. A tabela `pessoa_titularidade` não é usada (a titularidade está em `pessoa.id_usuario_titular`).
 - **Catálogo personalizado:** tipos criados não são editados nem removidos.
 - **Metadados das fotos:** o arquivo é guardado como veio, com o EXIF (inclusive a localização GPS, se o aparelho gravou). Isso pode servir de prova, mas é dado pessoal; remover ou não é decisão pendente.
@@ -652,10 +993,16 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **556 execuções de teste** (contadas pelo Surefire). A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **623 execuções de teste** (contadas pelo Surefire; 1 é pulada no Windows, veja abaixo). A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 
 O `PropertyFlowTest`, o `InspectionFlowTest`, o `EvidenceFlowTest`, o `PersonFlowTest`, o `CompanyFlowTest` e o `RecoveryFlowTest` (com o envio de e-mail simulado) (base `support/ApplicationTest`, com um diretório temporário para as fotos) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
 
 O teste que recusa anexos por link simbólico é pulado no Windows, porque criar links simbólicos exige permissão de administrador; ele roda normalmente em Linux.
+
+---
+
+## Contribuição
+
+O padrão de código, o glossário de verbos e o fluxo de trabalho do backend estão em [CONTRIBUTING.md](CONTRIBUTING.md). A visão geral do repositório está no [README da raiz](../README.md).

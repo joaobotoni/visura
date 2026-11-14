@@ -1,14 +1,117 @@
-# Padrão de código
+# Contribuindo com o backend
+
+Este guia vale só para a API, que fica em `backend/`. O fluxo de Git e de Pull Request comum ao repositório está no [CONTRIBUTING da raiz](../CONTRIBUTING.md). O que a API faz está no [README do backend](README.md).
+
+## Sumário
+
+- [Ambiente](#ambiente)
+- [Executar localmente](#executar-localmente)
+- [Testes](#testes)
+- [Banco de dados e migrations](#banco-de-dados-e-migrations)
+- [Tratamento de erros](#tratamento-de-erros)
+- [Ferramentas de qualidade](#ferramentas-de-qualidade)
+- [Git e Pull Requests](#git-e-pull-requests)
+- [Padrão de código](#padrão-de-código)
+
+## Ambiente
+
+| Ferramenta | Versão | Para quê |
+|---|---|---|
+| JDK | 17 ou mais novo (o `pom.xml` compila para 17) | Compilar e rodar |
+| Maven | O wrapper `./mvnw` baixa a versão certa | Build e testes |
+| Docker | Qualquer versão com `docker compose` | Subir o PostgreSQL 17 com `pg_cron` e o Mailpit (`compose.yaml`) |
+
+Os testes não precisam de Docker nem de banco instalado: eles sobem um PostgreSQL embutido.
+
+## Executar localmente
+
+```bash
+cd backend
+docker compose up -d                 # PostgreSQL em localhost:5432 e Mailpit (e-mails em http://localhost:8025)
+./mvnw -DskipTests package
+java -jar target/visura-api-0.0.1-SNAPSHOT.jar
+```
+
+A API lê a configuração de variáveis de ambiente, que estão listadas em [README.md](README.md#configuração-e-execução). Para o banco do `compose.yaml`, use:
+
+```text
+DB_URL=jdbc:postgresql://localhost:5432/visura
+DB_USERNAME=visura
+DB_PASSWORD=visura
+MAIL_HOST=localhost
+MAIL_PORT=1025
+```
+
+O Mailpit não usa autenticação nem TLS. Por isso, suba a API com estes argumentos:
+
+```text
+--spring.mail.properties.mail.smtp.auth=false
+--spring.mail.properties.mail.smtp.starttls.enable=false
+--spring.mail.properties.mail.smtp.starttls.required=false
+```
+
+No Git Bash do Windows, defina `MSYS2_ENV_CONV_EXCL='*'` antes de subir a API. Sem isso, uma chave Base64 que começa com `/` é convertida em caminho do Windows, e a API não inicia.
+
+## Testes
+
+```bash
+./mvnw test                                   # suíte completa
+./mvnw test -Dtest=InspectionFlowTest         # uma classe
+```
+
+- **Testes unitários** ficam no mesmo pacote da classe testada, em `src/test/java/com/visura/<pacote>`.
+  - Os serviços usam repositórios simulados com Mockito.
+  - A cadeia de segurança real roda com MockMvc: `support/WebSecurityTest`.
+- **Testes de integração** são as classes `*FlowTest`, que estendem `support/ApplicationTest`. Elas sobem a aplicação inteira contra um PostgreSQL embutido (`io.zonky.test:embedded-postgres`), com as migrations aplicadas.
+- **Procedures e triggers** são testados direto no PostgreSQL embutido, em `src/test/java/com/visura/database`.
+- **Funcionalidade nova:** inclua um teste de serviço. Se a funcionalidade tiver regra no banco ou uma rota nova, inclua também um teste de fluxo.
+- **Windows:** o teste que recusa anexos por link simbólico é pulado, porque criar links simbólicos exige permissão de administrador. Ele roda normalmente no Linux.
+
+## Banco de dados e migrations
+
+- O schema pertence ao Flyway, e o Hibernate roda com `ddl-auto: validate`. Toda mudança de banco entra numa migration nova em `src/main/resources/db/migration`, com o próximo número (`V15__descricao.sql`).
+- **Nunca altere uma migration que já rodou em algum ambiente.** O Flyway confere o checksum e recusa a subida.
+- Use o prefixo `rn_` nas regras de negócio aplicadas no banco e lance o erro com `rotinas.violar`. A API converte o nome da regra no status HTTP.
+- A role da aplicação, `vsr_app` (`docs/db/app-role.sql`), não apaga linhas nem altera o schema. Quando criar um schema ou uma rotina, inclua os `grant` correspondentes.
+- O prefixo `vsr`, que aparece na role, nas propriedades `vsr.*` e nas migrations, vem do nome antigo da API. Ele fica assim de propósito.
+
+## Tratamento de erros
+
+- Os erros de domínio são exceções de `exception/custom`, ligadas a um enum de problema em `exception/enums/problem`, que define o status e a mensagem.
+- Os handlers de `exception/handler` convertem essas exceções numa resposta RFC 9457 (`ProblemDetail`).
+- Não devolva `500` para erro do cliente nem esconda a falha com um `catch` genérico. Os erros `4xx` geram uma linha `WARN`, e os erros inesperados geram `ERROR` com o stack trace.
+- Uma resposta não pode revelar se uma conta, CPF ou e-mail existe quando a regra pede sigilo, como na recuperação de senha e na inclusão de membro.
+
+## Ferramentas de qualidade
+
+O projeto não tem linter nem formatador configurado no Maven (Checkstyle, Spotless e afins). O padrão de código é garantido de duas formas:
+
+- O `ServicePatternTest` confere a forma dos serviços e roda junto com `./mvnw test`.
+- A revisão do Pull Request confere o resto, com base nas regras da seção abaixo.
+
+O ArchUnit está declarado no `pom.xml`, mas ainda não há testes de arquitetura.
+
+## Git e Pull Requests
+
+Siga o fluxo do [CONTRIBUTING da raiz](../CONTRIBUTING.md#fluxo-de-trabalho), com estes cuidados do backend:
+
+- Faça a mudança de banco num commit próprio, quando for possível: `feat: adiciona migration V15 com ...`.
+- Rode `./mvnw test` antes de abrir o PR e informe o resultado na descrição.
+- Se a mudança alterar uma rota, um payload ou um código HTTP, atualize a seção [API do README](README.md#api) e confira se o app (`app/src/main/java/com/visura/data/remote/`) continua compatível.
+
+---
+
+## Padrão de código
 
 Regras que valem para todo o código de produção. As regras de forma dos serviços são garantidas pelo `ServicePatternTest`; o glossário é conferido na revisão.
 
-## Princípios
+### Princípios
 
 1. **Um nível de indentação por método.**
 2. **Um nível de abstração por método:** o público lista passos; cada passo é um método com uma intenção.
 3. **Um verbo, um sentido:** o mesmo verbo nunca significa coisas diferentes no projeto (ver [Glossário](#glossário)).
 
-## Métodos
+### Métodos
 
 - O público só chama passos. Todo desvio de fluxo (`if`, `try`, `throw`, `orElseThrow`, laço que valida) fica num auxiliar próprio.
 - Cada passo fica no seu método, inclusive o que só repassa para outro serviço.
@@ -17,20 +120,20 @@ Regras que valem para todo o código de produção. As regras de forma dos servi
 - Guardas são `void`, têm o nome da condição exigida (`present`, `fresh`, `unexpired`) e o corpo do `if` só sai cedo (`throw` ou `return`).
 - O `TokenBucket` é exceção declarada: segue o formato do commit b9f9420 (ver [Rate limit](#rate-limit)).
 
-## Nomes
+### Nomes
 
 - **Uma palavra** por padrão. **Duas palavras** só quando nenhuma palavra sozinha diz a coisa sem ambiguidade. Vale também para campos de record, que viram métodos.
 - Booleanos sem prefixo `is`/`has`/`can`, sempre na **forma positiva**. A negação fica no `if` (`if (!current(...))`), sem criar um booleano gêmeo negado (`wrong`, `unused`).
 - Passo que devolve valor pode ter nome de substantivo (`person`, `user`, `token`); ação tem nome de verbo.
 - Nunca dois métodos com o mesmo nome na mesma classe.
 
-## Ordem no arquivo
+### Ordem no arquivo
 
 Públicos → passos na ordem em que são chamados → auxiliares de desvio de fluxo → booleanos.
 
-## Glossário
+### Glossário
 
-### Acesso e conta
+#### Acesso e conta
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -41,7 +144,7 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `grant` | dar acesso a um usuário já conferido: dispositivo, sessão e tokens | `AccessService` |
 | `enroll` | registrar ou atualizar o dispositivo do usuário | `DeviceService` |
 
-### Senha
+#### Senha
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -53,7 +156,7 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `upgrade` | gravar o hash recalculado com os parâmetros atuais do Argon2, depois de um login correto | `LocalCredentialService`, `AuthenticationConfig` |
 | `swap` | `replace` que desiste em silêncio se outra troca de senha gravou primeiro | `LocalCredentialService` |
 
-### Recuperação de senha e login com Google
+#### Recuperação de senha e login com Google
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -67,7 +170,7 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `redeem` | encerrar o código usado; recusa se outro pedido o usou primeiro | `RecoveryCodeService`, `PasswordRecoveryRepository` |
 | `linked` / `bind` / `link` | a conta já vinculada ao Google / achar a conta pelo e-mail confirmado / gravar o vínculo | `GoogleLoginService` |
 
-### Tokens
+#### Tokens
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -79,7 +182,7 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `revokeReused` | revogar a sessão quando um refresh token reutilizado aparece | `RefreshService` |
 | `tokens` | o par access + refresh token (passo que devolve `TokenResponse`) | `AccessService` |
 
-### Sessão
+#### Sessão
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -95,7 +198,7 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `clear` | revogar as sessões de um dispositivo | `SessionService` |
 | `cap` | manter o usuário dentro do máximo de sessões | `SessionService` |
 
-### Rate limit
+#### Rate limit
 
 O algoritmo fica inteiro no `TokenBucket`, a mesma conta do script Lua (formato do commit b9f9420), com uma chave genérica e intocado; em volta dele ficam só o limite de chaves e a limpeza; com os records `Limit`, `Allowance` e `Bucket` dentro dele. Os records só carregam dados: a validação do `Limit` e o cálculo do `retry` ficam no `TokenBucket`. Este bloco segue esse formato em vez das regras de passos acima.
 
@@ -130,7 +233,7 @@ Classes do rate limit:
 | `RateLimitPolicy` | dona de todos os `TokenBucket`: o de cada rota, o fallback, o da conta e o do teto; fecha todos no `close()` |
 | `Routes` | as rotas da API e o limite de cada uma |
 
-### Rede
+#### Rede
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -152,7 +255,7 @@ Classes do rate limit:
 | `apply` | aplicar o prefixo e devolver o endereço da rede | `Mask` |
 | `truncate` | cortar o endereço no prefixo, zerando os bits depois dele | `Mask` |
 
-### Gerais
+#### Gerais
 
 | Verbo | Sentido |
 |---|---|
@@ -165,7 +268,7 @@ Classes do rate limit:
 | `plain` / `multipart` | montar a mensagem de texto / com partes |
 | `view` | consultar um recurso do dono e devolver a resposta (`ProfileService`, `PropertyService`) |
 
-### Imóveis e endereços
+#### Imóveis e endereços
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -181,7 +284,7 @@ Classes do rate limit:
 | `find` (público) | entregar a entidade do dono a outro serviço, lançando `NOT_FOUND` | `PropertyService`, `InspectionService`, `RoomService` |
 | `store` | gravar já (`saveAndFlush`), para o banco validar a alteração dentro do caso de uso | `InspectionService`, `RoomService`, `ItemService` |
 
-### Vistorias e catálogo
+#### Vistorias e catálogo
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -197,7 +300,7 @@ Classes do rate limit:
 | `contents` | os itens de um tipo de ambiente que o usuário vê | `CatalogService` |
 | `accessible` | o tipo do catálogo é padrão ou do próprio usuário | `CatalogService` |
 
-### Pessoas
+#### Pessoas
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -210,7 +313,7 @@ Classes do rate limit:
 | `link` / `unlink` | vincular / desvincular (logicamente) uma pessoa a um imóvel ou a uma vistoria | `OwnerService`, `ParticipantService` |
 | `bind` / `release` | chamar o vínculo / o desvínculo no banco | `OwnerService`, `ParticipantService` |
 
-### Empresas e catálogo personalizado
+#### Empresas e catálogo personalizado
 
 | Verbo | Sentido | Onde |
 |---|---|---|
@@ -223,7 +326,7 @@ Classes do rate limit:
 | `chosen` | os tipos de item escolhidos, conferidos um a um | `CatalogService` |
 | `attach` | ligar os itens ao tipo de ambiente personalizado | `CatalogService`, `RoomTypeRepository` |
 
-### Evidências
+#### Evidências
 
 | Verbo | Sentido | Onde |
 |---|---|---|
