@@ -1,161 +1,216 @@
 # Visura
 
-Sistema de vistoria imobiliária. O app Android registra vistorias de entrada e de saída, ambiente por ambiente e item por item, com fotos, e gera o laudo em PDF. Os dados ficam numa API REST própria.
+Sistema de vistoria imobiliária. O app Android registra vistorias de entrada e de saída, ambiente por ambiente e item por item, com fotos, e gera o laudo em PDF. Todos os dados ficam numa API REST própria.
 
-O repositório é um monorepo com duas partes, cada uma com seu próprio build:
+## Sumário
 
-| Pasta | O que é | Tecnologias |
-|---|---|---|
-| raiz (`app/`) | App Android | Kotlin, Jetpack Compose, Navigation Compose, Retrofit, OkHttp, Credential Manager |
-| `backend/` | API REST | Java 17, Spring Boot 4, PostgreSQL 17 com `pg_cron`, Flyway, JWT |
+1. [Propósito](#propósito)
+2. [Problema que o sistema resolve](#problema-que-o-sistema-resolve)
+3. [Visão geral do ecossistema](#visão-geral-do-ecossistema)
+4. [Arquitetura geral](#arquitetura-geral)
+5. [Estrutura de diretórios](#estrutura-de-diretórios)
+6. [Módulos](#módulos)
+7. [Tecnologias](#tecnologias)
+8. [Integração entre app e API](#integração-entre-app-e-api)
+9. [Requisitos](#requisitos)
+10. [Instalação e execução](#instalação-e-execução)
+11. [Testes](#testes)
+12. [Documentação dos módulos](#documentação-dos-módulos)
 
-A documentação completa da API, com regras de negócio, endpoints, segurança e variáveis de ambiente, está em [backend/README.md](backend/README.md).
+## Propósito
 
----
+O Visura digitaliza a vistoria de imóveis para locação. No celular, o vistoriador:
 
-## Branch `feature/pendencias-e-correcoes`
+- cadastra o imóvel, o proprietário e o inquilino;
+- percorre os ambientes do imóvel, avaliando o estado de cada item;
+- fotografa as evidências;
+- finaliza a vistoria e entrega um laudo em PDF pronto para assinatura.
 
-Esta branch resolve a lista de pendências e limitações conhecidas do projeto. Ela também traz as correções de um pente fino em todo o app e na API. Esta seção é o roteiro para revisar o PR.
+## Problema que o sistema resolve
 
-### Resumo
+A vistoria em papel, ou em planilhas soltas, causa três problemas:
 
-| Commit | Conteúdo |
+- as fotos se perdem;
+- fica difícil comparar a entrada com a saída do inquilino;
+- é fácil alterar um laudo já assinado.
+
+No Visura:
+
+- **Comparação:** a vistoria de saída nasce como cópia dos ambientes e itens da vistoria de entrada, o que facilita a comparação.
+- **Laudo imutável:** depois de finalizada, a vistoria não muda mais. Isso é garantido por regras no próprio banco de dados.
+- **Fotos íntegras:** cada foto é guardada com o hash SHA-256, que é conferido em cada download.
+- **Trabalho em equipe:** os imóveis e as vistorias podem ser compartilhados por uma empresa e seus membros.
+
+## Visão geral do ecossistema
+
+O repositório é um monorepo com dois módulos independentes, cada um com o próprio build:
+
+| Módulo | Pasta | O que é | Build |
+|---|---|---|---|
+| App Android | [`app/`](app/) | Aplicativo do vistoriador | Gradle (wrapper em `app/`) |
+| Backend | [`backend/`](backend/) | API REST, banco de dados e regras de negócio | Maven (wrapper em `backend/`) |
+
+Serviços externos usados:
+
+- **ViaCEP:** o app busca endereços nele.
+- **Google:** o app faz o login pelo Credential Manager, e a API confere o ID token.
+- **Servidor SMTP:** a API envia por ele o código de recuperação de senha. No desenvolvimento, o Mailpit faz esse papel.
+
+## Arquitetura geral
+
+```mermaid
+flowchart LR
+    U((Vistoriador)) --> APP
+    subgraph APP["app/ — Android (Kotlin, Compose)"]
+        UI[Telas Compose] --> VM[VisuraViewModel]
+        VM --> REPO[VisuraRepositorio]
+        REPO --> HTTP[Retrofit + OkHttp]
+        VM --> PDF[Laudo em PDF no aparelho]
+    end
+    HTTP -->|"HTTPS JSON /api/1/ (Bearer JWT)"| API
+    APP -->|CEP e endereço| VIACEP[(ViaCEP)]
+    APP -->|ID token| GOOGLE[(Google Identity)]
+    subgraph BACK["backend/ — Spring Boot 4 (Java 17)"]
+        API[Controllers REST] --> FIL[Filtros: limite, corpo, JWT]
+        FIL --> SVC[Services]
+        SVC --> JPA[Spring Data JPA]
+        SVC --> FS[(Arquivos das fotos<br/>EVIDENCE_DIR)]
+        SVC --> SMTP[(SMTP)]
+    end
+    JPA --> DB[(PostgreSQL 17<br/>Flyway, procedures, triggers, pg_cron)]
+```
+
+## Estrutura de diretórios
+
+```text
+visura/
+├── README.md              # este arquivo: visão geral do ecossistema
+├── CONTRIBUTING.md        # fluxo de Git, commits, PRs e testes do repositório
+├── .gitignore
+├── app/                   # aplicativo Android (projeto Gradle independente)
+│   ├── README.md
+│   ├── CONTRIBUTING.md
+│   ├── build.gradle.kts, settings.gradle.kts, gradle.properties
+│   ├── gradlew, gradlew.bat, gradle/        # wrapper e catálogo de versões
+│   └── src/                                 # main/, debug/, test/, androidTest/
+└── backend/               # API REST (projeto Maven independente)
+    ├── README.md
+    ├── CONTRIBUTING.md
+    ├── pom.xml, mvnw, mvnw.cmd, .mvn/
+    ├── compose.yaml, docker/                # PostgreSQL com pg_cron e Mailpit para desenvolvimento
+    ├── docs/db/app-role.sql                 # role do banco usada pela aplicação
+    └── src/                                 # main/ (código, configuração e migrations) e test/
+```
+
+## Módulos
+
+### App Android (`app/`)
+
+- **Interface:** Jetpack Compose, com um único `NavHost` e um `VisuraViewModel` que guarda o estado do fluxo e roda as chamadas à API no `viewModelScope`.
+- **Dados:**
+  - A camada de dados (`VisuraRepositorio`) converte as respostas da API nos modelos de domínio (`model/`).
+  - A `Sessao` guarda os tokens num SharedPreferences privado, fora do backup.
+- **No próprio aparelho:** o app prepara as fotos (JPEG reduzido, com a rotação do EXIF aplicada) e gera o laudo em PDF.
+
+Detalhes no [README do app](app/README.md).
+
+### Backend (`backend/`)
+
+- **API REST:** Spring Boot com segurança stateless:
+  - access token JWT de validade curta;
+  - refresh token opaco que troca a cada uso;
+  - sessões controladas por dispositivo.
+- **Banco:** o PostgreSQL concentra as regras que precisam valer mesmo sob concorrência, como constraints, procedures e triggers (por exemplo, a vistoria finalizada é imutável). O schema é versionado pelo Flyway.
+- **Fotos:** ficam em disco (`EVIDENCE_DIR`), com o SHA-256 guardado no banco.
+
+Detalhes no [README do backend](backend/README.md).
+
+## Tecnologias
+
+| Módulo | Principais tecnologias |
 |---|---|
-| `feat: Adiciona recuperação de senha, login com Google e cor do item na API` | backend |
-| `feat: Integra recuperação de senha, Google, busca de endereço, câmera e laudo em PDF no app` | app |
-| `docs: Atualiza os READMEs, o CLAUDE.md e o padrão da API` | documentação |
+| App | Kotlin 2.2, Jetpack Compose (Material 3), Navigation Compose, Lifecycle ViewModel, Retrofit 2 + Gson, OkHttp 4, Credential Manager, ExifInterface; AGP 9.3.3, Gradle 9.5, minSdk 24, targetSdk 37 |
+| Backend | Java 17, Spring Boot 4.1 (Web MVC, Security, Data JPA, Validation, Mail), PostgreSQL 17 com `pg_cron`, Flyway, Hibernate 7, java-jwt, Argon2id (BouncyCastle), MapStruct, Lombok, Google API Client; Maven |
+| Testes | App: JUnit 4. Backend: JUnit 5, Mockito, MockMvc, Spring Security Test, PostgreSQL embutido (`embedded-postgres`) |
 
-### O que foi implementado
+## Integração entre app e API
 
-**API (`backend/`)**
+```mermaid
+sequenceDiagram
+    participant App
+    participant API as API /api/1/
+    participant DB as PostgreSQL
+    App->>API: POST auth/login {email, password, device}
+    API->>DB: credencial, dispositivo, sessão
+    API-->>App: accessToken (JWT) + refreshToken
+    App->>API: GET inspections (Authorization: Bearer)
+    API->>DB: confere a sessão e filtra pelo usuário
+    API-->>App: 200 JSON
+    Note over App,API: Num 401, o app troca o refresh token (POST auth/refresh)<br/>e repete a chamada uma vez. Se o refresh for recusado, volta ao login.
+    App->>API: POST rooms/{id}/evidences (multipart, JPEG)
+    API-->>App: 201
+    App->>API: POST inspections/{id}/finish
+    API-->>App: 200 (a vistoria fica imutável)
+```
 
-- **Recuperação de senha.** O fluxo usa um código de 6 dígitos enviado por e-mail, em três passos: `POST /auth/password/forgot`, `/verify` e `/reset`.
-  - O código fica guardado como HMAC, vale por 15 minutos e aceita 5 tentativas.
-  - A resposta é sempre igual, exista a conta ou não. Isso vale também quando o envio do e-mail falha, para não revelar quais contas existem.
-  - As tabelas novas estão na migration `V14__recuperacao_senha_cor_item.sql`.
-- **Login com Google** (`POST /auth/google`). A API confere a assinatura, o emissor e o público do ID token. Quem já tem conta com o mesmo e-mail fica com o Google vinculado no primeiro acesso. Quem não tem conta recebe um erro que leva o app ao cadastro.
-- **Cor do item.** A cor ganhou uma coluna própria e é copiada para a vistoria de saída junto com os outros dados do item.
-- **Responsável e andamento na listagem de vistorias.** A listagem já traz quem é o responsável e o progresso, calculados numa única consulta (`InspectionProgress`). Antes, o app fazia uma chamada para cada vistoria.
-- **`GET /users/me`** passa a devolver o CPF da conta.
-- **`PATCH` de item:** os campos `description`, `material`, `color` e `notes` enviados como texto vazio agora são apagados. Um campo omitido ou enviado como `null` continua sem mudança. Antes, não havia como apagar um campo pelo app.
-- **Ambiente local.** O `backend/compose.yaml` sobe o PostgreSQL 17 com `pg_cron` e o Mailpit, que recebe os e-mails de teste.
+- **Versão:** todas as rotas ficam sob `/api/{versao}`. A versão atual é `1`.
+- **Erros:**
+  - A API responde no formato **RFC 9457** (`ProblemDetail`).
+  - O app mostra a mensagem de `errors[].message` ou de `detail`.
+- **Contrato:**
+  - Os DTOs do app (`app/src/main/java/com/visura/data/remote/ApiModels.kt`) usam os mesmos nomes de campo da API.
+  - Todas as rotas usadas pelo app (`VisuraApi.kt`) existem nos controllers do backend, com o mesmo método HTTP.
+- **Endereço da API no app:**
+  - Vem de `visura.api.url`, no `app/local.properties`.
+  - O padrão é `http://10.0.2.2:8080/api/1/`, que é o computador visto pelo emulador.
+  - O HTTP sem TLS só é aceito no build de debug.
 
-**App (`app/`)**
+## Requisitos
 
-- Telas de recuperação de senha (e-mail → código → nova senha) e login com Google (Credential Manager), ligadas à API.
-- **Busca de endereço pelo ViaCEP.** O endereço é preenchido pelo CEP ou buscado por "rua, cidade, UF".
-- **Fotos.** O item aceita fotos da câmera (pelo FileProvider) ou da galeria, inclusive antes de o item ser salvo. Toda foto é convertida para JPEG, reduzida e girada conforme o EXIF, para que a foto da câmera não fique deitada.
-- **Laudo em PDF.** O PDF é gerado no aparelho, com os dados, as fotos e as linhas de assinatura, e abre o compartilhamento. Para gerar de novo o laudo de uma vistoria já concluída, basta tocar nela no histórico do imóvel.
-- No cadastro de pessoa jurídica, a pessoa escolhe o próprio papel na empresa: sócio, representante legal ou titular MEI.
-- A Home mostra o responsável e o andamento de cada vistoria.
-- Para remover um ambiente, basta um toque longo nele; o app pede confirmação antes.
-- A busca de pessoas cadastradas aceita o CPF, com ou sem pontuação.
-
-### O que foi analisado e corrigido no pente fino
-
-| Problema encontrado | Correção |
+| Para | Precisa de |
 |---|---|
-| Erros fora da API fechavam o app, por exemplo uma foto ilegível, uma falha no PDF ou um aparelho sem câmera. | O `executar` do NavGraph, o `Carregar`, as fotos, o laudo e a busca de endereço transformam a falha em aviso (`ApiErro` ou Toast). |
-| As listas paravam em 50 registros, o limite de página da API. | O helper `todasAsPaginas` percorre as páginas de vistorias, imóveis e pessoas e a busca da vistoria de entrada. |
-| Apagar a cor ou as observações de um item não tinha efeito, porque o valor antigo voltava. | O app envia o texto vazio e a API apaga o campo (veja o `PATCH` acima). |
-| O CPF do perfil sumia ao entrar em outro aparelho, porque vinha só da sessão local. | O CPF agora vem de `GET /users/me`. |
-| A data da Home podia pular para o dia seguinte à noite, porque o instante UTC era formatado sem fuso. | A data é formatada no fuso do aparelho. Há um teste para isso em `FormatacaoTest`. |
-| O formulário do item e a recuperação de senha se perdiam quando o Android recriava a tela, por exemplo ao abrir a câmera ou girar o aparelho. | Esse estado agora usa `rememberSaveable`. |
-| Se o login automático falhava depois de trocar a senha, parecia que a troca tinha falhado. | O app vai para o login com o aviso "Senha alterada. Entre com a nova senha." |
-| A tela travava quando um ambiente ou item tinha sumido, ou quando faltavam dados do cadastro. | O app avisa e volta para a tela anterior. |
-| Os tokens de sessão entravam no backup do Android. | `visura_sessao.xml` foi excluído de `backup_rules.xml` e de `data_extraction_rules.xml`. |
-| A tela de nova senha não mostrava as regras da senha. | Ela usa a mesma validação do cadastro e avisa quando a confirmação não confere. |
-| O título de um item podia ficar numa página do PDF e as fotos na seguinte, e os bitmaps não eram liberados. | O título fica junto das fotos, o laudo é gerado em `Dispatchers.IO` e os bitmaps são reciclados. |
-| Uma falha no envio do e-mail de recuperação devolvia erro 500 e revelava que a conta existia. | A falha é registrada no log e a resposta continua 204. |
+| Backend | JDK 17 ou mais novo e Docker (para o PostgreSQL com `pg_cron` e o Mailpit do `compose.yaml`). Os testes não precisam de Docker |
+| App | Android Studio compatível com o AGP 9.3, Android SDK 37 e um emulador ou aparelho com Android 7.0 (API 24) ou mais novo |
+| Login com Google (opcional) | Um client OAuth "Web application" e um "Android" no Google Cloud |
 
-Também foram revistos, sem bugs encontrados: o armazenamento de fotos na API, a vinculação de pessoas, as telas de nova vistoria, conclusão, perfil e tipo do imóvel, e a correspondência campo a campo entre os modelos do app e os DTOs da API.
+## Instalação e execução
 
-### Como foi verificado
+```bash
+git clone https://github.com/joaobotoni/visura.git
+cd visura
+```
 
-- **API:** `./mvnw test` passou com 557 testes, 0 falhas e 1 ignorado. Há testes novos de fluxo para a recuperação de senha (`RecoveryFlowTest`), o login com Google (`GoogleLoginServiceTest`) e a limpeza de campos do item (`InspectionFlowTest`).
-- **App:** `./gradlew assembleDebug testDebugUnitTest lintDebug` passou sem avisos de lint nos arquivos alterados. Há testes novos para a busca de endereço e a formatação de datas.
-- **Emulador (Pixel 7):** testei cadastro, login, recuperação de senha, imóvel com busca de endereço, vistoria completa com fotos da câmera e da galeria, conclusão com laudo em PDF, remoção de ambiente e CPF no perfil. Uma foto com EXIF de rotação 90° chegou em pé na API, com 1440×1920.
-
-### O que ainda não foi testado de ponta a ponta
-
-- Falha do login automático logo depois de redefinir a senha.
-- Aparelho sem app de câmera.
-- Recriação da tela após a morte do processo; só a rotação e a abertura da câmera foram testadas.
-- Apagar campos do item pela interface do app; só a API foi testada.
-- Gerar de novo o laudo pelo histórico do imóvel.
-- Login com Google com um client ID real; nos testes da API, a verificação do token é simulada.
-
----
-
-## O que o app faz
-
-- **Conta:** cadastro com e-mail e senha, como pessoa física ou jurídica, login, login com Google e recuperação de senha por código.
-- **Imóveis:** cadastro com endereço, preenchido pelo CEP ou buscado no ViaCEP.
-- **Vistorias:** de entrada ou de saída. A de saída copia os ambientes e os itens da entrada. Cada vistoria tem proprietário e inquilino, ambientes do catálogo ou personalizados, e itens com estado, material, cor, observações e fotos.
-- **Laudo:** PDF com os dados, as fotos e as linhas de assinatura, compartilhado direto do app.
-- **Home:** as vistorias, com o andamento e o responsável calculados pela API.
-
-## Arquitetura do app
-
-O código fica em `app/src/main/java/com/visura/`. Não há ViewModels nem injeção de dependência: a arquitetura é propositalmente enxuta.
-
-- `data/`
-  - `VisuraRepositorio` chama a API pela interface Retrofit `VisuraApi` e converte as respostas nos modelos das telas. Toda falha vira `ApiErro`, já com a mensagem para o usuário.
-  - `Sessao` guarda os tokens, e o `ApiClient` renova o access token sozinho.
-  - Também ficam aqui a busca de endereço (`BuscaDeEndereco.kt`), o laudo (`Laudo.kt`), o preparo das fotos (`Fotos.kt`) e o login com Google (`LoginGoogle.kt`).
-- `ui/navigation/`: `VisuraNavGraph` é o único `NavHost`. Ele chama o repositório e navega; as telas só recebem dados e callbacks.
-- `ui/screens/`: uma pasta por funcionalidade, cada uma com o estado do formulário guardado no próprio Compose.
-
-Os detalhes estão em [CLAUDE.md](CLAUDE.md).
-
-## Como rodar
-
-### 1. API
-
-Pré-requisitos: JDK 17+ e Docker.
+**1. Backend.** As variáveis de ambiente estão em [backend/README.md](backend/README.md#configuração-e-execução), e o passo a passo completo está em [backend/CONTRIBUTING.md](backend/CONTRIBUTING.md#executar-localmente).
 
 ```bash
 cd backend
-docker compose up -d                 # PostgreSQL 17 com pg_cron e Mailpit (e-mails em http://localhost:8025)
+docker compose up -d
 ./mvnw -DskipTests package
 java -jar target/visura-api-0.0.1-SNAPSHOT.jar
 ```
 
-A API lê a configuração de variáveis de ambiente, listadas em [backend/README.md](backend/README.md#configuração-e-execução). Para o ambiente do `compose.yaml`:
-
-- **Banco:** `DB_URL=jdbc:postgresql://localhost:5432/visura`, `DB_USERNAME=visura` e `DB_PASSWORD=visura`.
-- **E-mail:** `MAIL_HOST=localhost` e `MAIL_PORT=1025`. O Mailpit não usa autenticação nem TLS, então a API precisa subir com estes argumentos: `--spring.mail.properties.mail.smtp.auth=false --spring.mail.properties.mail.smtp.starttls.enable=false --spring.mail.properties.mail.smtp.starttls.required=false`.
-
-No Git Bash do Windows, defina `MSYS2_ENV_CONV_EXCL='*'` antes de subir a API. Sem isso, uma chave Base64 que comece com `/` é convertida em caminho do Windows e a API não inicia.
-
-### 2. App
-
-Pré-requisitos: um Android Studio recente (o build usa o AGP `9.3.0-alpha09`) e um emulador ou aparelho.
+**2. App.** Abra a pasta `app/` no Android Studio, ou rode pelo terminal:
 
 ```bash
+cd app
 ./gradlew installDebug
 ```
-
-Configurações opcionais no `local.properties`:
-
-| Chave | Para quê | Padrão |
-|---|---|---|
-| `visura.api.url` | Endereço da API, terminado em `/api/1/` | `http://10.0.2.2:8080/api/1/` (o computador, visto pelo emulador) |
-| `visura.google.client.id` | Client ID do tipo "Web application" do Google Cloud, o mesmo de `GOOGLE_CLIENT_ID` na API | vazio: o botão do Google avisa que não está configurado |
-
-### Login com Google
-
-1. No Google Cloud Console, crie um client OAuth do tipo **Web application**. O ID dele vai em `visura.google.client.id` (app) e em `GOOGLE_CLIENT_ID` (API).
-2. Crie também um client do tipo **Android**, com o pacote `com.visura` e o SHA-1 do certificado de debug, que aparece em `./gradlew signingReport`. O Google exige esse client, mas o app não usa o ID dele.
-3. Só entra quem já tem conta no Visura com o mesmo e-mail. Sem conta, o app abre o cadastro com o nome e o e-mail preenchidos, porque o cadastro exige CPF.
 
 ## Testes
 
 ```bash
-./gradlew testDebugUnitTest lint     # app: testes na JVM e lint
-cd backend && ./mvnw test            # API: testes, inclusive de fluxo contra um PostgreSQL embutido
+cd backend && ./mvnw test                                  # API: unitários e fluxos contra um PostgreSQL embutido
+cd app && ./gradlew testDebugUnitTest lintDebug            # app: testes na JVM e lint
 ```
 
-## Contribuição
+A estratégia de testes de cada módulo está no [CONTRIBUTING.md](CONTRIBUTING.md#estratégia-de-testes).
 
-Leia o [CONTRIBUTING.md](CONTRIBUTING.md). Em resumo: branches `feature/`, `fix/` ou `docs/`, e commits atômicos com prefixo convencional e mensagem em português (`feat: Adiciona ...`).
+## Documentação dos módulos
+
+| Documento | Conteúdo |
+|---|---|
+| [app/README.md](app/README.md) | Arquitetura, navegação, estado, sessão, comunicação com a API, comandos de build e APK/AAB |
+| [app/CONTRIBUTING.md](app/CONTRIBUTING.md) | Ambiente, padrões de código, nomenclatura, erros, lint e testes do app |
+| [backend/README.md](backend/README.md) | Estrutura, modelagem de dados, regras de negócio, endpoints, segurança, configuração e testes da API |
+| [backend/CONTRIBUTING.md](backend/CONTRIBUTING.md) | Ambiente, migrations, tratamento de erros, testes e padrão de código da API |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branches, Conventional Commits, Pull Requests e checklist de revisão |

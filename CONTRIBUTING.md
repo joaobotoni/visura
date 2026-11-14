@@ -1,93 +1,137 @@
-# Guia de Contribuição ao Visura
+# Guia de contribuição do Visura
 
-Bem-vindo(a) ao projeto **Visura**! Este guia detalha o processo de colaboração utilizando **Git** e **GitHub**, garantindo um fluxo de trabalho organizado e eficiente.
+Este guia vale para o repositório inteiro. As orientações de cada módulo estão em [app/CONTRIBUTING.md](app/CONTRIBUTING.md) e [backend/CONTRIBUTING.md](backend/CONTRIBUTING.md).
 
----
+## Sumário
 
-## Como Contribuir
+- [Organização do repositório](#organização-do-repositório)
+- [Configuração do ambiente](#configuração-do-ambiente)
+- [Trabalhando nos módulos](#trabalhando-nos-módulos)
+- [Fluxo de trabalho](#fluxo-de-trabalho)
+- [Padrão de branches](#padrão-de-branches)
+- [Conventional Commits](#conventional-commits)
+- [Pull Requests](#pull-requests)
+- [Checklist de revisão](#checklist-de-revisão)
+- [Estratégia de testes](#estratégia-de-testes)
 
-### 1. Configuração Inicial do Ambiente
+## Organização do repositório
 
-Para começar, você precisará configurar seu ambiente local:
+| Pasta | Módulo | Build | Abre no |
+|---|---|---|---|
+| `app/` | App Android | Gradle (`app/gradlew`) | Android Studio, abrindo a pasta `app/` |
+| `backend/` | API REST | Maven (`backend/mvnw`) | IntelliJ IDEA ou outra IDE Java, abrindo a pasta `backend/` |
 
-| Passo | Ação | Comando |
-| :--- | :--- | :--- |
-| **1.1 Fork** | Crie uma cópia do repositório em sua conta no GitHub. | *(Ação no site do GitHub)* |
-| **1.2 Clone** | Baixe o repositório para sua máquina local. | `git clone https://github.com/joaobotoni/visura.git` |
-| **1.3 Acesso** | Navegue até o diretório do projeto. | `cd visura` |
+Os dois módulos não compartilham código nem build. O ponto de contato entre eles é o contrato HTTP da API, descrito em [backend/README.md](backend/README.md#api) e consumido em `app/src/main/java/com/visura/data/remote/`.
 
-### 2. Criação de uma Branch de Trabalho
+## Configuração do ambiente
 
-Toda alteração deve ser feita em uma nova *branch* para manter a `main` limpa:
+1. Clone o repositório:
 
-```bash
-# Crie e mude para sua nova branch
-git switch -c nome-da-sua-branch
+   ```bash
+   git clone https://github.com/joaobotoni/visura.git
+   cd visura
+   ```
+
+2. Configure a sua identidade Git, com o e-mail vinculado à sua conta do GitHub:
+
+   ```bash
+   git config user.name "Seu Nome"
+   git config user.email "seu-email@exemplo.com"
+   ```
+
+3. Prepare o backend: [backend/CONTRIBUTING.md](backend/CONTRIBUTING.md#ambiente).
+4. Prepare o app: [app/CONTRIBUTING.md](app/CONTRIBUTING.md#ambiente).
+
+## Trabalhando nos módulos
+
+- Rode os comandos de cada módulo dentro da pasta dele: `cd app` ou `cd backend`.
+- **Mudanças no contrato da API:** uma mudança que altera o contrato (rota, payload, código HTTP) toca os dois módulos. Faça as duas partes no mesmo PR, em commits separados: primeiro o backend, depois o app.
+- **Documentação:** cada módulo documenta só o que é dele. O README da raiz traz apenas a visão geral e a integração.
+- **Arquivos que não vão para o Git:**
+  - Configuração local: `app/local.properties` e as variáveis de ambiente da API.
+  - Saídas de build: `app/build/` e `backend/target/`.
+  - Configurações de IDE: `.idea/`.
+
+## Fluxo de trabalho
+
+1. Atualize a `main`: `git switch main && git pull`.
+2. Crie uma branch seguindo o [padrão](#padrão-de-branches): `git switch -c feature/nome-curto`.
+3. Faça commits pequenos e atômicos, seguindo os [Conventional Commits](#conventional-commits).
+4. Rode os testes do módulo alterado. Veja a [estratégia de testes](#estratégia-de-testes).
+5. Traga a `main` para a sua branch antes de abrir o PR (`git fetch origin && git merge origin/main`) e resolva os conflitos.
+6. Envie a branch (`git push -u origin feature/nome-curto`) e abra o Pull Request para a `main`.
+
+Não faça commits direto na `main`. Não reescreva o histórico de uma branch que outra pessoa já usa. Se precisar reescrever, avise a equipe e use `git push --force-with-lease`, nunca `--force`.
+
+## Padrão de branches
+
+| Prefixo | Uso | Exemplo |
+|---|---|---|
+| `feature/` | Funcionalidade nova ou conjunto de melhorias | `feature/recuperacao-senha` |
+| `fix/` | Correção de defeito | `fix/data-home-fuso` |
+| `docs/` | Só documentação | `docs/readme-backend` |
+
+As branches `backup/*` guardam versões antigas do projeto e não são referência para trabalho novo.
+
+## Conventional Commits
+
+O formato é `tipo: descrição`, com a descrição em português, no imperativo da terceira pessoa (`adiciona`, `corrige`), em minúscula e sem ponto final. Se precisar, acrescente um corpo depois de uma linha em branco, explicando o que mudou e por quê.
+
+| Tipo | Quando usar |
+|---|---|
+| `feat` | Funcionalidade nova |
+| `fix` | Correção de problema |
+| `refactor` | Reorganização sem mudança de comportamento |
+| `docs` | Só documentação |
+| `test` | Testes novos ou ajustados |
+| `build` | Build, dependências, Gradle ou Maven |
+| `chore` | Manutenção e tarefas auxiliares |
+| `perf` | Melhoria de desempenho |
+| `style` | Formatação, sem mudança de lógica |
+
+Exemplos reais do histórico:
+
+```text
+feat: adiciona recuperação de senha, login com Google e cor do item na API
+refactor: centraliza o estado do fluxo no VisuraViewModel e move os modelos para model/
+build: move o build do Android para dentro de app/
+test: substitui o teste de exemplo por testes do modelo Ambiente
 ```
 
-> **Convenção de Nomenclatura:** Utilize nomes descritivos e prefixos claros, como:
-> - `feature/nova-funcionalidade`
-> - `fix/correcao-bug`
-> - `docs/atualizacao-readme`
+Cada commit deve compilar e conter uma única mudança lógica. Não junte uma dependência nova, uma refatoração e uma funcionalidade no mesmo commit.
 
-### 3. Desenvolvimento e Alterações
+## Pull Requests
 
-1.  Desenvolva suas alterações no código.
-2.  **Siga o Estilo:** Mantenha-se fiel às diretrizes de estilo do projeto, se existirem.
-3.  **Teste:** Certifique-se de que suas alterações foram testadas localmente e não introduziram novos problemas.
+- **Destino:** a `main`.
+- **Título:** no mesmo formato dos commits.
+- **Descrição:**
+  - o que mudou e por quê;
+  - como foi testado, com os comandos rodados e o resultado;
+  - o que ficou pendente.
+- **Contrato da API:** se a mudança alterar o contrato, avise na descrição e confirme que o app continua compatível.
+- **Merge:** aguarde a revisão de outra pessoa da equipe antes do merge e responda os comentários com commits novos, sem reescrever o que já foi revisado.
 
-### 4. Commitando as Mudanças
+## Checklist de revisão
 
-Crie *commits* atômicos e com mensagens claras:
+- [ ] A branch e os commits seguem os padrões deste guia.
+- [ ] O módulo alterado compila e os testes passam:
+  - backend: `./mvnw test`;
+  - app: `./gradlew assembleDebug testDebugUnitTest lintDebug`.
+- [ ] Há testes para a regra nova ou para o defeito corrigido.
+- [ ] Os erros viram respostas ou avisos claros, sem `catch` genérico que esconda a falha.
+- [ ] Não há segredos, tokens, `local.properties` nem arquivos de build no diff.
+- [ ] Se o contrato da API mudou, o app e o [README do backend](backend/README.md#api) foram atualizados.
+- [ ] Mudança de banco entrou numa migration nova, sem alterar uma que já rodou.
+- [ ] A documentação do módulo foi atualizada, quando o comportamento mudou.
 
-```bash
-# Adicione todos os arquivos modificados
-git add .
+## Estratégia de testes
 
-# Escreva uma mensagem de commit clara e concisa
-git commit -m "Descrição clara e focada do que foi alterado"
-```
+| Nível | Backend | App |
+|---|---|---|
+| Unitário | Serviços com Mockito; value objects; filtros e segurança com MockMvc | Modelos (`model/`) e utilitários de `data/` na JVM |
+| Banco | Procedures, triggers e permissões contra um PostgreSQL embutido | Não se aplica |
+| Integração / fluxo | `*FlowTest`: a aplicação inteira contra um PostgreSQL embutido, com as migrations | Sem testes automatizados contra a API; os fluxos são testados à mão no emulador, com a API local |
+| Instrumentado (aparelho) | Não se aplica | `src/androidTest/` (por enquanto, só o exemplo do template) |
+| Estático | `ServicePatternTest` (forma dos serviços) | Lint do Android (`lintDebug`) |
 
-**Exemplo de Commit Ideal:**
-```bash
-git commit -m "feat: Adiciona funcionalidade de login com OAuth"
-```
-
-### 5. Sincronização e Resolução de Conflitos
-
-Antes de submeter, mantenha sua *branch* atualizada com o repositório original:
-
-```bash
-# Baixa as últimas alterações do repositório original
-git fetch 
-
-# Mescla as alterações na sua branch
-git merge nome-da-branch
-```
-
-Se houver conflitos, resolva-os e finalize a mesclagem:
-```bash
-# Após resolver os conflitos manualmente...
-git commit
-```
-
-### 6. Revisão e Feedback
-
-Aguarde a revisão da equipe. Esteja pronto(a) para responder a sugestões e fazer ajustes:
-
-```bash
-# Após fazer os ajustes solicitados...
-git commit -m "Ajustes conforme feedback da revisão"
-git push origin nome-da-sua-branch
-```
----
-## Diretrizes de Colaboração
-
-*   **Código de Conduta:** Respeite todos os colaboradores.
-*   **Documentação:** Se suas alterações afetarem a funcionalidade, atualize a documentação relevante.
-*   **Commits Atômicos:** Cada *commit* deve ser focado em uma única mudança lógica.
-
-Agradecemos novamente por dedicar seu tempo e esforço ao projeto Visura!
-
-
-
+Os testes do backend não precisam de Docker nem de banco instalado. Os do app na JVM não precisam de emulador.
