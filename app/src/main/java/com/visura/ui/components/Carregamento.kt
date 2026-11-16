@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.visura.data.ApiErro
+import kotlinx.coroutines.CancellationException
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
 
@@ -54,6 +55,10 @@ fun <T> Carregar(
             Estado.Pronto(carregar())
         } catch (e: ApiErro) {
             Estado.Erro(e.message ?: "Erro ao carregar os dados.")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Estado.Erro("Erro inesperado ao carregar: ${e.message ?: e.javaClass.simpleName}")
         }
     }
 

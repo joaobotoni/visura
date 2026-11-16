@@ -8,7 +8,6 @@ object Routes {
     const val FORGOT_PASSWORD_NEW = "forgot_password_new"
     const val CREATE_ACCOUNT_INFO = "create_account_info"
     const val CREATE_ACCOUNT_DOCS = "create_account_docs"
-    const val GOOGLE_ACCOUNT_PICKER = "google_account_picker"
     const val HOME = "home"
     const val IMOVEL_DETALHE = "imovel_detalhe/{imovelId}"
     const val NOVO_IMOVEL = "novo_imovel"

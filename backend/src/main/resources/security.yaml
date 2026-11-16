@@ -9,3 +9,6 @@ security:
     issuer: ${JWT_ISSUER}
   refresh-token:
     secret-key: ${REFRESH_TOKEN_SECRET_KEY}
+vsr:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}

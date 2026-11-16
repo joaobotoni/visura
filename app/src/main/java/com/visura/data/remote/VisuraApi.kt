@@ -2,6 +2,7 @@ package com.visura.data.remote
 
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -24,6 +25,18 @@ interface VisuraApi {
 
     @POST("auth/login")
     suspend fun entrar(@Body corpo: LoginRequest): AuthenticationResponse
+
+    @POST("auth/google")
+    suspend fun entrarComGoogle(@Body corpo: GoogleLoginRequest): AuthenticationResponse
+
+    @POST("auth/password/forgot")
+    suspend fun pedirCodigo(@Body corpo: RecoveryRequest): Response<Unit>
+
+    @POST("auth/password/verify")
+    suspend fun conferirCodigo(@Body corpo: RecoveryCodeRequest): Response<Unit>
+
+    @POST("auth/password/reset")
+    suspend fun redefinirSenha(@Body corpo: ResetPasswordRequest): Response<Unit>
 
     @POST("auth/logout")
     suspend fun sair(): Response<Unit>
@@ -103,6 +116,9 @@ interface VisuraApi {
     @PATCH("items/{id}")
     suspend fun alterarItem(@Path("id") id: String, @Body corpo: ItemRequest): ItemResponse
 
+    @DELETE("rooms/{id}")
+    suspend fun removerAmbiente(@Path("id") id: String): Response<Unit>
+
     @DELETE("items/{id}")
     suspend fun removerItem(@Path("id") id: String): Response<Unit>
 
@@ -113,6 +129,9 @@ interface VisuraApi {
         @Part arquivo: MultipartBody.Part,
         @Part("item") item: RequestBody?
     ): EvidenceResponse
+
+    @GET("evidences/{id}")
+    suspend fun evidencia(@Path("id") id: String): ResponseBody
 
     // ---- Catálogo ----
 

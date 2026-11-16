@@ -16,8 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.visura.ui.screens.home.cardBorder
-import com.visura.ui.screens.imoveis.PapelPessoa
-import com.visura.ui.screens.imoveis.PessoaVinculada
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
@@ -26,6 +24,8 @@ import com.visura.ui.theme.StatusGreenBg
 import com.visura.ui.theme.StatusGreenText
 import com.visura.ui.theme.TextGray
 import com.visura.ui.theme.clickableNoRipple
+import com.visura.model.PapelPessoa
+import com.visura.model.PessoaVinculada
 
 // Papel que a próxima pessoa adicionada vai receber: primeiro o proprietário, depois o inquilino
 internal fun papelQueFalta(pessoas: List<PessoaVinculada>): PapelPessoa? = when {

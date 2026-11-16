@@ -28,6 +28,10 @@ public class SecurityConfig {
             "/api/*/auth/login",
             "/api/*/auth/register",
             "/api/*/auth/refresh",
+            "/api/*/auth/google",
+            "/api/*/auth/password/forgot",
+            "/api/*/auth/password/verify",
+            "/api/*/auth/password/reset",
             "/error"
     };
 

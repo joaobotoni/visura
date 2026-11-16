@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.visura.ui.screens.createaccount.problemaDaSenha
 import androidx.compose.ui.unit.sp
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.NavyBlue
@@ -27,15 +28,14 @@ import kotlinx.coroutines.launch
 @Composable
 fun ForgotPasswordNewScreen(
     onBackClick: () -> Unit = {},
-    onPasswordChanged: () -> Unit = {}
+    onPasswordChanged: (String) -> Unit = {}
 ) {
     var novaSenha by remember { mutableStateOf("") }
     var confirmarSenha by remember { mutableStateOf("") }
     var senhaVisivel by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-
-    val senhasValidas = novaSenha.isNotBlank() && novaSenha == confirmarSenha
+    // Mesmas regras do cadastro (e da API): o botão só libera com a senha aceita
+    val problemaSenha = problemaDaSenha(novaSenha)
+    val senhasValidas = problemaSenha == null && novaSenha == confirmarSenha
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -61,7 +61,7 @@ fun ForgotPasswordNewScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Sua nova senha deve ser diferente da anterior.",
+                text = "Use ao menos 8 caracteres, com letra maiúscula, minúscula, número e caractere especial, sem espaços.",
                 fontSize = 14.sp,
                 color = TextGray
             )
@@ -91,6 +91,13 @@ fun ForgotPasswordNewScreen(
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
+            if (novaSenha.isNotEmpty() && problemaSenha != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(problemaSenha, fontSize = 12.sp, color = TextGray)
+            } else if (confirmarSenha.isNotEmpty() && novaSenha != confirmarSenha) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("As senhas não são iguais.", fontSize = 12.sp, color = TextGray)
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -113,12 +120,7 @@ fun ForgotPasswordNewScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Senha alterada com sucesso!")
-                        onPasswordChanged()
-                    }
-                },
+                onClick = { onPasswordChanged(novaSenha) },
                 enabled = senhasValidas,
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = NavyBlue),
@@ -131,10 +133,5 @@ fun ForgotPasswordNewScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }

@@ -65,16 +65,26 @@ class InspectionFlowTest extends ApplicationTest {
                 .andExpect(jsonPath("$.code").value("UniqueConstraint.UQ_AMBIENTE_NOME"));
 
         String floor = read(authorized(json(post("/api/1/rooms/" + porch + "/items"),
-                "{\"name\":\"Piso\",\"condition\":\"bom\",\"material\":\"Cerâmica\"}"), token), 201, "$.id");
+                "{\"name\":\"Piso\",\"condition\":\"bom\",\"material\":\"Cerâmica\",\"color\":\"Bege\"}"), token), 201, "$.id");
         String railing = read(authorized(json(post("/api/1/rooms/" + porch + "/items"), "{\"name\":\"Guarda-corpo\"}"), token),
                 201, "$.id");
         mockMvc.perform(authorized(json(patch("/api/1/items/" + floor), "{\"condition\":\"regular\"}"), token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.condition").value("regular"))
-                .andExpect(jsonPath("$.material").value("Cerâmica"));
+                .andExpect(jsonPath("$.material").value("Cerâmica"))
+                .andExpect(jsonPath("$.color").value("Bege"));
         mockMvc.perform(authorized(json(patch("/api/1/rooms/" + porch), "{\"notes\":\"Linha 1\\r\\nLinha 2\"}"), token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.notes").value("Linha 1\nLinha 2"));
+        mockMvc.perform(authorized(json(patch("/api/1/items/" + railing),
+                        "{\"material\":\"Ferro\",\"color\":\"Preto\",\"notes\":\"Ferrugem\"}"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.color").value("Preto"));
+        mockMvc.perform(authorized(json(patch("/api/1/items/" + railing), "{\"color\":\"  \",\"notes\":\"\"}"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.color", nullValue()))
+                .andExpect(jsonPath("$.notes", nullValue()))
+                .andExpect(jsonPath("$.material").value("Ferro"));
         mockMvc.perform(authorized(delete("/api/1/items/" + railing), token))
                 .andExpect(status().isNoContent());
 
@@ -86,7 +96,12 @@ class InspectionFlowTest extends ApplicationTest {
         mockMvc.perform(authorized(post("/api/1/inspections/" + entry + "/finish"), token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("finalizada"))
-                .andExpect(jsonPath("$.finishedAt", notNullValue()));
+                .andExpect(jsonPath("$.finishedAt", notNullValue()))
+                .andExpect(jsonPath("$.responsible.name").value("Fabio Melo"))
+                .andExpect(jsonPath("$.progress.rooms").value(2))
+                .andExpect(jsonPath("$.progress.completed").value(1))
+                .andExpect(jsonPath("$.progress.items").value(14))
+                .andExpect(jsonPath("$.progress.evaluated").value(1));
         mockMvc.perform(authorized(json(patch("/api/1/rooms/" + porch), "{\"name\":\"Sacada\"}"), token))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("RuleConstraint.RN_VISTORIA_EM_ANDAMENTO"));
@@ -109,13 +124,18 @@ class InspectionFlowTest extends ApplicationTest {
                 .andExpect(jsonPath("$.rooms[1].items", hasSize(1)))
                 .andExpect(jsonPath("$.rooms[1].items[0].origin").value(floor))
                 .andExpect(jsonPath("$.rooms[1].items[0].material").value("Cerâmica"))
+                .andExpect(jsonPath("$.rooms[1].items[0].color").value("Bege"))
                 .andExpect(jsonPath("$.rooms[1].items[0].condition", nullValue()))
                 .andExpect(jsonPath("$.rooms[0].items", hasSize(13)));
 
         mockMvc.perform(authorized(get("/api/1/inspections").param("status", "em_andamento"), token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
-                .andExpect(jsonPath("$.items[0].id").value(exit));
+                .andExpect(jsonPath("$.items[0].id").value(exit))
+                .andExpect(jsonPath("$.items[0].responsible.name").value("Fabio Melo"))
+                .andExpect(jsonPath("$.items[0].progress.rooms").value(2))
+                .andExpect(jsonPath("$.items[0].progress.completed").value(0))
+                .andExpect(jsonPath("$.items[0].progress.evaluated").value(0));
         mockMvc.perform(authorized(get("/api/1/inspections").param("property", property), token))
                 .andExpect(jsonPath("$.total").value(2));
         mockMvc.perform(authorized(get("/api/1/inspections").param("status", "qualquer"), token))

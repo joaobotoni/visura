@@ -67,6 +67,9 @@ public class Item {
     @Column(name = "material")
     private String material;
 
+    @Column(name = "cor")
+    private String color;
+
     @Column(name = "observacoes")
     private String notes;
 

@@ -25,21 +25,14 @@ import androidx.compose.ui.unit.sp
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
-
-data class EnderecoImovel(
-    val cep: String,
-    val rua: String,
-    val numero: String,
-    val complemento: String,
-    val bairro: String,
-    val cidade: String,
-    val uf: String
-)
+import com.visura.model.EnderecoImovel
 
 @Composable
 fun NovoImovelScreen(
     onBackClick: () -> Unit = {},
-    onContinueClick: (EnderecoImovel) -> Unit = {}
+    onContinueClick: (EnderecoImovel) -> Unit = {},
+    // Busca de endereços (ViaCEP). Lança ApiErro com a mensagem para o usuário.
+    buscarEnderecos: suspend (String) -> List<EnderecoSugerido> = { emptyList() }
 ) {
     var cep by rememberSaveable { mutableStateOf("") }
     var rua by rememberSaveable { mutableStateOf("") }
@@ -49,6 +42,19 @@ fun NovoImovelScreen(
     var cidade by rememberSaveable { mutableStateOf("") }
     var uf by rememberSaveable { mutableStateOf("") }
     var mostrarBusca by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(cep) {
+        if (cep.length != 9) return@LaunchedEffect
+        val achado = try {
+            buscarEnderecos(cep).firstOrNull()
+        } catch (_: com.visura.data.ApiErro) {
+            null
+        } ?: return@LaunchedEffect
+        if (rua.isBlank()) rua = achado.rua
+        if (bairro.isBlank()) bairro = achado.bairro
+        if (cidade.isBlank()) cidade = achado.cidade
+        if (uf.isBlank()) uf = achado.uf
+    }
 
     // Complemento é opcional; os demais campos são obrigatórios
     val podeContinuar = cep.length == 9 && rua.isNotBlank() && numero.isNotBlank() &&
@@ -236,11 +242,12 @@ fun NovoImovelScreen(
 
         if (mostrarBusca) {
             BuscarEnderecoOverlay(
+                buscar = buscarEnderecos,
                 onClose = { mostrarBusca = false },
                 onConfirm = { endereco ->
                     cep = endereco.cep
                     rua = endereco.rua
-                    numero = endereco.numero
+                    if (endereco.numero.isNotBlank()) numero = endereco.numero
                     bairro = endereco.bairro
                     cidade = endereco.cidade
                     uf = endereco.uf

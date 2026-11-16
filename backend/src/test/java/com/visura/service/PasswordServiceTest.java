@@ -38,7 +38,8 @@ class PasswordServiceTest {
     private final LocalCredentialService localCredentialService = mock(LocalCredentialService.class);
     private final SessionService sessionService = mock(SessionService.class);
     private final AccessService accessService = mock(AccessService.class);
-    private final PasswordService passwordService = new PasswordService(localCredentialService, sessionService, accessService);
+    private final PasswordService passwordService = new PasswordService(localCredentialService, sessionService, accessService,
+            mock(RecoveryCodeService.class));
 
     private final User user = Users.ana();
     private final Device device = Device.builder().id(3).user(user).build();

@@ -2,7 +2,8 @@ package com.visura.ui.screens.ambientes
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +14,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,11 +27,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.visura.ui.theme.AlertaErroIcone
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.StatusGreenText
 import com.visura.ui.theme.TextGray
+import com.visura.model.Ambiente
+import com.visura.model.StatusAmbiente
 
 @Composable
 fun AmbientesScreen(
@@ -32,8 +42,26 @@ fun AmbientesScreen(
     onBackClick: () -> Unit = {},
     onAmbienteClick: (Ambiente) -> Unit = {},
     onAdicionarAmbienteClick: () -> Unit = {},
+    // Ambiente criado por engano: segurar o card pergunta se pode remover (com os itens e as fotos)
+    onRemoverAmbienteClick: (Ambiente) -> Unit = {},
     onContinueClick: () -> Unit = {}
 ) {
+    var removendo by remember { mutableStateOf<Ambiente?>(null) }
+    removendo?.let { ambiente ->
+        AlertDialog(
+            onDismissRequest = { removendo = null },
+            title = { Text("Remover ${ambiente.nome}?") },
+            text = { Text("O ambiente sai da vistoria com os ${ambiente.itens.size} itens e as fotos dele.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    removendo = null
+                    onRemoverAmbienteClick(ambiente)
+                }) { Text("Remover", color = AlertaErroIcone) }
+            },
+            dismissButton = { TextButton(onClick = { removendo = null }) { Text("Cancelar") } }
+        )
+    }
+
     val concluidos = ambientes.count { it.status == StatusAmbiente.CONCLUIDO }
     val todosConcluidos = ambientes.isNotEmpty() && concluidos == ambientes.size
 
@@ -60,7 +88,7 @@ fun AmbientesScreen(
         }
     ) {
         Text(
-            "$concluidos de ${ambientes.size} ambientes avaliados",
+            "$concluidos de ${ambientes.size} ambientes avaliados · segure um ambiente para removê-lo",
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextGray,
@@ -74,14 +102,20 @@ fun AmbientesScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(ambientes, key = { it.id }) { ambiente ->
-                AmbienteCard(ambiente = ambiente, onClick = { onAmbienteClick(ambiente) })
+                AmbienteCard(
+                    ambiente = ambiente,
+                    onClick = { onAmbienteClick(ambiente) },
+                    onLongClick = { removendo = ambiente }
+                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AmbienteCard(ambiente: Ambiente, onClick: () -> Unit) {
+private fun AmbienteCard(ambiente: Ambiente, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
     val emAndamento = ambiente.status == StatusAmbiente.EM_ANDAMENTO
     val forma = RoundedCornerShape(14.dp)
     val progresso = if (ambiente.itens.isEmpty()) 0f else ambiente.itensAvaliados.toFloat() / ambiente.itens.size
@@ -92,7 +126,13 @@ private fun AmbienteCard(ambiente: Ambiente, onClick: () -> Unit) {
             .clip(forma)
             .background(if (emAndamento) LightBlueBg else Color.White)
             .border(if (emAndamento) 2.dp else 1.dp, if (emAndamento) NavyBlue else BorderGray, forma)
-            .clickable { onClick() }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                }
+            )
             .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

@@ -1,0 +1,28 @@
+# Ambiente de desenvolvimento: PostgreSQL 17 com pg_cron e o Mailpit, que recebe os e-mails da API
+# (recuperação de senha) e mostra numa página em http://localhost:8025.
+#
+#   docker compose up -d
+#
+# Depois, rode a API com as variáveis de ambiente de backend/README.md, apontando para:
+#   DB_URL=jdbc:postgresql://localhost:5432/visura  DB_USERNAME=visura  DB_PASSWORD=visura
+#   MAIL_HOST=localhost  MAIL_PORT=1025
+services:
+  postgres:
+    build: docker/postgres
+    environment:
+      POSTGRES_DB: visura
+      POSTGRES_USER: visura
+      POSTGRES_PASSWORD: visura
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres:

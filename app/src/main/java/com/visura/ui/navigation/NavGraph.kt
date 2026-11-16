@@ -1,5 +1,6 @@
 package com.visura.ui.navigation
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,44 +17,42 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.visura.VisuraApplication
 import com.visura.data.ApiErro
-import com.visura.data.Perfil
-import com.visura.data.prepararFoto
+import com.visura.data.loginComGoogleConfigurado
+import com.visura.data.pedirContaGoogle
+import com.visura.model.Perfil
+import com.visura.model.StatusVistoria
+import com.visura.model.Vistoria
 import com.visura.ui.components.Carregar
-import com.visura.ui.screens.ambientes.Ambiente
 import com.visura.ui.screens.ambientes.AmbienteDetalheScreen
 import com.visura.ui.screens.ambientes.AmbientesScreen
 import com.visura.ui.screens.ambientes.ItemScreen
 import com.visura.ui.screens.ambientes.ModoItem
 import com.visura.ui.screens.ambientes.NovoAmbienteScreen
-import com.visura.ui.screens.ambientes.comItem
-import com.visura.ui.screens.ambientes.semItem
 import com.visura.ui.screens.createaccount.CreateAccountDocsScreen
 import com.visura.ui.screens.createaccount.CreateAccountInfoScreen
-import com.visura.ui.screens.createaccount.TipoPessoa
 import com.visura.ui.screens.forgotpassword.ForgotPasswordCodeScreen
 import com.visura.ui.screens.forgotpassword.ForgotPasswordEmailScreen
 import com.visura.ui.screens.forgotpassword.ForgotPasswordNewScreen
 import com.visura.ui.screens.home.HomeScreen
-import com.visura.ui.screens.home.StatusVistoria
-import com.visura.ui.screens.home.Vistoria
-import com.visura.ui.screens.imoveis.EnderecoImovel
 import com.visura.ui.screens.imoveis.ImovelDetalheScreen
 import com.visura.ui.screens.imoveis.NovoImovelScreen
 import com.visura.ui.screens.imoveis.NovoImovelTipoScreen
@@ -67,60 +66,44 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-// Dados da primeira etapa do cadastro, guardados até a segunda etapa chamar a API
-private data class ContaEmCadastro(val nome: String, val email: String, val senha: String)
-
 private data class DadosDaHome(val perfil: Perfil, val vistorias: List<Vistoria>)
 
+// Único NavHost do app. Liga cada tela ao VisuraViewModel, que guarda o estado do fluxo e chama a API,
+// e executa aqui o que depende da tela: navegar, mostrar avisos e abrir o compartilhamento.
 @Composable
 fun VisuraNavGraph(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    vm: VisuraViewModel = viewModel(factory = VisuraViewModel.Fabrica)
 ) {
     val context = LocalContext.current
-    val repositorio = remember { (context.applicationContext as VisuraApplication).repositorio }
+    val repositorio = vm.repositorio
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+    val ocupado by vm.ocupado.collectAsStateWithLifecycle()
+    val ambientes by vm.ambientes.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // Enquanto uma ação da API roda, a tela fica bloqueada e aparece uma barra de progresso no topo.
-    var ocupado by remember { mutableStateOf(false) }
-
-    fun avisar(mensagem: String) {
-        scope.launch { snackbar.showSnackbar(mensagem) }
-    }
-
-    // Roda uma ação da API (salvar, enviar, finalizar...) e mostra o erro, se houver, num snackbar.
-    fun executar(acao: suspend () -> Unit) {
-        if (ocupado) return
-        scope.launch {
-            ocupado = true
-            try {
-                acao()
-            } catch (e: ApiErro) {
-                avisar(e.message ?: "Algo deu errado.")
-            } finally {
-                ocupado = false
+    // Eventos só são consumidos com a tela visível: um evento que chega com o app em segundo plano
+    // espera no Channel do ViewModel em vez de navegar uma tela parada.
+    LaunchedEffect(Unit) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            vm.eventos.collect { evento ->
+                when (evento) {
+                    // Em launch: o aviso não segura os eventos seguintes enquanto está na tela
+                    is Evento.Aviso -> launch { snackbar.showSnackbar(evento.mensagem) }
+                    is Evento.Navegar -> evento.comando(navController)
+                    is Evento.Compartilhar -> try {
+                        context.startActivity(Intent.createChooser(evento.envio, "Compartilhar laudo"))
+                    } catch (_: ActivityNotFoundException) {
+                        vm.avisar("Nenhum app para compartilhar o laudo.")
+                    }
+                }
             }
         }
     }
 
     // Já logado (há refresh token salvo): começa direto na Home.
-    val inicio = remember { if (repositorio.sessao.logado) Routes.HOME else Routes.LOGIN }
-
-    // Se o refresh token for recusado, a sessão acabou: volta para o login.
-    LaunchedEffect(Unit) {
-        repositorio.sessao.expirou.collect { expirou ->
-            if (expirou) {
-                navController.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
-                avisar("Sua sessão expirou. Entre novamente.")
-            }
-        }
-    }
-
-    // Estado compartilhado entre etapas
-    var contaEmCadastro by remember { mutableStateOf<ContaEmCadastro?>(null) }
-    var enderecoNovoImovel by remember { mutableStateOf<EnderecoImovel?>(null) }
-    // Ambientes da vistoria aberta. Fica acima do NavHost para que ambientes e itens enxerguem os mesmos dados.
-    var ambientes by remember { mutableStateOf(emptyList<Ambiente>()) }
+    val inicio = remember { if (vm.logado) Routes.HOME else Routes.LOGIN }
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
@@ -129,79 +112,69 @@ fun VisuraNavGraph(
         ) {
             composable(Routes.LOGIN) {
                 LoginScreen(
-                    onLoginClick = { email, senha ->
-                        executar {
-                            repositorio.entrar(email, senha)
-                            navController.navigate(Routes.HOME) {
-                                popUpTo(Routes.LOGIN) { inclusive = true }
+                    onLoginClick = vm::entrar,
+                    onForgotPasswordClick = { navController.navigate(Routes.FORGOT_PASSWORD_EMAIL) },
+                    onCreateAccountClick = {
+                        vm.novaConta()
+                        navController.navigate(Routes.CREATE_ACCOUNT_INFO)
+                    },
+                    onGoogleClick = {
+                        if (!loginComGoogleConfigurado) {
+                            vm.avisar("Login com Google não configurado: defina visura.google.client.id no local.properties.")
+                        } else {
+                            // O seletor de contas precisa da Activity: roda no escopo da tela, e só o login vai ao ViewModel
+                            scope.launch {
+                                try {
+                                    pedirContaGoogle(context)?.let(vm::entrarComGoogle)
+                                } catch (e: ApiErro) {
+                                    vm.avisar(e.message ?: "Não foi possível entrar com o Google.")
+                                }
                             }
                         }
-                    },
-                    onForgotPasswordClick = { navController.navigate(Routes.FORGOT_PASSWORD_EMAIL) },
-                    onCreateAccountClick = { navController.navigate(Routes.CREATE_ACCOUNT_INFO) },
-                    // A API ainda não tem login com Google.
-                    onGoogleClick = { avisar("O login com Google ainda não está disponível.") }
+                    }
                 )
             }
 
-            // SIMULAÇÃO — a API ainda não tem recuperação de senha; as três etapas só navegam.
+            // Recuperação de senha: a API manda um código de 6 dígitos para o e-mail, confere o código
+            // e grava a nova senha. No fim, o app já entra com a senha nova.
             composable(Routes.FORGOT_PASSWORD_EMAIL) {
                 ForgotPasswordEmailScreen(
+                    emailInicial = vm.emailRecuperacao,
                     onBackClick = { navController.popBackStack() },
-                    onCodeSent = { navController.navigate(Routes.FORGOT_PASSWORD_CODE) }
+                    onCodeSent = vm::pedirCodigo
                 )
             }
 
             composable(Routes.FORGOT_PASSWORD_CODE) {
                 ForgotPasswordCodeScreen(
+                    email = vm.emailRecuperacao,
                     onBackClick = { navController.popBackStack() },
-                    onCodeConfirmed = { navController.navigate(Routes.FORGOT_PASSWORD_NEW) }
+                    onResendClick = vm::reenviarCodigo,
+                    onCodeConfirmed = vm::conferirCodigo
                 )
             }
 
             composable(Routes.FORGOT_PASSWORD_NEW) {
                 ForgotPasswordNewScreen(
                     onBackClick = { navController.popBackStack() },
-                    onPasswordChanged = {
-                        navController.navigate(Routes.LOGIN) {
-                            popUpTo(Routes.LOGIN) { inclusive = true }
-                        }
-                    }
+                    onPasswordChanged = vm::redefinirSenha
                 )
             }
 
             composable(Routes.CREATE_ACCOUNT_INFO) {
                 CreateAccountInfoScreen(
+                    nomeInicial = vm.contaGoogle?.nome.orEmpty(),
+                    emailInicial = vm.contaGoogle?.email.orEmpty(),
                     onBackClick = { navController.popBackStack() },
-                    onContinueClick = { nome, email, senha ->
-                        contaEmCadastro = ContaEmCadastro(nome, email, senha)
-                        navController.navigate(Routes.CREATE_ACCOUNT_DOCS)
-                    }
+                    onContinueClick = vm::continuarCadastro
                 )
             }
 
             composable(Routes.CREATE_ACCOUNT_DOCS) {
                 CreateAccountDocsScreen(
-                    nomeInicial = contaEmCadastro?.nome.orEmpty(),
+                    nomeInicial = vm.nomeEmCadastro,
                     onBackClick = { navController.popBackStack() },
-                    onFinishClick = { docs ->
-                        val conta = contaEmCadastro ?: return@CreateAccountDocsScreen
-                        executar {
-                            repositorio.registrar(docs.nome, docs.cpf, conta.email, conta.senha)
-                            contaEmCadastro = null
-                            // A conta já existe; se a empresa falhar, segue para a Home e avisa.
-                            if (docs.tipoPessoa == TipoPessoa.JURIDICA) {
-                                try {
-                                    repositorio.cadastrarEmpresa(docs.razaoSocial, docs.nomeFantasia, docs.cnpj)
-                                } catch (e: ApiErro) {
-                                    avisar("Conta criada, mas a empresa não foi cadastrada: ${e.message}")
-                                }
-                            }
-                            navController.navigate(Routes.HOME) {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        }
-                    }
+                    onFinishClick = vm::registrar
                 )
             }
 
@@ -226,14 +199,7 @@ fun VisuraNavGraph(
                         onVistoriaClick = { vistoria ->
                             navController.navigate(Routes.imovelDetalhe(vistoria.imovelId))
                         },
-                        onLogoutClick = {
-                            executar {
-                                repositorio.sair()
-                                navController.navigate(Routes.LOGIN) {
-                                    popUpTo(0) { inclusive = true }
-                                }
-                            }
-                        }
+                        onLogoutClick = vm::sair
                     )
                 }
             }
@@ -249,12 +215,13 @@ fun VisuraNavGraph(
                         imovel = imovel,
                         onBackClick = { navController.popBackStack() },
                         onNovaVistoriaClick = { navController.navigate(Routes.novaVistoria(imovel.id)) },
-                        // Vistoria em andamento: retoma a partir das pessoas vinculadas
+                        // Vistoria em andamento: retoma a partir das pessoas vinculadas.
+                        // Concluída: gera o laudo de novo (as fotos e os dados vêm da API).
                         onVistoriaClick = { vistoria ->
                             if (vistoria.status == StatusVistoria.EM_ANDAMENTO) {
                                 navController.navigate(Routes.pessoasVinculadas(imovel.id, vistoria.id))
                             } else {
-                                avisar("Esta vistoria já foi concluída.")
+                                vm.compartilharLaudo(vistoria.id)
                             }
                         }
                     )
@@ -264,11 +231,9 @@ fun VisuraNavGraph(
             // Cadastro do imóvel, etapa 1: endereço
             composable(Routes.NOVO_IMOVEL) {
                 NovoImovelScreen(
+                    buscarEnderecos = { vm.buscaDeEndereco.buscar(it) },
                     onBackClick = { navController.popBackStack() },
-                    onContinueClick = { endereco ->
-                        enderecoNovoImovel = endereco
-                        navController.navigate(Routes.NOVO_IMOVEL_TIPO)
-                    }
+                    onContinueClick = vm::continuarImovel
                 )
             }
 
@@ -276,17 +241,7 @@ fun VisuraNavGraph(
             composable(Routes.NOVO_IMOVEL_TIPO) {
                 NovoImovelTipoScreen(
                     onBackClick = { navController.popBackStack() },
-                    onContinueClick = { tipo, categoria ->
-                        val endereco = enderecoNovoImovel ?: return@NovoImovelTipoScreen
-                        executar {
-                            val id = repositorio.cadastrarImovel(endereco, tipo, categoria)
-                            enderecoNovoImovel = null
-                            // O popUpTo remove as telas do cadastro, então a seta de voltar leva para a Home.
-                            navController.navigate(Routes.imovelDetalhe(id)) {
-                                popUpTo(Routes.HOME)
-                            }
-                        }
-                    }
+                    onContinueClick = vm::cadastrarImovel
                 )
             }
 
@@ -299,15 +254,7 @@ fun VisuraNavGraph(
 
                 NovaVistoriaScreen(
                     onBackClick = { navController.popBackStack() },
-                    onContinueClick = { tipo, observacoes ->
-                        executar {
-                            val vistoriaId = repositorio.iniciarVistoria(imovelId, tipo, observacoes)
-                            // Tira esta etapa da pilha para o "voltar" não criar outra vistoria
-                            navController.navigate(Routes.pessoasVinculadas(imovelId, vistoriaId)) {
-                                popUpTo(Routes.NOVA_VISTORIA) { inclusive = true }
-                            }
-                        }
-                    }
+                    onContinueClick = { tipo, observacoes -> vm.iniciarVistoria(imovelId, tipo, observacoes) }
                 )
             }
 
@@ -338,16 +285,9 @@ fun VisuraNavGraph(
                     PessoasVinculadasScreen(
                         pessoasIniciais = iniciais,
                         pessoasCadastradas = cadastradas,
-                        onCadastrarPessoa = { pessoa, cpf, cnpj, onCriada ->
-                            executar { onCriada(repositorio.cadastrarPessoa(pessoa, cpf, cnpj)) }
-                        },
+                        onCadastrarPessoa = vm::cadastrarPessoa,
                         onBackClick = { navController.popBackStack() },
-                        onContinueClick = { pessoas ->
-                            executar {
-                                repositorio.vincularPessoas(vistoriaId, imovelId, pessoas)
-                                navController.navigate(Routes.ambientes(vistoriaId))
-                            }
-                        }
+                        onContinueClick = { pessoas -> vm.vincularPessoas(vistoriaId, imovelId, pessoas) }
                     )
                 }
             }
@@ -359,14 +299,12 @@ fun VisuraNavGraph(
             ) { backStackEntry ->
                 val vistoriaId = backStackEntry.arguments?.getString("vistoriaId").orEmpty()
 
-                Carregar(
-                    vistoriaId,
-                    carregar = { repositorio.ambientes(vistoriaId).also { ambientes = it } }
-                ) { _, _ ->
+                Carregar(vistoriaId, carregar = { vm.carregarAmbientes(vistoriaId) }) { _, _ ->
                     AmbientesScreen(
                         ambientes = ambientes,
                         onBackClick = { navController.popBackStack() },
                         onAmbienteClick = { navController.navigate(Routes.ambienteDetalhe(it.id)) },
+                        onRemoverAmbienteClick = { vm.removerAmbiente(it.id) },
                         onAdicionarAmbienteClick = { navController.navigate(Routes.novoAmbiente(vistoriaId)) },
                         onContinueClick = { navController.navigate(Routes.revisao(vistoriaId)) }
                     )
@@ -385,11 +323,7 @@ fun VisuraNavGraph(
                         tiposDeAmbiente = tipos,
                         onBackClick = { navController.popBackStack() },
                         onAdicionarClick = { nome, tipo, observacoes, duplicarDe ->
-                            executar {
-                                val novo = repositorio.adicionarAmbiente(vistoriaId, nome, tipo?.id, observacoes, duplicarDe)
-                                ambientes = ambientes + novo
-                                navController.popBackStack()
-                            }
+                            vm.adicionarAmbiente(vistoriaId, nome, tipo, observacoes, duplicarDe)
                         }
                     )
                 }
@@ -408,13 +342,10 @@ fun VisuraNavGraph(
                         onItemClick = { navController.navigate(Routes.itemAvaliar(ambiente.id, it.id)) },
                         onAdicionarItemClick = { navController.navigate(Routes.novoItem(ambiente.id)) },
                         onEditarItemClick = { navController.navigate(Routes.itemEditar(ambiente.id, it.id)) },
-                        onRemoverItemClick = { item ->
-                            executar {
-                                repositorio.removerItem(item.id)
-                                ambientes = ambientes.semItem(ambiente.id, item.id)
-                            }
-                        }
+                        onRemoverItemClick = { item -> vm.removerItem(ambiente.id, item.id) }
                     )
+                } else {
+                    VoltarParaAmbientes(navController)
                 }
             }
 
@@ -429,14 +360,10 @@ fun VisuraNavGraph(
                         modo = ModoItem.NOVO,
                         nomeDoAmbiente = ambiente.nome,
                         onBackClick = { navController.popBackStack() },
-                        onSaveClick = { item ->
-                            executar {
-                                val criado = repositorio.salvarItem(ambiente.id, item, novo = true)
-                                ambientes = ambientes.comItem(ambiente.id, criado)
-                                navController.popBackStack()
-                            }
-                        }
+                        onSaveClick = { item, fotos -> vm.criarItem(ambiente.id, item, fotos) }
                     )
+                } else {
+                    VoltarParaAmbientes(navController)
                 }
             }
 
@@ -458,25 +385,11 @@ fun VisuraNavGraph(
                             nomeDoAmbiente = ambiente.nome,
                             itemInicial = item,
                             onBackClick = { navController.popBackStack() },
-                            onSaveClick = { atualizado ->
-                                executar {
-                                    val salvo = repositorio.salvarItem(ambiente.id, atualizado, novo = false)
-                                    ambientes = ambientes.comItem(ambiente.id, salvo)
-                                    navController.popBackStack()
-                                }
-                            },
-                            onFotoEscolhida = { uri, onEnviada ->
-                                executar {
-                                    repositorio.enviarFoto(ambiente.id, item.id, prepararFoto(context, uri))
-                                    onEnviada()
-                                    // Atualiza a contagem também na lista, caso o usuário volte sem salvar
-                                    ambientes.find { it.id == ambiente.id }?.itens?.find { it.id == item.id }?.let { atual ->
-                                        ambientes = ambientes.comItem(ambiente.id, atual.copy(fotos = atual.fotos + 1))
-                                    }
-                                    avisar("Foto enviada.")
-                                }
-                            }
+                            onSaveClick = { atualizado, _ -> vm.salvarItem(ambiente.id, atualizado) },
+                            onFotoEscolhida = { uri, onEnviada -> vm.enviarFoto(ambiente.id, item.id, uri, onEnviada) }
                         )
+                    } else {
+                        VoltarParaAmbientes(navController)
                     }
                 }
             }
@@ -494,15 +407,7 @@ fun VisuraNavGraph(
                         pessoas = vistoria.pessoas,
                         ambientes = vistoria.ambientes,
                         onBackClick = { navController.popBackStack() },
-                        onFinalizarClick = {
-                            executar {
-                                repositorio.finalizarVistoria(vistoriaId)
-                                // Tira as etapas da pilha: depois da conclusão, voltar leva para a Home
-                                navController.navigate(Routes.conclusao(vistoriaId)) {
-                                    popUpTo(Routes.HOME)
-                                }
-                            }
-                        }
+                        onFinalizarClick = { vm.finalizarVistoria(vistoriaId) }
                     )
                 }
             }
@@ -516,23 +421,7 @@ fun VisuraNavGraph(
                 Carregar(vistoriaId, carregar = { repositorio.vistoriaCompleta(vistoriaId) }) { vistoria, _ ->
                     ConclusaoScreen(
                         onFinalizarClick = { navController.popBackStack(Routes.HOME, inclusive = false) },
-                        onFinalizarECompartilharClick = {
-                            // Ainda não há laudo em PDF na API; compartilha um resumo em texto
-                            val resumo = buildString {
-                                appendLine("Vistoria concluída")
-                                vistoria.imovel?.let { appendLine("${it.nome} — ${it.endereco}") }
-                                append(
-                                    "${vistoria.ambientes.size} ambientes, " +
-                                        "${vistoria.ambientes.sumOf { it.itensAvaliados }} itens analisados"
-                                )
-                            }
-                            val envio = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, resumo)
-                            }
-                            context.startActivity(Intent.createChooser(envio, "Compartilhar laudo"))
-                            navController.popBackStack(Routes.HOME, inclusive = false)
-                        }
+                        onFinalizarECompartilharClick = { vm.compartilharLaudoEVoltar(vistoria) }
                     )
                 }
             }
@@ -563,4 +452,11 @@ fun VisuraNavGraph(
                 .padding(bottom = 80.dp)
         )
     }
+}
+
+// Ambiente ou item que não está mais na memória (o Android encerrou o app em segundo plano):
+// volta uma tela por vez até a lista de ambientes, que recarrega da API.
+@Composable
+private fun VoltarParaAmbientes(navController: NavHostController) {
+    LaunchedEffect(Unit) { navController.popBackStack() }
 }

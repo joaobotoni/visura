@@ -48,7 +48,8 @@ object ApiClient {
 
     private fun ehRotaDeAutenticacao(request: Request): Boolean {
         val caminho = request.url.encodedPath
-        return caminho.endsWith("/auth/login") || caminho.endsWith("/auth/register") || caminho.endsWith("/auth/refresh")
+        return caminho.endsWith("/auth/login") || caminho.endsWith("/auth/register") || caminho.endsWith("/auth/refresh") ||
+            caminho.endsWith("/auth/google") || caminho.contains("/auth/password/")
     }
 
     private class TokenInterceptor(private val sessao: Sessao) : Interceptor {
@@ -112,7 +113,7 @@ object ApiClient {
                 .build()
             cliente.newCall(chamada).execute().use { resposta ->
                 val token = if (resposta.isSuccessful) {
-                    gson.fromJson(resposta.body?.string(), TokenResponse::class.java)
+                    gson.fromJson(resposta.body.string(), TokenResponse::class.java)
                 } else null
                 when {
                     token?.accessToken != null && token.refreshToken != null -> Renovacao.Ok(token.accessToken, token.refreshToken)

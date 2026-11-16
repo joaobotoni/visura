@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +32,8 @@ import com.visura.ui.theme.StatusOrangeBg
 import com.visura.ui.theme.StatusOrangeText
 import com.visura.ui.theme.TextGray
 import java.util.Calendar
+import com.visura.model.StatusVistoria
+import com.visura.model.Vistoria
 
 private fun saudacaoPorHorario(): String {
     val hora = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -52,7 +55,7 @@ fun HomeScreen(
     onVistoriaClick: (Vistoria) -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
-    var abaSelecionada by remember { mutableStateOf(0) } // 0 = Home, 1 = Perfil
+    var abaSelecionada by rememberSaveable { mutableIntStateOf(0) } // 0 = Home, 1 = Perfil
 
     Scaffold(
         containerColor = Color.White,

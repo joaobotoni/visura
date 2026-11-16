@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,11 +17,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.visura.ui.screens.createaccount.LabeledField
-import com.visura.ui.screens.imoveis.PapelPessoa
-import com.visura.ui.screens.imoveis.PessoaVinculada
 import com.visura.ui.theme.BackgroundLavender
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
+import com.visura.model.PapelPessoa
+import com.visura.model.PessoaVinculada
 
 @Composable
 fun AdicionarPessoaSheet(
@@ -29,11 +30,11 @@ fun AdicionarPessoaSheet(
     // Recebe a pessoa, o CPF e o CNPJ (vazio quando não informado); o cadastro na API é feito por quem chama.
     onSave: (pessoa: PessoaVinculada, cpf: String, cnpj: String) -> Unit
 ) {
-    var nome by remember { mutableStateOf("") }
-    var cpf by remember { mutableStateOf("") }
-    var telefone by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var cnpj by remember { mutableStateOf("") }
+    var nome by rememberSaveable { mutableStateOf("") }
+    var cpf by rememberSaveable { mutableStateOf("") }
+    var telefone by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var cnpj by rememberSaveable { mutableStateOf("") }
 
     val emailValido = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 

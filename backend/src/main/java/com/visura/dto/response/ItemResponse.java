@@ -11,6 +11,7 @@ public record ItemResponse(
         String description,
         ItemCondition condition,
         String material,
+        String color,
         String notes,
         UUID origin
 ) {

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -21,9 +22,10 @@ import com.visura.ui.theme.TextGray
 @Composable
 fun ForgotPasswordEmailScreen(
     onBackClick: () -> Unit = {},
-    onCodeSent: () -> Unit = {}
+    emailInicial: String = "",
+    onCodeSent: (String) -> Unit = {}
 ) {
-    var email by remember { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf(emailInicial) }
 
     Column(
         modifier = Modifier
@@ -74,8 +76,8 @@ fun ForgotPasswordEmailScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = onCodeSent,
-            enabled = email.isNotBlank(),
+            onClick = { onCodeSent(email.trim()) },
+            enabled = email.contains('@'),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(containerColor = NavyBlue),
             modifier = Modifier

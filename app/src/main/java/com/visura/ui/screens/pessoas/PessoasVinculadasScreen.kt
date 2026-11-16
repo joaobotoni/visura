@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,13 +26,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.visura.ui.screens.imoveis.PapelPessoa
-import com.visura.ui.screens.imoveis.PessoaVinculada
 import com.visura.ui.theme.AlertaErroBg
 import com.visura.ui.theme.AlertaErroIcone
 import com.visura.ui.theme.AlertaErroText
 import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.NavyBlue
+import com.visura.model.PapelPessoa
+import com.visura.model.PessoaVinculada
+
+// Salva a lista no estado da tela como textos simples (6 campos por pessoa)
+private val SalvarPessoas = listSaver<List<PessoaVinculada>, String>(
+    save = { lista -> lista.flatMap { listOf(it.nome, it.papel.name, it.documento, it.telefone, it.email, it.id) } },
+    restore = { campos ->
+        campos.chunked(6).map { c -> PessoaVinculada(c[0], PapelPessoa.valueOf(c[1]), c[2], c[3], c[4], c[5]) }
+    }
+)
 
 @Composable
 fun PessoasVinculadasScreen(
@@ -42,7 +52,8 @@ fun PessoasVinculadasScreen(
     onBackClick: () -> Unit = {},
     onContinueClick: (pessoas: List<PessoaVinculada>) -> Unit = {}
 ) {
-    var pessoas by remember { mutableStateOf(pessoasIniciais) }
+    // rememberSaveable: girar a tela não desfaz as pessoas escolhidas
+    var pessoas by rememberSaveable(stateSaver = SalvarPessoas) { mutableStateOf(pessoasIniciais) }
     var mostrarAdicionar by remember { mutableStateOf(false) }
     var mostrarCadastradas by remember { mutableStateOf(false) }
 

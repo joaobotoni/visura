@@ -67,6 +67,11 @@ public class SessionService {
         return ended.getDevice();
     }
 
+    @Transactional
+    public void dismiss(User user) {
+        sessionRepository.revokeUser(user.getId(), KEEP_NONE);
+    }
+
     private void clear(Device device) {
         sessionRepository.revokeDevice(device.getId());
     }
@@ -106,10 +111,6 @@ public class SessionService {
 
     private void close(Session session) {
         sessionRepository.revoke(session.getId());
-    }
-
-    private void dismiss(User user) {
-        sessionRepository.revokeUser(user.getId(), KEEP_NONE);
     }
 
     private Session owned(UUID user, Integer session) {

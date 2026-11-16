@@ -1,6 +1,7 @@
 package com.visura.ui.screens.forgotpassword
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -8,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -21,9 +23,11 @@ import com.visura.ui.theme.TextGray
 @Composable
 fun ForgotPasswordCodeScreen(
     onBackClick: () -> Unit = {},
-    onCodeConfirmed: () -> Unit = {}
+    email: String = "",
+    onResendClick: () -> Unit = {},
+    onCodeConfirmed: (String) -> Unit = {}
 ) {
-    var codigo by remember { mutableStateOf("") }
+    var codigo by rememberSaveable { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -48,7 +52,7 @@ fun ForgotPasswordCodeScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Enviamos um código de verificação para o seu e-mail. Digite-o abaixo.",
+            text = "Se houver uma conta com o e-mail $email, enviamos para ele um código de 6 dígitos. O código vale por 15 minutos.",
             fontSize = 14.sp,
             color = TextGray
         )
@@ -59,7 +63,7 @@ fun ForgotPasswordCodeScreen(
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
             value = codigo,
-            onValueChange = { if (it.length <= 6) codigo = it },
+            onValueChange = { novo -> codigo = novo.filter { it.isDigit() }.take(6) },
             placeholder = { Text("000000") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -76,13 +80,14 @@ fun ForgotPasswordCodeScreen(
         Text(
             text = "Não recebeu o código? Reenviar",
             fontSize = 13.sp,
-            color = TextGray
+            color = NavyBlue,
+            modifier = Modifier.clickable(onClick = onResendClick).padding(vertical = 6.dp)
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = onCodeConfirmed,
+            onClick = { onCodeConfirmed(codigo) },
             enabled = codigo.length == 6,
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(containerColor = NavyBlue),

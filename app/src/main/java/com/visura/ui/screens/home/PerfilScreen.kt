@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.visura.ui.theme.LogoutRed
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
+import com.visura.model.StatusVistoria
+import com.visura.model.Vistoria
 
 @Composable
 fun PerfilContent(

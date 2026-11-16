@@ -9,16 +9,17 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.visura.ui.screens.imoveis.PessoaVinculada
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
+import com.visura.model.PessoaVinculada
 
 @Composable
 fun PessoasCadastradasSheet(
@@ -28,17 +29,20 @@ fun PessoasCadastradasSheet(
     onPessoaClick: (PessoaVinculada) -> Unit,
     onCadastrarNovaClick: () -> Unit
 ) {
-    var busca by remember { mutableStateOf("") }
+    var busca by rememberSaveable { mutableStateOf("") }
 
     // Quem já está na vistoria não aparece de novo; a busca olha nome e documento
+    // O documento vem formatado ("CPF 123.456.789-09"): a busca por número compara só os dígitos
     val resultados = remember(busca, jaVinculadas, cadastradas) {
         val idsVinculados = jaVinculadas.map { it.id }.toSet()
+        val termo = busca.trim()
+        val digitos = termo.filter { it.isDigit() }
         cadastradas
             .filter { it.id !in idsVinculados }
             .filter {
-                busca.isBlank() ||
-                        it.nome.contains(busca.trim(), ignoreCase = true) ||
-                        it.documento.contains(busca.trim())
+                termo.isEmpty() ||
+                        it.nome.contains(termo, ignoreCase = true) ||
+                        (digitos.isNotEmpty() && it.documento.filter { c -> c.isDigit() }.contains(digitos))
             }
     }
 

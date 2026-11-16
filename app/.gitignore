@@ -1,1 +1,16 @@
+# Saídas do Gradle e do Kotlin
 /build
+.gradle
+.kotlin
+.externalNativeBuild
+.cxx
+/captures
+
+# Configuração local (SDK, URL da API, client ID do Google): não versionar
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+.DS_Store
