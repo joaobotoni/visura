@@ -3,6 +3,8 @@ package com.visura.ui.navigation
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -16,6 +18,7 @@ import com.visura.VisuraApplication
 import com.visura.data.ApiErro
 import com.visura.data.ContaGoogle
 import com.visura.data.gerarLaudo
+import com.visura.data.miniaturaDosBytes
 import com.visura.data.prepararFoto
 import com.visura.model.Ambiente
 import com.visura.model.CategoriaImovel
@@ -75,6 +78,12 @@ class VisuraViewModel(
 
     // Ambientes da vistoria aberta: a lista, o detalhe do ambiente e o item leem e alteram os mesmos dados
     val ambientes: StateFlow<List<Ambiente>> = _ambientes.asStateFlow()
+
+    // Miniaturas das evidências já enviadas, por id: a grade do item não baixa de novo a cada vez que abre.
+    // O tamanho conta em KB; o teto é 1/8 da memória do app.
+    private val miniaturas = object : LruCache<String, ImageBitmap>((Runtime.getRuntime().maxMemory() / 1024 / 8).toInt()) {
+        override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4 / 1024
+    }
 
     private var contaEmCadastro: ContaEmCadastro? = null
     private var enderecoNovoImovel: EnderecoImovel? = null
@@ -301,7 +310,7 @@ class VisuraViewModel(
         val enviadas = mutableListOf<String>()
         try {
             fotos.forEach { uri ->
-                enviadas += repositorio.enviarFoto(ambienteId, criado.id, prepararFoto(aplicacao, uri))
+                enviadas += enviarEGuardarMiniatura(ambienteId, criado.id, uri)
             }
         } catch (e: ApiErro) {
             avisar("Item salvo, mas ${fotos.size - enviadas.size} foto(s) não foram enviadas: ${e.message}")
@@ -318,7 +327,7 @@ class VisuraViewModel(
 
     // Foto de um item que já existe: vai direto para a API
     fun enviarFoto(ambienteId: String, itemId: String, uri: Uri, onEnviada: () -> Unit) = executar {
-        val fotoId = repositorio.enviarFoto(ambienteId, itemId, prepararFoto(aplicacao, uri))
+        val fotoId = enviarEGuardarMiniatura(ambienteId, itemId, uri)
         onEnviada()
         // Atualiza a contagem também na lista, caso o usuário volte sem salvar
         ambiente(ambienteId)?.itens?.find { it.id == itemId }?.let { atual ->
@@ -327,6 +336,25 @@ class VisuraViewModel(
             }
         }
         avisar("Foto enviada.")
+    }
+
+    // Envia a foto e já guarda a miniatura do JPEG enviado, para a grade não precisar baixá-lo
+    private suspend fun enviarEGuardarMiniatura(ambienteId: String, itemId: String, uri: Uri): String {
+        val jpeg = prepararFoto(aplicacao, uri)
+        val fotoId = repositorio.enviarFoto(ambienteId, itemId, jpeg)
+        miniaturaDosBytes(jpeg)?.let { miniaturas.put(fotoId, it) }
+        return fotoId
+    }
+
+    // Miniatura de uma evidência já enviada: do cache ou baixada da API. null se não der para baixar.
+    suspend fun miniatura(evidenciaId: String): ImageBitmap? {
+        miniaturas.get(evidenciaId)?.let { return it }
+        val baixada = try {
+            miniaturaDosBytes(repositorio.baixarFoto(evidenciaId))
+        } catch (_: ApiErro) {
+            null
+        }
+        return baixada?.also { miniaturas.put(evidenciaId, it) }
     }
 
     fun finalizarVistoria(vistoriaId: String) = executar {

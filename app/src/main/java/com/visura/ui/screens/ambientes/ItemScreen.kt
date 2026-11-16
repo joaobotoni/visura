@@ -20,10 +20,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import com.visura.data.miniaturaDaFoto
 import com.visura.data.novaFotoDaCamera
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,7 +53,9 @@ fun ItemScreen(
     onSaveClick: (ItemAmbiente, List<Uri>) -> Unit = { _, _ -> },
     // Item que já existe na API: recebe a foto e avisa pelo segundo parâmetro quando o envio deu certo.
     // null no modo NOVO: as fotos ficam guardadas na tela até salvar.
-    onFotoEscolhida: ((Uri, () -> Unit) -> Unit)? = null
+    onFotoEscolhida: ((Uri, () -> Unit) -> Unit)? = null,
+    // Miniatura de uma foto já enviada, pelo id da evidência (null se não der para baixar)
+    carregarFoto: suspend (String) -> ImageBitmap? = { null }
 ) {
     // rememberSaveable: abrir a câmera pode fazer o Android recriar a tela, e o que foi digitado não pode se perder
     var nome by rememberSaveable { mutableStateOf(itemInicial.nome) }
@@ -197,7 +201,13 @@ fun ItemScreen(
             Rotulo("Evidências fotográficas")
             Spacer(modifier = Modifier.height(8.dp))
             EvidenciasGrid(
-                fotos = fotos + fotosPendentes.size,
+                fotos = itemInicial.fotosIds.map { Evidencia.Enviada(it) } + fotosPendentes.map { Evidencia.Pendente(it) },
+                miniatura = { foto ->
+                    when (foto) {
+                        is Evidencia.Enviada -> carregarFoto(foto.id)
+                        is Evidencia.Pendente -> miniaturaDaFoto(context, foto.uri)
+                    }
+                },
                 onAdicionarFoto = { escolhendoOrigem = true }
             )
             if (fotosPendentes.isNotEmpty()) {

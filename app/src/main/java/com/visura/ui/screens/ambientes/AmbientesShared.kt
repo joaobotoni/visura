@@ -1,5 +1,7 @@
 package com.visura.ui.screens.ambientes
 
+import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,14 +10,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -225,42 +232,83 @@ internal fun EstadoSelector(
     }
 }
 
-// SIMULAÇÃO — sem câmera ainda: cada toque em "adicionar foto" só soma uma miniatura
+// Foto da grade de evidências: já enviada à API (pelo id) ou tirada/escolhida e ainda não enviada
+internal sealed interface Evidencia {
+    data class Enviada(val id: String) : Evidencia
+    data class Pendente(val uri: Uri) : Evidencia
+}
+
+// Grade de 3 colunas com as fotos do item e, no fim, o botão de adicionar.
+// Cada foto aparece com um indicador enquanto a miniatura carrega e com um ícone se não der para carregá-la.
 @Composable
 internal fun EvidenciasGrid(
-    fotos: Int,
+    fotos: List<Evidencia>,
+    miniatura: suspend (Evidencia) -> ImageBitmap?,
     onAdicionarFoto: () -> Unit
 ) {
-    val celulas = fotos + 1
+    val celulas: List<Evidencia?> = fotos + null // null = botão de adicionar
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        (0 until celulas).chunked(3).forEach { linha ->
+        celulas.chunked(3).forEach { linha ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                linha.forEach { i ->
-                    val ehBotao = i == fotos
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(BackgroundLavender)
-                            .then(
-                                if (ehBotao) Modifier
-                                    .border(1.dp, BorderGray, RoundedCornerShape(12.dp))
-                                    .clickable { onAdicionarFoto() }
-                                else Modifier
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            if (ehBotao) Icons.Filled.AddAPhoto else Icons.Filled.Image,
-                            contentDescription = if (ehBotao) "Adicionar foto" else null,
-                            tint = if (ehBotao) TextGray else NavyBlue
-                        )
+                linha.forEach { foto ->
+                    val celula = Modifier
+                        .weight(1f)
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(BackgroundLavender)
+                    if (foto == null) {
+                        Box(
+                            modifier = celula
+                                .border(1.dp, BorderGray, RoundedCornerShape(12.dp))
+                                .clickable { onAdicionarFoto() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.AddAPhoto, contentDescription = "Adicionar foto", tint = TextGray)
+                        }
+                    } else {
+                        key(foto) { MiniaturaEvidencia(foto, miniatura, celula) }
                     }
                 }
                 // completa a linha para as células manterem o mesmo tamanho
                 repeat(3 - linha.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
+        }
+    }
+}
+
+private sealed interface EstadoMiniatura {
+    data object Carregando : EstadoMiniatura
+    data object Falhou : EstadoMiniatura
+    class Pronta(val imagem: ImageBitmap) : EstadoMiniatura
+}
+
+@Composable
+private fun MiniaturaEvidencia(
+    foto: Evidencia,
+    miniatura: suspend (Evidencia) -> ImageBitmap?,
+    modifier: Modifier
+) {
+    val estado by produceState<EstadoMiniatura>(EstadoMiniatura.Carregando, foto) {
+        value = miniatura(foto)?.let { EstadoMiniatura.Pronta(it) } ?: EstadoMiniatura.Falhou
+    }
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        when (val atual = estado) {
+            EstadoMiniatura.Carregando -> CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.dp,
+                color = NavyBlue
+            )
+            EstadoMiniatura.Falhou -> Icon(
+                Icons.Filled.BrokenImage,
+                contentDescription = "Não foi possível carregar a foto",
+                tint = TextGray
+            )
+            is EstadoMiniatura.Pronta -> Image(
+                bitmap = atual.imagem,
+                contentDescription = "Foto do item",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }

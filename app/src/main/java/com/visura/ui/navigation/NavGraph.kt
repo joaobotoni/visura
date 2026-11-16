@@ -386,7 +386,8 @@ fun VisuraNavGraph(
                             itemInicial = item,
                             onBackClick = { navController.popBackStack() },
                             onSaveClick = { atualizado, _ -> vm.salvarItem(ambiente.id, atualizado) },
-                            onFotoEscolhida = { uri, onEnviada -> vm.enviarFoto(ambiente.id, item.id, uri, onEnviada) }
+                            onFotoEscolhida = { uri, onEnviada -> vm.enviarFoto(ambiente.id, item.id, uri, onEnviada) },
+                            carregarFoto = vm::miniatura
                         )
                     } else {
                         VoltarParaAmbientes(navController)
