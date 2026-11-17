@@ -37,7 +37,9 @@ O backend é um projeto Maven independente; todos os comandos rodam dentro de `b
 ```text
 backend/
 ├── pom.xml, mvnw, mvnw.cmd, .mvn/   # build Maven (wrapper incluso)
-├── compose.yaml                     # PostgreSQL 17 + pg_cron e Mailpit para desenvolvimento
+├── compose.yaml                     # API, PostgreSQL 17 + pg_cron e Mailpit para desenvolvimento
+├── Dockerfile                       # imagem da API (build com Maven, execução em JRE 17)
+├── .env.example                     # chaves que o compose lê do .env (fora do Git)
 ├── docker/postgres/Dockerfile       # imagem do PostgreSQL com pg_cron usada pelo compose
 ├── docs/db/app-role.sql             # role vsr_app, com as permissões mínimas da aplicação
 └── src/
@@ -927,7 +929,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 ## Configuração e execução
 
-**Pré-requisitos:** JDK 17 e PostgreSQL 17 com a extensão `pg_cron`. Para desenvolvimento, `docker compose up -d` (arquivo `compose.yaml`) sobe esse PostgreSQL já configurado e o Mailpit, que recebe os e-mails em `http://localhost:8025`. O `pg_cron` exige, no `postgresql.conf`, `shared_preload_libraries = 'pg_cron'` e `cron.database_name` apontando para o banco da aplicação (reinicie o PostgreSQL depois). O usuário que aplica as migrations precisa de permissão para criar a extensão.
+**Pré-requisitos:** JDK 17 e PostgreSQL 17 com a extensão `pg_cron`. Para desenvolvimento, copie `.env.example` para `.env`, preencha as chaves e rode `docker compose up -d --build` (arquivo `compose.yaml`): sobe a API em `http://localhost:8080` (imagem do `Dockerfile`), esse PostgreSQL já configurado na porta **5434** do host (para não conflitar com os PostgreSQL instalados na máquina, nas portas 5432 e 5433) e o Mailpit, que recebe os e-mails em `http://localhost:8025`. O `pg_cron` exige, no `postgresql.conf`, `shared_preload_libraries = 'pg_cron'` e `cron.database_name` apontando para o banco da aplicação (reinicie o PostgreSQL depois). O usuário que aplica as migrations precisa de permissão para criar a extensão.
 
 ```bash
 ./mvnw clean package -DskipTests
