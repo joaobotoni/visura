@@ -1,12 +1,90 @@
-# Ambiente de desenvolvimento: PostgreSQL 17 com pg_cron e o Mailpit, que recebe os e-mails da API
-# (recuperação de senha) e mostra numa página em http://localhost:8025.
+# Ambiente de desenvolvimento completo: a API, o PostgreSQL 17 com pg_cron e o Mailpit, que recebe os e-mails
+# da API (recuperação de senha) e mostra numa página em http://localhost:8025.
 #
-#   docker compose up -d
+#   docker compose up -d --build
 #
-# Depois, rode a API com as variáveis de ambiente de backend/README.md, apontando para:
-#   DB_URL=jdbc:postgresql://localhost:5432/visura  DB_USERNAME=visura  DB_PASSWORD=visura
-#   MAIL_HOST=localhost  MAIL_PORT=1025
+# A API fica em http://localhost:8080/api/1/ (o endereço que o app usa no emulador: http://10.0.2.2:8080/api/1/).
+# As chaves JWT_SECRET_KEY e REFRESH_TOKEN_SECRET_KEY vêm do arquivo .env (fora do Git); copie o .env.example.
+#
+# O banco fica na porta 5434 do host, para não brigar com os PostgreSQL instalados na máquina (5432 e 5433):
+#   psql -h localhost -p 5434 -U visura visura
 services:
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      APP_NAME: visura-api
+      VERSION_HEADER: X-API-Version
+      VERSION_SUPPORTED: "1"
+      VERSION_DEFAULT: "1"
+
+      DB_URL: jdbc:postgresql://postgres:5432/visura
+      DB_USERNAME: visura
+      DB_PASSWORD: visura
+      DB_DRIVER: org.postgresql.Driver
+      DB_POOL_NAME: visura-pool
+      DB_POOL_MAX_SIZE: "10"
+      DB_POOL_MIN_IDLE: "2"
+      DB_POOL_CONNECTION_TIMEOUT: "30000"
+      DB_POOL_IDLE_TIMEOUT: "600000"
+      DB_POOL_MAX_LIFETIME: "1800000"
+      JPA_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      JPA_BATCH_SIZE: "50"
+
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?defina JWT_SECRET_KEY no .env}
+      REFRESH_TOKEN_SECRET_KEY: ${REFRESH_TOKEN_SECRET_KEY:?defina REFRESH_TOKEN_SECRET_KEY no .env}
+      JWT_ISSUER: visura-api
+      JWT_EXPIRATION_TIME: 15m
+
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MAIL_USERNAME: visura
+      MAIL_PASSWORD: visura
+      MAIL_FROM: nao-responda@visura.local
+      MAIL_ATTACHMENTS_DIR: /data/anexos
+      # O Mailpit usa um certificado autoassinado no STARTTLS; só em desenvolvimento a API confia nele.
+      SPRING_APPLICATION_JSON: '{"spring":{"mail":{"properties":{"mail.smtp.ssl.trust":"mailpit"}}}}'
+
+      EVIDENCE_DIR: /data/evidencias
+      TRUSTED_PROXIES: ""
+
+      RATE_LIMIT_API_CAPACITY: "300"
+      RATE_LIMIT_API_REFILL_RATE: "300"
+      RATE_LIMIT_API_REFILL_INTERVAL: 1m
+      RATE_LIMIT_LOGIN_CAPACITY: "60"
+      RATE_LIMIT_LOGIN_REFILL_RATE: "60"
+      RATE_LIMIT_LOGIN_REFILL_INTERVAL: 1m
+      RATE_LIMIT_REGISTER_CAPACITY: "30"
+      RATE_LIMIT_REGISTER_REFILL_RATE: "30"
+      RATE_LIMIT_REGISTER_REFILL_INTERVAL: 10m
+      RATE_LIMIT_REFRESH_CAPACITY: "120"
+      RATE_LIMIT_REFRESH_REFILL_RATE: "120"
+      RATE_LIMIT_REFRESH_REFILL_INTERVAL: 1m
+      RATE_LIMIT_PASSWORD_RESET_CAPACITY: "30"
+      RATE_LIMIT_PASSWORD_RESET_REFILL_RATE: "30"
+      RATE_LIMIT_PASSWORD_RESET_REFILL_INTERVAL: 1m
+      RATE_LIMIT_UPLOAD_CAPACITY: "60"
+      RATE_LIMIT_UPLOAD_REFILL_RATE: "60"
+      RATE_LIMIT_UPLOAD_REFILL_INTERVAL: 1m
+      RATE_LIMIT_COMPANY_CAPACITY: "10"
+      RATE_LIMIT_COMPANY_REFILL_RATE: "10"
+      RATE_LIMIT_COMPANY_REFILL_INTERVAL: 10m
+      RATE_LIMIT_ACCOUNT_CAPACITY: "10"
+      RATE_LIMIT_ACCOUNT_REFILL_RATE: "10"
+      RATE_LIMIT_ACCOUNT_REFILL_INTERVAL: 15m
+      RATE_LIMIT_CEILING_CAPACITY: "50"
+      RATE_LIMIT_CEILING_REFILL_RATE: "50"
+      RATE_LIMIT_CEILING_REFILL_INTERVAL: 1h
+    volumes:
+      - evidencias:/data/evidencias
+
   postgres:
     build: docker/postgres
     environment:
@@ -14,15 +92,25 @@ services:
       POSTGRES_USER: visura
       POSTGRES_PASSWORD: visura
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U visura -d visura"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   mailpit:
     image: axllent/mailpit:v1.27
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_TLS_CERT: sans:mailpit
+      MP_SMTP_TLS_KEY: sans:mailpit
     ports:
       - "1025:1025"
       - "8025:8025"
 
 volumes:
   postgres:
+  evidencias:
