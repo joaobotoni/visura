@@ -52,6 +52,8 @@ services:
       # O Mailpit usa um certificado autoassinado no STARTTLS; só em desenvolvimento a API confia nele.
       SPRING_APPLICATION_JSON: '{"spring":{"mail":{"properties":{"mail.smtp.ssl.trust":"mailpit"}}}}'
 
+      # disk guarda as fotos no volume abaixo; bucket usa S3, Cloudflare R2 ou MinIO (veja EVIDENCE_BUCKET* no README)
+      EVIDENCE_STORAGE: disk
       EVIDENCE_DIR: /data/evidencias
       TRUSTED_PROXIES: ""
 
