@@ -1,10 +1,10 @@
-# Confere os dois módulos a cada push na main e a cada Pull Request. Só roda o módulo que mudou
+# Confere os dois módulos a cada push na main ou na homolog e a cada Pull Request. Só roda o módulo que mudou
 # (ou os dois, quando o próprio workflow muda).
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, homolog]
   pull_request:
 
 concurrency:

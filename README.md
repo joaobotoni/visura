@@ -212,7 +212,7 @@ cd app && ./gradlew connectedDebugAndroidTest              # app: testes instrum
 
 A estratégia de testes de cada módulo está no [CONTRIBUTING.md](CONTRIBUTING.md#estratégia-de-testes).
 
-O GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda os testes da API e os testes e o lint do app em cada Pull Request e em cada push na `main`, só no módulo que mudou. Os testes instrumentados, que precisam de emulador, ficam de fora.
+O GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda os testes da API e os testes e o lint do app em cada Pull Request e em cada push na `main` ou na `homolog`, só no módulo que mudou. Os testes instrumentados, que precisam de emulador, ficam de fora.
 
 ## Documentação dos módulos
 
