@@ -128,4 +128,5 @@ dependencies {
     implementation(libs.androidx.credentials.play.services)
     implementation(libs.googleid)
     implementation(libs.androidx.exifinterface)
+    implementation(libs.androidx.work.runtime.ktx)
 }
