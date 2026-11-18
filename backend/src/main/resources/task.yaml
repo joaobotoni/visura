@@ -1,0 +1,8 @@
+vsr:
+  # Fila de tarefas em segundo plano (processamento.tarefa)
+  task:
+    poll: ${TASK_POLL:5s}
+    lease: ${TASK_LEASE:15m}
+    batch: ${TASK_BATCH:10}
+    backoff: ${TASK_BACKOFF:30s}
+    ceiling: ${TASK_BACKOFF_CEILING:1h}

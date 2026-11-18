@@ -54,14 +54,30 @@ Os dois módulos não compartilham código nem build. O ponto de contato entre e
 
 ## Fluxo de trabalho
 
-1. Atualize a `main`: `git switch main && git pull`.
+O repositório tem duas branches fixas:
+
+| Branch | Para quê |
+|---|---|
+| `homolog` | Homologação: recebe as funcionalidades prontas para serem testadas juntas, num aparelho de verdade, antes de chegar a quem usa o app |
+| `main` | Produção: só recebe o que já foi aprovado na `homolog` |
+
+```mermaid
+flowchart LR
+    F[feature/nome-curto] -->|PR + CI| H[homolog]
+    H -->|testado e aprovado: PR + CI| M[main]
+```
+
+1. Atualize a `homolog`: `git switch homolog && git pull`.
 2. Crie uma branch seguindo o [padrão](#padrão-de-branches): `git switch -c feature/nome-curto`.
 3. Faça commits pequenos e atômicos, seguindo os [Conventional Commits](#conventional-commits).
 4. Rode os testes do módulo alterado. Veja a [estratégia de testes](#estratégia-de-testes).
-5. Traga a `main` para a sua branch antes de abrir o PR (`git fetch origin && git merge origin/main`) e resolva os conflitos.
-6. Envie a branch (`git push -u origin feature/nome-curto`) e abra o Pull Request para a `main`.
+5. Traga a `homolog` para a sua branch antes de abrir o PR (`git fetch origin && git merge origin/homolog`) e resolva os conflitos.
+6. Envie a branch (`git push -u origin feature/nome-curto`) e abra o Pull Request para a `homolog`.
+7. Depois do merge, teste a `homolog` no celular. Se estiver tudo certo, abra um Pull Request da `homolog` para a `main`.
 
-Não faça commits direto na `main`. Não reescreva o histórico de uma branch que outra pessoa já usa. Se precisar reescrever, avise a equipe e use `git push --force-with-lease`, nunca `--force`.
+**Correção urgente em produção:** crie `fix/nome-curto` a partir da `main`, abra o PR para a `main` e, depois do merge, traga a `main` para a `homolog` (`git switch homolog && git merge origin/main`), para as duas não se separarem.
+
+Não faça commits direto na `main` nem na `homolog`. Não reescreva o histórico de uma branch que outra pessoa já usa. Se precisar reescrever, avise a equipe e use `git push --force-with-lease`, nunca `--force`.
 
 ## Padrão de branches
 

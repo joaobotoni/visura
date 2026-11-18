@@ -2,6 +2,7 @@ package com.visura.service;
 
 import com.visura.database.repository.EvidenceRepository;
 import com.visura.properties.EvidenceProperties;
+import com.visura.storage.DiskStorage;
 import com.visura.support.Controle;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ class OrphanServiceTest {
         EvidenceProperties properties = new EvidenceProperties(directory, Duration.ofHours(1));
         EvidenceRepository repository = mock(EvidenceRepository.class);
         when(repository.existsByPath("registrado.jpg")).thenReturn(true);
-        StorageService storage = new StorageService(properties, Clock.fixed(NOW, java.time.ZoneOffset.UTC));
+        StorageService storage = new StorageService(new DiskStorage(directory), Clock.fixed(NOW, java.time.ZoneOffset.UTC));
 
         new OrphanService(storage, repository, properties).sweep();
 
