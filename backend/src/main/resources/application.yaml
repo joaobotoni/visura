@@ -8,3 +8,4 @@ spring:
       - classpath:security.yaml
       - classpath:rate-limit.yaml
       - classpath:mail.yaml
+      - classpath:task.yaml
