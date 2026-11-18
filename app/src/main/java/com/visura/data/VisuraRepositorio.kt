@@ -43,6 +43,7 @@ import com.visura.model.EnderecoImovel
 import com.visura.model.EstadoItem
 import com.visura.model.Imovel
 import com.visura.model.ItemAmbiente
+import com.visura.model.Narracao
 import com.visura.model.PapelPessoa
 import com.visura.model.Perfil
 import com.visura.model.PessoaVinculada
@@ -362,6 +363,14 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
         api.enviarEvidencia(ambienteId, arquivo, itemId.toRequestBody("text/plain".toMediaType())).id.orEmpty()
     }
 
+    // Envia a narração (M4A) como evidência do ambiente, sem item, e devolve o id da evidência.
+    suspend fun enviarNarracao(ambienteId: String, audio: ByteArray): String = chamar {
+        val arquivo = MultipartBody.Part.createFormData(
+            "file", "narracao.m4a", audio.toRequestBody(TIPO_AUDIO.toMediaType())
+        )
+        api.enviarEvidencia(ambienteId, arquivo, null).id.orEmpty()
+    }
+
     // Baixa a foto de uma evidência (para o laudo em PDF).
     suspend fun baixarFoto(evidenciaId: String): ByteArray = chamar {
         api.evidencia(evidenciaId).use { it.bytes() }
@@ -388,12 +397,14 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
     }
 
     private fun RoomResponse.paraAmbiente(): Ambiente {
-        val fotosPorItem = evidences.orEmpty().filter { it.id != null }.groupBy({ it.item }, { it.id.orEmpty() })
+        val (audios, fotos) = evidences.orEmpty().filter { it.id != null }.partition { it.contentType == TIPO_AUDIO }
+        val fotosPorItem = fotos.groupBy({ it.item }, { it.id.orEmpty() })
         return Ambiente(
             id = id.orEmpty(),
             nome = name.orEmpty(),
             itens = items.orEmpty().map { it.paraItem(fotosPorItem[it.id].orEmpty()) },
-            observacoes = notes.orEmpty()
+            observacoes = notes.orEmpty(),
+            narracoes = audios.map { Narracao(it.id.orEmpty(), formatarDataHora(it.receivedAt), it.size ?: 0) }
         )
     }
 
@@ -457,6 +468,9 @@ class VisuraRepositorio(private val api: VisuraApi, val sessao: Sessao) {
         const val STATUS_FINALIZADA = "finalizada"
         const val PESSOA_JURIDICA = "pj"
         const val LIMITE_DE_PAGINAS = 40
+
+        // Tipo que a API devolve para a narração em áudio (M4A)
+        const val TIPO_AUDIO = "audio/mp4"
     }
 }
 

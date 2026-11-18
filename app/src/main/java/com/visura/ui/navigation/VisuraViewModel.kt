@@ -3,6 +3,7 @@ package com.visura.ui.navigation
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.core.content.FileProvider
@@ -17,6 +18,9 @@ import androidx.navigation.NavHostController
 import com.visura.VisuraApplication
 import com.visura.data.ApiErro
 import com.visura.data.ContaGoogle
+import com.visura.data.EnvioDeNarracoes
+import com.visura.data.EnviosDeNarracao
+import com.visura.data.Gravador
 import com.visura.data.gerarLaudo
 import com.visura.data.miniaturaDosBytes
 import com.visura.data.prepararFoto
@@ -35,6 +39,7 @@ import com.visura.ui.screens.createaccount.DocumentosCadastro
 import com.visura.ui.screens.createaccount.TipoPessoa
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +49,16 @@ import kotlinx.coroutines.launch
 
 // Dados da primeira etapa do cadastro, guardados até a segunda etapa chamar a API
 private data class ContaEmCadastro(val nome: String, val email: String, val senha: String)
+
+// Narração em andamento: de qual ambiente, se está pausada e quanto já foi gravado. O cronômetro da tela soma
+// "gravadoMs" ao tempo desde "retomadaEm" (relógio de SystemClock.elapsedRealtime) enquanto não está pausada.
+data class Gravacao(
+    val ambienteId: String,
+    val ambienteNome: String,
+    val pausada: Boolean = false,
+    val gravadoMs: Long = 0,
+    val retomadaEm: Long = SystemClock.elapsedRealtime()
+)
 
 // Algo que a tela precisa fazer uma única vez, em resposta a uma ação: mostrar um aviso, navegar
 // ou abrir o compartilhamento. Fica num Channel até a tela estar visível para recebê-lo.
@@ -355,6 +370,63 @@ class VisuraViewModel(
             null
         }
         return baixada?.also { miniaturas.put(evidenciaId, it) }
+    }
+
+    // ---------------- Narração ----------------
+
+    private val gravador = Gravador(aplicacao)
+    private val _gravacao = MutableStateFlow<Gravacao?>(null)
+
+    // A gravação vive no ViewModel: continua ao girar a tela e enquanto o vistoriador abre os itens do ambiente
+    val gravacao: StateFlow<Gravacao?> = _gravacao.asStateFlow()
+
+    fun gravarNarracao(ambiente: Ambiente) {
+        if (_gravacao.value != null) return
+        try {
+            gravador.iniciar()
+            _gravacao.value = Gravacao(ambiente.id, ambiente.nome)
+        } catch (e: ApiErro) {
+            avisar(e.message ?: "Não foi possível gravar.")
+        }
+    }
+
+    fun pausarNarracao() {
+        val atual = _gravacao.value ?: return
+        if (atual.pausada) return
+        gravador.pausar()
+        _gravacao.value = atual.copy(pausada = true, gravadoMs = atual.gravadoMs + SystemClock.elapsedRealtime() - atual.retomadaEm)
+    }
+
+    fun continuarNarracao() {
+        val atual = _gravacao.value ?: return
+        if (!atual.pausada) return
+        gravador.continuar()
+        _gravacao.value = atual.copy(pausada = false, retomadaEm = SystemClock.elapsedRealtime())
+    }
+
+    // Encerra a gravação e põe o arquivo na fila de envio, que segue em segundo plano
+    fun concluirNarracao() {
+        val atual = _gravacao.value ?: return
+        _gravacao.value = null
+        val arquivo = gravador.concluir()
+        if (arquivo == null) {
+            avisar("A narração ficou vazia e foi descartada.")
+            return
+        }
+        EnvioDeNarracoes.agendar(aplicacao, atual.ambienteId, arquivo)
+        avisar("Narração salva. O envio continua em segundo plano, mesmo sem internet agora.")
+    }
+
+    fun descartarNarracao() {
+        _gravacao.value = null
+        gravador.descartar()
+    }
+
+    fun enviosDeNarracao(ambienteId: String): Flow<EnviosDeNarracao> = EnvioDeNarracoes.acompanhar(aplicacao, ambienteId)
+
+    // O ViewModel só acaba quando a Activity sai de vez: a narração em andamento é salva, não perdida
+    override fun onCleared() {
+        concluirNarracao()
     }
 
     fun finalizarVistoria(vistoriaId: String) = executar {

@@ -32,8 +32,10 @@ import com.visura.ui.theme.BorderGray
 import com.visura.ui.theme.LightBlueBg
 import com.visura.ui.theme.NavyBlue
 import com.visura.ui.theme.TextGray
+import com.visura.data.EnviosDeNarracao
 import com.visura.model.Ambiente
 import com.visura.model.ItemAmbiente
+import com.visura.ui.navigation.Gravacao
 
 @Composable
 fun AmbienteDetalheScreen(
@@ -42,7 +44,14 @@ fun AmbienteDetalheScreen(
     onItemClick: (ItemAmbiente) -> Unit = {},
     onAdicionarItemClick: () -> Unit = {},
     onEditarItemClick: (ItemAmbiente) -> Unit = {},
-    onRemoverItemClick: (ItemAmbiente) -> Unit = {}
+    onRemoverItemClick: (ItemAmbiente) -> Unit = {},
+    gravacao: Gravacao? = null,
+    envios: EnviosDeNarracao = EnviosDeNarracao(),
+    onGravar: () -> Unit = {},
+    onPausar: () -> Unit = {},
+    onContinuar: () -> Unit = {},
+    onConcluir: () -> Unit = {},
+    onDescartar: () -> Unit = {}
 ) {
     // Item que está com o menu "Editar / Remover" aberto (aberto ao segurar o item)
     var itemComMenu by remember { mutableStateOf<String?>(null) }
@@ -53,6 +62,22 @@ fun AmbienteDetalheScreen(
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            item {
+                // As enviadas nesta execução ainda podem não estar na lista do ambiente, que vem da API
+                val enviadas = (ambiente.narracoes.map { it.id } + envios.enviadas).toSet().size
+                NarracaoCard(
+                    ambienteId = ambiente.id,
+                    gravacao = gravacao,
+                    enviadas = enviadas,
+                    envios = envios,
+                    onGravar = onGravar,
+                    onPausar = onPausar,
+                    onContinuar = onContinuar,
+                    onConcluir = onConcluir,
+                    onDescartar = onDescartar
+                )
+            }
+
             if (ambiente.itens.isEmpty()) {
                 item {
                     Text(

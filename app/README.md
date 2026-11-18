@@ -3,7 +3,7 @@
 Aplicativo Android do Visura, escrito em Kotlin e Jetpack Compose. Com ele, o vistoriador:
 
 - cadastra imóveis;
-- registra vistorias de entrada e de saída, ambiente por ambiente e item por item, com fotos;
+- registra vistorias de entrada e de saída, ambiente por ambiente e item por item, com fotos e narração em áudio;
 - gera o laudo em PDF no próprio aparelho.
 
 Todos os dados ficam na [API do Visura](../backend/README.md). O app só guarda localmente a sessão, e cifrada.
@@ -19,6 +19,7 @@ Todos os dados ficam na [API do Visura](../backend/README.md). O app só guarda 
 - [Sessão e autenticação](#sessão-e-autenticação)
 - [Persistência local](#persistência-local)
 - [Câmera, fotos e laudo](#câmera-fotos-e-laudo)
+- [Narração em áudio](#narração-em-áudio)
 - [Tecnologias e versões](#tecnologias-e-versões)
 - [Requisitos](#requisitos)
 - [Configuração](#configuração)
@@ -111,6 +112,8 @@ app/
     │       │   ├── BuscaDeEndereco.kt   # CEP e "rua, cidade, UF" no ViaCEP
     │       │   ├── Fotos.kt             # JPEG de até 2048 px, rotação do EXIF, arquivo da câmera
     │       │   ├── Laudo.kt             # laudo em PDF (PdfDocument)
+    │       │   ├── Gravador.kt          # narração em M4A (MediaRecorder: AAC mono, 64 kbps)
+    │       │   ├── EnvioDeNarracoes.kt  # envio das narrações em segundo plano (WorkManager)
     │       │   ├── LoginGoogle.kt       # Credential Manager -> ID token
     │       │   └── remote/              # VisuraApi, ApiModels (DTOs), ApiClient (OkHttp), ViaCepApi
     │       └── ui/
@@ -217,7 +220,7 @@ sequenceDiagram
 
 ## Persistência local
 
-O app não tem banco local. A `Sessao` guarda num SharedPreferences privado (`visura_sessao.xml`):
+O app não tem banco local. As narrações gravadas ficam em `files/narracoes` só até a API confirmar o recebimento (veja [Narração em áudio](#narração-em-áudio)). A `Sessao` guarda num SharedPreferences privado (`visura_sessao.xml`):
 
 - **cifrados:** os tokens, o nome, o e-mail e o CPF da conta;
 - **em texto puro:** o identificador do dispositivo, que não é segredo.
@@ -241,7 +244,18 @@ O arquivo também fica fora do backup do Android (`backup_rules.xml` e `data_ext
 - **Laudo:**
   - `gerarLaudo` monta o PDF com `PdfDocument`, em `Dispatchers.IO`, com as fotos baixadas de `GET evidences/{id}`.
   - O compartilhamento usa o mesmo `FileProvider`.
-- **Serviços em segundo plano:** o app não tem nenhum.
+- **Serviços em segundo plano:** só o envio das narrações, pelo WorkManager (próxima seção).
+
+## Narração em áudio
+
+O vistoriador descreve o ambiente falando (cada item, o material, a cor e o estado) enquanto anda pelo cômodo. Na Fase 2, essa fala vai ser transcrita e a IA vai sugerir os itens preenchidos.
+
+- **Gravação** (`Gravador.kt`): o cartão "Narração do ambiente", na tela do ambiente, grava em M4A (AAC mono, 44,1 kHz, 64 kbps, uns 0,5 MB por minuto). Pede a permissão `RECORD_AUDIO` no primeiro uso. Dá para pausar e continuar.
+- **Onde a gravação vive:** no `VisuraViewModel`. Ela continua ao girar a tela e enquanto o vistoriador abre os itens e tira fotos. Só há uma gravação por vez. Se a Activity acabar de vez, a narração em andamento é concluída e enviada, não perdida.
+- **Tela acesa:** com a tela apagada, o Android corta o microfone de apps em primeiro plano, então a tela fica acesa enquanto grava. Trocar de app durante a gravação também corta o som. Para isso seria preciso um serviço em primeiro plano do tipo microfone, que ainda não existe.
+- **Envio** (`EnvioDeNarracoes.kt`): ao concluir, o arquivo vai para `files/narracoes` (não para o cache, que o Android pode limpar) e entra na fila do WorkManager. O envio espera haver internet, continua com o app fechado e tenta de novo com espera crescente quando não há resposta, a sessão expirou (401), há limite de requisições (429) ou o servidor falha (5xx). Outras recusas (vistoria finalizada, ambiente removido) são definitivas: o arquivo é apagado e o cartão mostra o motivo.
+- **Na API**, a narração é uma evidência do ambiente, sem item, com `contentType` `audio/mp4`. A grade de fotos e o laudo em PDF usam só as evidências de imagem.
+- **Limitação conhecida:** se a confirmação da API se perder depois do envio, a nova tentativa pode gravar a mesma narração duas vezes. Isso só deixa de acontecer com o modo sem internet da Fase 4, quando o app vai mandar um identificador da gravação.
 
 ## Tecnologias e versões
 

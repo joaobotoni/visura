@@ -28,11 +28,15 @@ data class ItemAmbiente(
     val fotosIds: List<String> = emptyList() // ids das evidências na API, usados no laudo em PDF
 )
 
+// Narração em áudio do ambiente, já recebida pela API
+data class Narracao(val id: String, val recebidaEm: String, val bytes: Int)
+
 data class Ambiente(
     val id: String = UUID.randomUUID().toString(),
     val nome: String,
     val itens: List<ItemAmbiente>,
-    val observacoes: String = ""
+    val observacoes: String = "",
+    val narracoes: List<Narracao> = emptyList()
 ) {
     val itensAvaliados: Int get() = itens.count { it.estado != null }
 

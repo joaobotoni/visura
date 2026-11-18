@@ -12,7 +12,7 @@ import org.springframework.http.HttpStatus;
 public enum PhotoProblem implements Problem {
 
     EMPTY(HttpStatus.BAD_REQUEST, "O arquivo enviado está vazio."),
-    UNSUPPORTED(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Formato de arquivo não suportado. São aceitas apenas imagens JPEG ou PNG."),
+    UNSUPPORTED(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Formato de arquivo não suportado. São aceitas fotos JPEG ou PNG e áudio M4A."),
     UNREADABLE(HttpStatus.BAD_REQUEST, "Não foi possível ler o arquivo enviado.");
 
     private final HttpStatus status;

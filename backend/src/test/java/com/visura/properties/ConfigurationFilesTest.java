@@ -64,7 +64,7 @@ class ConfigurationFilesTest {
     @Controle
     @ParameterizedTest(name = "{0} não liga HTTP/2")
     @DisplayName("HTTP/2 fica desligado: o limite de corpo depende do Content-Length, que o HTTP/2 dispensa")
-    @ValueSource(strings = {"application.yaml", "web.yaml", "database.yaml", "security.yaml", "rate-limit.yaml", "mail.yaml"})
+    @ValueSource(strings = {"application.yaml", "web.yaml", "database.yaml", "security.yaml", "rate-limit.yaml", "mail.yaml", "task.yaml"})
     void http2IsDisabled(String file) {
         assertThat(property(file, "server.http2.enabled")).isIn(null, "false");
     }

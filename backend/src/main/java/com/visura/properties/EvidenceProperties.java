@@ -8,10 +8,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 
 /**
- * Diretório dos arquivos das evidências ({@code EVIDENCE_DIR}) e idade mínima para um arquivo sem registro ser
- * apagado pela limpeza de órfãos.
+ * Diretório dos arquivos das evidências ({@code EVIDENCE_DIR}, obrigatório só com {@code EVIDENCE_STORAGE=disk}) e
+ * idade mínima para um arquivo sem registro ser apagado pela limpeza de órfãos.
  */
 @Validated
 @ConfigurationProperties(prefix = "vsr.evidence")
-public record EvidenceProperties(@NotNull Path directory, @NotNull Duration orphanAge) {
+public record EvidenceProperties(Path directory, @NotNull Duration orphanAge) {
 }

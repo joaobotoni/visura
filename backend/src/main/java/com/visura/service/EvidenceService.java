@@ -14,7 +14,7 @@ import com.visura.exception.enums.problem.InspectionProblem;
 import com.visura.exception.enums.problem.PhotoProblem;
 import com.visura.exception.enums.problem.StorageProblem;
 import com.visura.mapper.EvidenceMapper;
-import com.visura.vo.Photo;
+import com.visura.vo.Media;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +27,7 @@ import java.time.Clock;
 import java.util.UUID;
 
 /**
- * Evidências (fotos) dos ambientes das vistorias do usuário. O acesso ao ambiente é conferido antes de tocar no disco;
+ * Evidências (fotos e narrações em áudio) dos ambientes das vistorias do usuário. O acesso ao ambiente é conferido antes de tocar no disco;
  * o arquivo é gravado fora de transação (sem prender conexão do banco durante a escrita) e o registro, numa transação
  * curta. Se o registro for recusado (vistoria finalizada, item de outro ambiente), o arquivo é apagado. O download
  * confere o SHA-256 gravado no envio.
@@ -47,9 +47,9 @@ public class EvidenceService {
     public EvidenceResponse upload(UUID user, UUID room, EvidenceRequest request) {
         Room found = room(user, room);
         Item item = item(user, request.item());
-        Photo photo = photo(request.file());
-        String path = path(photo);
-        return record(found, item, path, photo, request.description());
+        Media media = media(request.file());
+        String path = path(media);
+        return record(found, item, path, media, request.description());
     }
 
     @Transactional(readOnly = true)
@@ -70,16 +70,16 @@ public class EvidenceService {
         return roomService.find(user, room);
     }
 
-    private String path(Photo photo) {
-        return storageService.save(photo);
+    private String path(Media media) {
+        return storageService.save(media);
     }
 
-    private EvidenceResponse save(Room room, Item item, String path, Photo photo, String description) {
-        return show(evidenceRepository.saveAndFlush(create(room, item, path, photo, description)));
+    private EvidenceResponse save(Room room, Item item, String path, Media media, String description) {
+        return show(evidenceRepository.saveAndFlush(create(room, item, path, media, description)));
     }
 
-    private Evidence create(Room room, Item item, String path, Photo photo, String description) {
-        return evidenceMapper.entity(room, item, path, photo, clock.instant(), description);
+    private Evidence create(Room room, Item item, String path, Media media, String description) {
+        return evidenceMapper.entity(room, item, path, media, clock.instant(), description);
     }
 
     private EvidenceResponse show(Evidence evidence) {
@@ -105,18 +105,18 @@ public class EvidenceService {
         return itemService.find(user, item);
     }
 
-    private static Photo photo(MultipartFile file) {
+    private static Media media(MultipartFile file) {
         try {
-            return Photo.of(file.getBytes());
+            return Media.of(file.getBytes());
         } catch (IOException exception) {
             throw new PhotoException(PhotoProblem.UNREADABLE, exception);
         }
     }
 
     /** Grava o registro numa transação curta; recusado, apaga o arquivo já gravado. */
-    private EvidenceResponse record(Room room, Item item, String path, Photo photo, String description) {
+    private EvidenceResponse record(Room room, Item item, String path, Media media, String description) {
         try {
-            return transactionTemplate.execute(status -> save(room, item, path, photo, description));
+            return transactionTemplate.execute(status -> save(room, item, path, media, description));
         } catch (RuntimeException exception) {
             storageService.delete(path);
             throw exception;
@@ -128,7 +128,7 @@ public class EvidenceService {
         if (evidence.getHash() == null) {
             return;
         }
-        if (!MessageDigest.isEqual(evidence.getHash(), Photo.digest(content))) {
+        if (!MessageDigest.isEqual(evidence.getHash(), Media.digest(content))) {
             throw new StorageException(StorageProblem.INTEGRITY);
         }
     }
