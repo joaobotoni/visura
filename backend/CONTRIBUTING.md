@@ -69,7 +69,7 @@ No Git Bash do Windows, defina `MSYS2_ENV_CONV_EXCL='*'` antes de subir a API. S
 
 ## Banco de dados e migrations
 
-- O schema pertence ao Flyway, e o Hibernate roda com `ddl-auto: validate`. Toda mudança de banco entra numa migration nova em `src/main/resources/db/migration`, com o próximo número (`V15__descricao.sql`).
+- O schema pertence ao Flyway, e o Hibernate roda com `ddl-auto: validate`. Toda mudança de banco entra numa migration nova em `src/main/resources/db/migration`, com o próximo número (`V17__descricao.sql`).
 - **Nunca altere uma migration que já rodou em algum ambiente.** O Flyway confere o checksum e recusa a subida.
 - Use o prefixo `rn_` nas regras de negócio aplicadas no banco e lance o erro com `rotinas.violar`. A API converte o nome da regra no status HTTP.
 - A role da aplicação, `vsr_app` (`docs/db/app-role.sql`), não apaga linhas nem altera o schema. Quando criar um schema ou uma rotina, inclua os `grant` correspondentes.
@@ -332,7 +332,7 @@ Classes do rate limit:
 |---|---|---|
 | `upload` | caso de uso de envio de evidência: confere o formato, grava o arquivo e o registro | `EvidenceService` |
 | `download` | caso de uso de leitura do arquivo da evidência do dono | `EvidenceService` |
-| `photo` | ler o arquivo enviado e conferir o formato pelos bytes (`Photo.of`) | `EvidenceService` |
+| `media` | ler o arquivo enviado e conferir o formato pelos bytes (`Media.of`) | `EvidenceService` |
 | `save` (arquivo) | gravar o arquivo com nome gerado e apagá-lo se a transação for desfeita | `StorageService` |
 | `load` (arquivo) | conferir e ler o arquivo uma vez, pelo caminho real e sem seguir link | `StorageService` |
 | `cleanup` | registrar a remoção do arquivo no rollback da transação | `StorageService` |

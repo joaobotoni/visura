@@ -49,7 +49,7 @@ backend/
     │   ├── database/        # entity/ (JPA), repository/ (Spring Data), converter/ e enums/ do banco
     │   ├── dto/             # request/ (entrada validada) e response/ (saída da API)
     │   ├── mapper/          # conversão entidade -> resposta (MapStruct)
-    │   ├── vo/              # value objects validados (Cpf, Cnpj, Email, Password, Photo...)
+    │   ├── vo/              # value objects validados (Cpf, Cnpj, Email, Password, Media...)
     │   ├── exception/       # exceções de domínio, enums de problema e handlers RFC 9457
     │   ├── filter/          # filtros de exceção, limite de requisições, tamanho do corpo e autenticação
     │   ├── ratelimit/       # TokenBucket e as políticas por rota
@@ -63,7 +63,7 @@ backend/
     │   └── lib/             # utilitários (módulo 11 de CPF/CNPJ, textos)
     ├── main/resources/
     │   ├── application.yaml e demais *.yaml   # configuração por assunto (banco, segurança, e-mail, web, limites)
-    │   └── db/migration/                      # migrations do Flyway (V1 a V15)
+    │   └── db/migration/                      # migrations do Flyway (V1 a V16)
     └── test/java/com/visura/                  # testes por pacote; support/ tem a base dos testes de fluxo
 ```
 
@@ -422,6 +422,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V13__regras_integridade_auditoria.sql` | Regras `rn_vistoria_responsavel`, `rn_catalogo_uso` e `rn_empresa_cadastro`; SHA-256 das evidências; coluna `versao` para controle de concorrência; schema `auditoria` com o histórico de imóveis, vistorias e vínculos |
 | `V14__recuperacao_senha_cor_item.sql` | Tabela `usuarios.recuperacao_senha` (HMAC do código, tentativas, validade e encerramento, uma aberta por usuário); coluna `cor` no item, copiada também pela `copiar_vistoria` |
 | `V15__fila_tarefas.sql` | Schema `processamento`: tabela `tarefa` (fila de trabalho em segundo plano) e as rotinas `enfileirar_tarefa`, `reservar_tarefa`, `concluir_tarefa` e `adiar_tarefa` |
+| `V16__evidencia_audio.sql` | A evidência aceita também `audio/mp4` (narração do vistoriador em M4A) |
 
 ### Procedures
 
@@ -650,7 +651,7 @@ Regras já garantidas pelo schema, que valem para as próximas funcionalidades d
 - Pessoas vinculadas à vistoria participam como `proprietario` ou `inquilino`.
 - Ambientes e itens têm nomes únicos dentro da vistoria e do ambiente, respectivamente. Podem apontar para o ambiente ou item de origem (por exemplo, o correspondente da vistoria de entrada), mas nunca para si mesmos.
 - Estado do item: `novo`, `excelente`, `bom`, `regular`, `ruim` ou `danificado`.
-- Evidências são imagens **JPEG ou PNG de até 50 MB**, ligadas a um ambiente e, opcionalmente, a um item **desse mesmo ambiente**. O caminho do arquivo é único.
+- Evidências são fotos **JPEG ou PNG** ou narrações em **áudio M4A** (MP4 só com faixas de som; vídeo é recusado), de até 25 MB pela API (o banco aceita até 50 MB), ligadas a um ambiente e, opcionalmente, a um item **desse mesmo ambiente**. O caminho do arquivo é único.
 
 ---
 
@@ -769,7 +770,7 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `POST` | `/api/1/rooms/{id}/items` | Bearer | Adiciona um item `{ name, type?, description?, condition?, material?, color?, notes? }` | `201` |
 | `PATCH` | `/api/1/items/{id}` | Bearer | Altera o item; `condition`: `novo`, `excelente`, `bom`, `regular`, `ruim` ou `danificado`. Campo ausente fica como está; `description`, `material`, `color` e `notes` enviados vazios (`""`) são apagados | `200` |
 | `DELETE` | `/api/1/items/{id}` | Bearer | Remove logicamente o item | `204` |
-| `POST` | `/api/1/rooms/{id}/evidences` | Bearer | Envia uma foto em `multipart/form-data`: `file` (JPEG ou PNG, até 10 MB), `item?` (do mesmo ambiente), `description?` | `201` |
+| `POST` | `/api/1/rooms/{id}/evidences` | Bearer | Envia uma foto ou uma narração em `multipart/form-data`: `file` (JPEG, PNG ou áudio M4A, até 25 MB), `item?` (do mesmo ambiente), `description?`. O `contentType` da resposta diz o que foi reconhecido | `201` |
 | `GET` | `/api/1/evidences/{id}` | Bearer | Baixa a foto, com o tipo conferido no envio e sem cache compartilhado | `200` |
 | `DELETE` | `/api/1/evidences/{id}` | Bearer | Remove logicamente a evidência | `204` |
 
@@ -884,12 +885,12 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Escritas concorrentes | Renovação de token e troca de senha só gravam se o valor atual ainda for o lido |
 | Exposição de ids internos | A API expõe o UUID público do usuário e do imóvel, nunca o id sequencial; o JWT também não carrega o e-mail |
 | Acesso a dados de outro usuário | Imóveis, vistorias, ambientes e itens são sempre buscados pelo UUID **e** pelo dono (o responsável pela vistoria); o recurso alheio responde `404`, sem revelar que existe |
-| Arquivo malicioso no upload | O formato vem dos primeiros bytes (JPEG ou PNG), não do nome nem do `Content-Type` do cliente: HTML, SVG e scripts disfarçados de imagem são recusados (`415`). O nome no disco é gerado (UUID); o download sai com o tipo conferido, `nosniff` e `Content-Disposition: inline` |
+| Arquivo malicioso no upload | O formato vem do conteúdo (assinatura do JPEG ou do PNG; no MP4, as faixas declaradas no `moov`, que precisam ser todas de som), não do nome nem do `Content-Type` do cliente: HTML, SVG e scripts disfarçados de imagem são recusados (`415`). O nome no disco é gerado (UUID); o download sai com o tipo conferido, `nosniff` e `Content-Disposition: inline` |
 | Arquivo fora do diretório | A leitura confere o caminho real dentro de `EVIDENCE_DIR` e não segue link simbólico |
 | Arquivo órfão | Se o registro da evidência for recusado (vistoria finalizada, item de outro ambiente), o arquivo já gravado é apagado; uma limpeza diária (03:30) apaga arquivos sem registro com mais de 1 hora |
 | Arquivo trocado no disco | SHA-256 gravado no envio e conferido em cada download |
 | Alteração sem rastro | Histórico de auditoria gravado por trigger, com o usuário da transação, inacessível à role da aplicação |
-| Upload gigante | Limite próprio da rota de upload (10 MB, pelo `Content-Length`, antes da leitura) e do multipart; o resto da API segue com 16 KB |
+| Upload gigante | Limite próprio da rota de upload (25 MB, pelo `Content-Length`, antes da leitura) e do multipart; o resto da API segue com 16 KB |
 | Acesso residual de ex-membro | Imóveis e vistorias de empresa valem só para membros ativos, conferido em cada consulta |
 | Descoberta de contas pela inclusão de membro | A inclusão por e-mail responde `204` exista a conta ou não |
 | Catálogo padrão adulterado | A role da aplicação só insere no catálogo, e o trigger recusa tipo padrão ou sem dono |
@@ -972,7 +973,7 @@ Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As 
 | `REGISTER` | 30 | 30 | `10m` | Por IP; cadastro é raro, mas vários aparelhos podem dividir o IP |
 | `REFRESH` | 120 | 120 | `1m` | Por IP; cada app renova sozinho em segundo plano |
 | `PASSWORD_RESET` | 30 | 30 | `1m` | Por IP, contra flood na troca de senha |
-| `UPLOAD` | 60 | 60 | `1m` | Por IP; uma vistoria envia várias fotos seguidas, mas cada uma pesa até 10 MB |
+| `UPLOAD` | 60 | 60 | `1m` | Por IP; uma vistoria envia várias fotos seguidas, mas cada arquivo pesa até 25 MB |
 | `COMPANY` | 10 | 10 | `10m` | Por IP; contra cadastro de CNPJ em massa e varredura de e-mails pela inclusão de membro |
 | `ACCOUNT` | 10 | 10 | `15m` | Tentativas por conta e rede; como a senha certa também conta, fica um pouco acima de 5 para não incomodar quem entra várias vezes |
 | `CEILING` | 50 | 50 | `1h` | Teto da conta somando as redes; maior que `ACCOUNT` |
@@ -989,7 +990,7 @@ Valores fixos nos arquivos de configuração:
 | `security.session.idle` | `7d` | Tempo máximo sem acesso antes de a sessão expirar por inatividade; precisa ser maior que zero e menor que `ttl`, senão a aplicação não inicia |
 | `security.session.max` | `10` | Máximo de sessões ativas por usuário; a mais antiga é revogada |
 | `vsr.request.max-body-size` | `16KB` | Limite do corpo das requisições |
-| `vsr.request.max-upload-size` e `spring.servlet.multipart.*` | `10MB` | Limite do upload de evidências |
+| `vsr.request.max-upload-size` e `spring.servlet.multipart.*` | `25MB` | Limite do upload de evidências (uns 50 minutos de narração em AAC de 64 kbps) |
 | `server.forward-headers-strategy` | `native` | O Tomcat troca o IP da conexão pelo `X-Forwarded-For` só quando ela vem de um proxy em `TRUSTED_PROXIES` |
 
 Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens recusados e limites excedidos são registrados em `WARN` com o IP de origem; erros inesperados, em `ERROR` com o stack trace.
@@ -1002,7 +1003,7 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **665 execuções de teste** (contadas pelo Surefire; 1 é pulada no Windows, veja abaixo). A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **668 execuções de teste** (contadas pelo Surefire; 1 é pulada no Windows, veja abaixo). A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 
