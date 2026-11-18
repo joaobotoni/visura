@@ -1,7 +1,7 @@
 package com.visura.service;
 
 import com.visura.storage.Storage;
-import com.visura.vo.Photo;
+import com.visura.vo.Media;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -25,9 +25,9 @@ public class StorageService {
     private final Storage storage;
     private final Clock clock;
 
-    public String save(Photo photo) {
-        String name = name(photo);
-        write(name, photo);
+    public String save(Media media) {
+        String name = name(media);
+        write(name, media);
         cleanup(name);
         return name;
     }
@@ -47,12 +47,12 @@ public class StorageService {
         return older(limit);
     }
 
-    private static String name(Photo photo) {
-        return UUID.randomUUID() + photo.extension();
+    private static String name(Media media) {
+        return UUID.randomUUID() + media.extension();
     }
 
-    private void write(String name, Photo photo) {
-        storage.write(name, photo.content());
+    private void write(String name, Media media) {
+        storage.write(name, media.content());
     }
 
     private byte[] read(String name) {

@@ -43,7 +43,8 @@ public abstract class ApplicationTest {
             "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql",
             "V10__evidencias.sql", "V11__pessoas.sql", "V12__empresas_catalogo_enderecos.sql",
             "V13__regras_integridade_auditoria.sql", "V14__recuperacao_senha_cor_item.sql",
-            "V15__fila_tarefas.sql");
+            "V15__fila_tarefas.sql",
+            "V16__evidencia_audio.sql");
 
     private static final String DEVICE = """
             {"identifier":"7f1c2a8e-3b4d-4c5e-8f90-112233445566","platform":"android",

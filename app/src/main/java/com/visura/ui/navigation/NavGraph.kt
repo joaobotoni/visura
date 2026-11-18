@@ -42,6 +42,7 @@ import com.visura.model.Perfil
 import com.visura.model.StatusVistoria
 import com.visura.model.Vistoria
 import com.visura.ui.components.Carregar
+import com.visura.data.EnviosDeNarracao
 import com.visura.ui.screens.ambientes.AmbienteDetalheScreen
 import com.visura.ui.screens.ambientes.AmbientesScreen
 import com.visura.ui.screens.ambientes.ItemScreen
@@ -336,13 +337,23 @@ fun VisuraNavGraph(
                 val ambiente = ambientes.find { it.id == backStackEntry.arguments?.getString("ambienteId") }
 
                 if (ambiente != null) {
+                    val gravacao by vm.gravacao.collectAsStateWithLifecycle()
+                    val envios by remember(ambiente.id) { vm.enviosDeNarracao(ambiente.id) }
+                        .collectAsStateWithLifecycle(EnviosDeNarracao())
                     AmbienteDetalheScreen(
                         ambiente = ambiente,
                         onBackClick = { navController.popBackStack() },
                         onItemClick = { navController.navigate(Routes.itemAvaliar(ambiente.id, it.id)) },
                         onAdicionarItemClick = { navController.navigate(Routes.novoItem(ambiente.id)) },
                         onEditarItemClick = { navController.navigate(Routes.itemEditar(ambiente.id, it.id)) },
-                        onRemoverItemClick = { item -> vm.removerItem(ambiente.id, item.id) }
+                        onRemoverItemClick = { item -> vm.removerItem(ambiente.id, item.id) },
+                        gravacao = gravacao,
+                        envios = envios,
+                        onGravar = { vm.gravarNarracao(ambiente) },
+                        onPausar = vm::pausarNarracao,
+                        onContinuar = vm::continuarNarracao,
+                        onConcluir = vm::concluirNarracao,
+                        onDescartar = vm::descartarNarracao
                     )
                 } else {
                     VoltarParaAmbientes(navController)

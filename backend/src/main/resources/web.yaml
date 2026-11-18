@@ -1,12 +1,12 @@
 spring:
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 25MB
+      max-request-size: 25MB
 vsr:
   request:
     max-body-size: 16KB
-    max-upload-size: 10MB
+    max-upload-size: 25MB
   evidence:
     # disk: arquivos em EVIDENCE_DIR; bucket: S3, Cloudflare R2 ou MinIO (EVIDENCE_BUCKET*, credenciais em AWS_*)
     storage: ${EVIDENCE_STORAGE:disk}
