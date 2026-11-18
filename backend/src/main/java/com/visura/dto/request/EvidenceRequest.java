@@ -9,7 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.UUID;
 
 /**
- * Upload de evidência em {@code multipart/form-data}: {@code file} (JPEG ou PNG), {@code item} (opcional, do mesmo
+ * Upload de evidência em {@code multipart/form-data}: {@code file} (foto JPEG ou PNG, ou narração em áudio M4A), {@code item} (opcional, do mesmo
  * ambiente) e {@code description} (opcional).
  */
 public record EvidenceRequest(

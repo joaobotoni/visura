@@ -2,6 +2,7 @@ package com.visura.controller;
 
 import com.visura.support.ApplicationTest;
 import com.visura.support.Controle;
+import com.visura.support.Mp4;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -160,6 +161,26 @@ class EvidenceFlowTest extends ApplicationTest {
         String inspection = read(authorized(json(post("/api/1/inspections"),
                 "{\"property\":\"" + property + "\",\"type\":\"entrada\"}"), token), 201, "$.id");
         return read(authorized(json(post("/api/1/inspections/" + inspection + "/rooms"), "{\"name\":\"Sala\"}"), token), 201, "$.id");
+    }
+
+    @Test
+    @Controle
+    @DisplayName("narração em áudio (M4A) entra como evidência do ambiente; vídeo é recusado")
+    void audioNarration() throws Exception {
+        String token = register("Otto Ramos", "99603082430", "otto.audio@vsr.com");
+        String room = room(token, "7");
+        byte[] audio = Mp4.mp4(Mp4.box("mdat", new byte[256]), Mp4.moov("soun"));
+
+        String evidence = read(authorized(upload(room, photo("narracao.m4a", "application/octet-stream", audio))
+                .param("description", "Narração da sala"), token), 201, "$.id");
+        mockMvc.perform(authorized(get("/api/1/evidences/" + evidence), token))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mp4"))
+                .andExpect(content().bytes(audio));
+
+        mockMvc.perform(authorized(upload(room, photo("video.mp4", "audio/mp4", Mp4.mp4(Mp4.moov("vide", "soun")))), token))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("PhotoProblem.UNSUPPORTED"));
     }
 
     private static MockMultipartHttpServletRequestBuilder upload(String room, MockMultipartFile file) {

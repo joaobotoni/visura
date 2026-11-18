@@ -2,7 +2,7 @@ package com.visura.service;
 
 import com.visura.storage.Storage;
 import com.visura.support.Controle;
-import com.visura.vo.Photo;
+import com.visura.vo.Media;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,7 +43,7 @@ class StorageServiceTest {
     @Controle
     @DisplayName("grava com nome gerado (UUID e extensão do formato real) e devolve o nome")
     void saveGeneratesName() {
-        String name = service.save(Photo.of(JPEG));
+        String name = service.save(Media.of(JPEG));
 
         assertThat(name).matches("[0-9a-f-]{36}\\.jpg");
         verify(storage).write(name, JPEG);
@@ -55,7 +55,7 @@ class StorageServiceTest {
     void rollbackErasesFile() {
         TransactionSynchronizationManager.initSynchronization();
 
-        String name = service.save(Photo.of(JPEG));
+        String name = service.save(Media.of(JPEG));
         complete(TransactionSynchronization.STATUS_ROLLED_BACK);
 
         verify(storage).erase(name);
@@ -67,7 +67,7 @@ class StorageServiceTest {
     void commitKeepsFile() {
         TransactionSynchronizationManager.initSynchronization();
 
-        service.save(Photo.of(JPEG));
+        service.save(Media.of(JPEG));
         complete(TransactionSynchronization.STATUS_COMMITTED);
 
         verify(storage, never()).erase(anyString());
