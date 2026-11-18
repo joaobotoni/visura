@@ -58,10 +58,12 @@ backend/
     │   ├── configuration/   # beans do Spring (segurança, JWT, Argon2, relógio, agendamento...)
     │   ├── properties/      # @ConfigurationProperties lidas das variáveis de ambiente
     │   ├── principal/       # usuário autenticado da requisição
+    │   ├── storage/         # onde ficam os arquivos das evidências: disco ou bucket S3/R2/MinIO
+    │   ├── task/            # contrato dos processadores da fila de tarefas em segundo plano
     │   └── lib/             # utilitários (módulo 11 de CPF/CNPJ, textos)
     ├── main/resources/
     │   ├── application.yaml e demais *.yaml   # configuração por assunto (banco, segurança, e-mail, web, limites)
-    │   └── db/migration/                      # migrations do Flyway (V1 a V14)
+    │   └── db/migration/                      # migrations do Flyway (V1 a V15)
     └── test/java/com/visura/                  # testes por pacote; support/ tem a base dos testes de fluxo
 ```
 
@@ -419,6 +421,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V12__empresas_catalogo_enderecos.sql` | Nomes de cidade, bairro e logradouro comparados sem acento (`documento.sem_acento`); regras do catálogo personalizado; vínculos de empresa desfeitos logicamente, a empresa nunca fica sem administrador; a vistoria herda a empresa do imóvel; proprietários e pessoas da vistoria aceitam o cadastro de membros da empresa |
 | `V13__regras_integridade_auditoria.sql` | Regras `rn_vistoria_responsavel`, `rn_catalogo_uso` e `rn_empresa_cadastro`; SHA-256 das evidências; coluna `versao` para controle de concorrência; schema `auditoria` com o histórico de imóveis, vistorias e vínculos |
 | `V14__recuperacao_senha_cor_item.sql` | Tabela `usuarios.recuperacao_senha` (HMAC do código, tentativas, validade e encerramento, uma aberta por usuário); coluna `cor` no item, copiada também pela `copiar_vistoria` |
+| `V15__fila_tarefas.sql` | Schema `processamento`: tabela `tarefa` (fila de trabalho em segundo plano) e as rotinas `enfileirar_tarefa`, `reservar_tarefa`, `concluir_tarefa` e `adiar_tarefa` |
 
 ### Procedures
 
@@ -437,6 +440,9 @@ Ficam em `src/main/resources/db/migration`:
 | `imoveis.remover_imovel` | Remove o imóvel logicamente (`removido_em`). Recusa se houver vistoria em andamento (`rn_imovel_vistoria_andamento`) |
 | `vistorias.copiar_vistoria` | Copia para a vistoria de saída os ambientes e itens ativos da vistoria de entrada, ligando cada cópia à origem; estado e observações ficam em branco para a nova avaliação |
 | Triggers `tg_*_regras` (vistoria, ambiente, item, evidência, pessoa da vistoria) | Vistoria finalizada ou removida não muda mais, nem os filhos (`rn_vistoria_em_andamento`); vistoria só em imóvel ativo (`rn_imovel_ativo`); a entrada referenciada é de entrada e finalizada (`rn_vistoria_entrada`); a origem do ambiente é da vistoria de entrada (`rn_ambiente_origem`) e a do item, do ambiente de origem (`rn_item_origem`) |
+| `processamento.enfileirar_tarefa` | Função: põe uma tarefa (`tipo`, `referencia`) na fila e devolve o uuid dela |
+| `processamento.reservar_tarefa` | Função: reserva a próxima tarefa disponível com `for update skip locked` (instâncias diferentes nunca pegam a mesma), conta a tentativa e marca como `executando`. Uma tarefa em execução além do prazo (instância caiu) é reservada de novo ou, sem tentativas, falha |
+| `processamento.concluir_tarefa` / `adiar_tarefa` | Encerram a tarefa reservada: com sucesso, ou de volta à fila depois da espera informada, guardando o erro; sem tentativas restantes (padrão 5), a tarefa falha de vez |
 | `rotinas.limpar_sessoes_expiradas` | Apaga as sessões vencidas, junto com seus refresh tokens e histórico. Roda todo dia às 03:00 (UTC) pelo job `limpar-sessoes-expiradas` |
 
 A view `usuarios.sessao_ativa` define num lugar só o que é uma sessão ativa: não revogada e não expirada.
@@ -916,7 +922,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 - **Chaves em memória:** com 200 mil chaves por limite, quem cria chaves novas mais rápido do que elas ficam ociosas (muitos IPs ou e-mails inventados) pode encher um limite e fazer chaves novas receberem `429` até a limpeza.
 - **Limites em memória:** a aplicação roda em uma única instância; os contadores não sobrevivem a um reinício.
 - **Hashes de senha simultâneos:** não há limite de quantos hashes Argon2 (cerca de 19 MiB cada) rodam ao mesmo tempo; uma rajada de logins ou cadastros vindos de muitos IPs pode esgotar a memória. A proteção será reimplementada.
-- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis, vistorias, vinculos, catalogo to vsr_app;`, `grant insert on all tables in schema catalogo to vsr_app;`, `grant usage, select on all sequences in schema catalogo to vsr_app;` e os `alter default privileges` equivalentes de `docs/db/app-role.sql`. O schema `auditoria` não recebe nenhum grant, de propósito.
+- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis, vistorias, vinculos, catalogo to vsr_app;`, `grant insert on all tables in schema catalogo to vsr_app;`, `grant usage, select on all sequences in schema catalogo to vsr_app;` e os `alter default privileges` equivalentes de `docs/db/app-role.sql`. Onde a role já existia antes da `V15`, rode também: `grant usage on schema processamento to vsr_app;`, `grant select, insert, update on all tables in schema processamento to vsr_app;`, `grant usage, select on all sequences in schema processamento to vsr_app;` e `grant execute on all routines in schema processamento to vsr_app;`. O schema `auditoria` não recebe nenhum grant, de propósito.
 
 **Riscos aceitos**
 
@@ -950,7 +956,8 @@ A configuração é feita **por variáveis de ambiente**:
 | Google | `GOOGLE_CLIENT_ID`: client ID (tipo "Web application") do Google Cloud, a audiência do ID token. Vazio desliga o login com Google |
 | Segurança | `JWT_SECRET_KEY` e `REFRESH_TOKEN_SECRET_KEY` (Base64, mínimo de 32 bytes, diferentes entre si), `JWT_ISSUER`, `JWT_EXPIRATION_TIME` (ex.: `15m`; maior que zero, senão a aplicação não inicia) |
 | E-mail | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_ATTACHMENTS_DIR` |
-| Evidências | `EVIDENCE_DIR`: diretório dos arquivos das fotos (criado se não existir; faça backup junto com o banco) |
+| Evidências | `EVIDENCE_STORAGE`: `disk` (padrão) ou `bucket`. Em disco, `EVIDENCE_DIR`: diretório dos arquivos das fotos (criado se não existir; faça backup junto com o banco). Em bucket compatível com S3: `EVIDENCE_BUCKET` (nome), `EVIDENCE_BUCKET_REGION` (padrão `us-east-1`; `auto` no Cloudflare R2), `EVIDENCE_BUCKET_ENDPOINT` (vazio na AWS; `https://<conta>.r2.cloudflarestorage.com` no R2; o endereço do MinIO), `EVIDENCE_BUCKET_PREFIX` (padrão `evidencias/`), `EVIDENCE_BUCKET_PATH_STYLE` (`true` no MinIO) e as credenciais `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`. O nome guardado no banco é o mesmo nos dois modos: para migrar, copie os arquivos de `EVIDENCE_DIR` para o prefixo do bucket (ex.: `aws s3 sync $EVIDENCE_DIR s3://<bucket>/evidencias/`) e troque `EVIDENCE_STORAGE` |
+| Fila de tarefas | `TASK_POLL` (intervalo entre as buscas, padrão `5s`), `TASK_LEASE` (prazo para uma tarefa em execução ser considerada abandonada, padrão `15m`), `TASK_BATCH` (tarefas por busca, padrão `10`), `TASK_BACKOFF` (espera depois da primeira falha, padrão `30s`; dobra a cada falha) e `TASK_BACKOFF_CEILING` (teto da espera, padrão `1h`) |
 | Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (tentativas por conta e rede no login; por usuário na troca de senha), `CEILING` (teto da conta somando as redes; deve ser maior que `ACCOUNT`), `PASSWORD_RESET`, `UPLOAD` (envio de evidências) e `COMPANY` (cadastro de empresa e inclusão de membro) |
 | Proxy | `TRUSTED_PROXIES`: regex dos IPs dos proxies confiáveis (ex.: `10\.0\.0\.5`). Vazio quando a aplicação fica exposta direto: o `X-Forwarded-For` é ignorado. Use o IP exato do proxy, nunca uma faixa ampla como `.*` ou `10\..*`, senão qualquer conexão dela consegue forjar o IP |
 
@@ -995,7 +1002,7 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **623 execuções de teste** (contadas pelo Surefire; 1 é pulada no Windows, veja abaixo). A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **665 execuções de teste** (contadas pelo Surefire; 1 é pulada no Windows, veja abaixo). A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 
