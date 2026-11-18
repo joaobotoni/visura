@@ -1,0 +1,96 @@
+# Confere os dois módulos a cada push na main e a cada Pull Request. Só roda o módulo que mudou
+# (ou os dois, quando o próprio workflow muda).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mudancas:
+    name: Módulos alterados
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filtro.outputs.backend }}
+      app: ${{ steps.filtro.outputs.app }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: filtro
+        name: Compara com a base
+        env:
+          EVENTO: ${{ github.event_name }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+          ANTES: ${{ github.event.before }}
+        run: |
+          base="$ANTES"
+          if [ "$EVENTO" = "pull_request" ]; then base="$BASE_PR"; fi
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          arquivos=$(git diff --name-only "$base" HEAD)
+          alterado() { echo "$arquivos" | grep -qE "^($1|\.github/)" && echo true || echo false; }
+          echo "backend=$(alterado backend/)" >> "$GITHUB_OUTPUT"
+          echo "app=$(alterado app/)" >> "$GITHUB_OUTPUT"
+
+  backend:
+    name: API (testes)
+    needs: mudancas
+    if: needs.mudancas.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Testes (PostgreSQL embutido, sem Docker)
+        run: ./mvnw -B test
+      - name: Relatórios dos testes
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-backend
+          path: backend/target/surefire-reports/
+
+  app:
+    name: App Android (testes e lint)
+    needs: mudancas
+    if: needs.mudancas.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v5
+      # O Gradle do app roda no JDK 21 (app/gradle/gradle-daemon-jvm.properties)
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Testes na JVM e lint
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug
+      - name: Relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-app
+          path: |
+            app/build/reports/
+            app/build/test-results/
